@@ -1,0 +1,27 @@
+Concepts to be modeled in code:
+
+Graph structure:
+1. Nodes,
+2. Edges
+
+Dedicated ingress node where a trace enters:
+
+1. Trace
+2. RPC
+3. RPC headers.
+
+Computation within each node:
+
+1. Arithmetic
+2. Filtering of RPCs
+3. Making a call to other services
+4. Maintain and update state
+
+Later on:
+
+1. Get WASM runtime into the node.
+2. For now, just simulate cc files directly.
+
+Backing store:
+
+1. To write results from each node for persistent storage.
