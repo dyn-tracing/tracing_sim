@@ -3,6 +3,7 @@ Concepts to be modeled in code:
 Graph structure:
 1. Nodes,
 2. Edges
+3. Buffer/Queue at each node-to-node edge.
 
 Dedicated ingress node where a trace enters:
 
@@ -26,3 +27,8 @@ Later on:
 Backing store:
 
 1. To write results from each node for persistent storage.
+
+Other concerns:
+
+1. Randomize the order in which concurrent RPCs go out from one parent to its children.
+
