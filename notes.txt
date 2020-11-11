@@ -16,6 +16,7 @@ Computation within each node:
 2. Filtering of RPCs
 3. Making a call to other services
 4. Maintain and update state
+(Encapsulate 1 through 4 as a small snippet of C++ code.)
 
 Later on:
 
