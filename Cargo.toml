@@ -12,3 +12,8 @@ petgraph = "0.5.1"
 [[bin]]
 name = "petgraph_sample"
 path = "src/petgraph_sample.rs"
+
+[lib]
+name = "plugin_sample"
+path = "src/plugin_sample.rs"
+crate-type = ["dylib"]
