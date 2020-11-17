@@ -8,10 +8,15 @@ edition = "2018"
 
 [dependencies]
 petgraph = "0.5.1"
+libloading = "0.6.5"
 
 [[bin]]
 name = "petgraph_sample"
 path = "src/petgraph_sample.rs"
+
+[[bin]]
+name = "libloading_sample"
+path = "src/libloading_sample.rs"
 
 [lib]
 name = "plugin_sample"
