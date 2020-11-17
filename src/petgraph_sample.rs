@@ -19,7 +19,7 @@ fn main() {
     assert_eq!(g.raw_edges().len() - 1, mst.raw_edges().len());
     
     // Output the tree to `graphviz` `DOT` format
-    println!("{:?}", Dot::with_config(&mst, &[Config::EdgeNoLabel]));
+    println!("Min. spanning tree for g: {:?}", Dot::with_config(&mst, &[Config::EdgeNoLabel]));
     // graph {
     //     0 [label="\"0\""]
     //     1 [label="\"0\""]
@@ -29,4 +29,18 @@ fn main() {
     //     3 -- 4
     //     2 -- 3
     // }
+    println!("Printing out g's edge indices ...");
+    for edge in g.edge_indices() {
+        println!("{:?}", edge);
+    }
+
+    println!("Printing out g's edge references ...");
+    for edge in g.edge_references() {
+        println!("{:?}", edge);
+    }
+
+    println!("Printing out g's node indices ...");
+    for node in g.node_indices() {
+        println!("{:?}", node);
+    }
 }
