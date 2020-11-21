@@ -11,11 +11,11 @@ impl Channel {
         self.channel_queue.add(x).unwrap();
     }
     pub fn dequeue(&mut self) -> u32 {
-        if self.channel_queue.size() > 0 {
-            self.channel_queue.remove().unwrap()
-        } else {
-            u32::MAX
-        }
+        assert!(self.channel_size() > 0);
+        self.channel_queue.remove().unwrap()
+    }
+    pub fn channel_size(& self) -> usize {
+        return self.channel_queue.size();
     }
 }
 
