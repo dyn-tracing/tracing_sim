@@ -15,10 +15,6 @@ queues = "1.0.2"
 name = "petgraph_sample"
 path = "src/petgraph_sample.rs"
 
-[[bin]]
-name = "libloading_sample"
-path = "src/libloading_sample.rs"
-
 [lib]
 name = "plugin_sample"
 path = "src/plugin_sample.rs"
