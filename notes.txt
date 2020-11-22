@@ -37,3 +37,4 @@ They then write the new state into a temporary buffer during that round.
 The new state replaces the old state and the process repeats.
 Could shuffle the order in which nodes execute at each round.
 
+Model backpressure instead of packet drops.
