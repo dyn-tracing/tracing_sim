@@ -1,7 +1,7 @@
 #![feature(test)]
 
 mod channel;
-mod plugin;
+mod plugin_wrapper;
 mod rpc;
 mod codelet;
 fn main() {
