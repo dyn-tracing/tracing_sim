@@ -19,7 +19,7 @@ fn main() {
     let mut channels = vec![Channel::new(0, 1, 10)];
 
     for tick in 0..100 {
-        let input_rpc = Rpc{id : tick as u32};
+        let input_rpc = Rpc::new(tick as u32);
         println!("Generated RPC: {:?} at {}", input_rpc, tick);
         let transformed_rpc = plugins[0].execute(input_rpc);
         channels[0].enqueue(transformed_rpc, tick);

@@ -32,16 +32,16 @@ mod tests {
     static FUNCTION: &str = "codelet";
     #[test]
     fn test_plugin_creation() {
-        let plugin = PluginWrapper::new(LIBRARY, FUNCTION);
-        assert!(plugin.execute(Rpc{id:55}) == Rpc{id:60});
+        let plugin = PluginWrapper::new(LIBRARY, FUNCTION, 0);
+        assert!(plugin.execute(Rpc::new(55)).get_id() == 60);
     }
 
     #[test]
     fn test_chained_plugins() {
-        let plugin1 = PluginWrapper::new(LIBRARY, FUNCTION);
-        let plugin2 = PluginWrapper::new(LIBRARY, FUNCTION);
-        let plugin3 = PluginWrapper::new(LIBRARY, FUNCTION);
-        let plugin4 = PluginWrapper::new(LIBRARY, FUNCTION);
-        assert!(Rpc{id:25} == plugin4.execute(plugin3.execute(plugin2.execute(plugin1.execute(Rpc{id:5})))));
+        let plugin1 = PluginWrapper::new(LIBRARY, FUNCTION, 0);
+        let plugin2 = PluginWrapper::new(LIBRARY, FUNCTION, 1);
+        let plugin3 = PluginWrapper::new(LIBRARY, FUNCTION, 2);
+        let plugin4 = PluginWrapper::new(LIBRARY, FUNCTION, 3);
+        assert!(25 == plugin4.execute(plugin3.execute(plugin2.execute(plugin1.execute(Rpc::new(5))))).get_id());
     }
 }
