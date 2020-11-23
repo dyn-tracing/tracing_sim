@@ -1,4 +1,5 @@
 #[derive(PartialEq)]
+#[derive(Clone)]
 #[repr(C)]
 pub struct Rpc {
    pub id      : u32,
