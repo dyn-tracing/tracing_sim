@@ -33,7 +33,7 @@ impl Channel {
             // Either the queue has emptied or no other RPCs are ready.
             assert!((self.channel_queue.size() == 0) ||
                     (self.channel_queue.peek().unwrap().start_time + self.channel_delay > now));
-            println!("Dequeue {:?} out of channel at {}", rpc, now);
+            // println!("Dequeue {:?} out of channel at {}", rpc, now);
             return Some(rpc);
         } else {
             return None;
