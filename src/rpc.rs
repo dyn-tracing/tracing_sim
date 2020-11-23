@@ -1,10 +1,9 @@
-#[derive(PartialEq)]
-#[derive(Clone)]
+#[derive(PartialEq, Clone, Debug)]
 #[repr(C)]
 pub struct Rpc {
    pub id      : u32,
 }
 
 impl Rpc {
-    pub fn get_id(self) -> u32 { self.id }
+    pub fn get_id(&self) -> u32 { self.id }
 }
