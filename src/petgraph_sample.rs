@@ -5,9 +5,9 @@ use petgraph::dot::{Dot, Config};
 
 fn main() {
     // Create an undirected graph with `i32` nodes and edges with `()` associated data.
-    let g = UnGraph::<i32, ()>::from_edges(&[
-        (1, 2), (2, 3), (3, 4),
-        (1, 4)]);
+    let g = UnGraph::<i32, u32>::from_edges(&[
+        (1, 2, 3), (2, 3, 4), (3, 4, 5),
+        (1, 4, 2)]);
     
     // Find the shortest path from `1` to `4` using `1` as the cost for every edge.
     let node_map = dijkstra(&g, 1.into(), Some(4.into()), |_| 1);
