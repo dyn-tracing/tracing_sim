@@ -10,7 +10,6 @@ edition = "2018"
 petgraph = "0.5.1"
 libloading = "0.6.5"
 queues = "1.0.2"
-uuid = { version = "0.8", features = ["serde", "v4"] }
 
 [[bin]]
 name = "petgraph_sample"
