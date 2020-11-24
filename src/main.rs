@@ -8,24 +8,51 @@ mod codelet;
 use channel::Channel;
 use plugin_wrapper::PluginWrapper;
 use rpc::Rpc;
+use rand::{StdRng, Rng, SeedableRng};
 
 static LIBRARY : &str = "target/debug/libplugin_sample.dylib";
 static FUNCTION: &str = "codelet";
 
 fn main() {
-    let plugins  = vec![PluginWrapper::new(LIBRARY, FUNCTION, 0),
-                        PluginWrapper::new(LIBRARY, FUNCTION, 1)];
+    // Create a random number generator.
+    let mut rng : StdRng = StdRng::from_seed(&[1, 2, 3, 4]);
 
-    let mut channels = vec![Channel::new(0, 1, 10)];
+    // Create plugins and a single channel for each plugin for all outgoing RPCs
+    // regardless of destintion. This doesn't yet model capacity limits.
+    let mut plugins  = vec![];
+    let mut channels = vec![];
+    for plugin_id in 0..10 {
+        plugins.push(PluginWrapper::new(LIBRARY, FUNCTION, plugin_id));
+        channels.push(Channel::new(0, 0, 10));
+    }
 
-    for tick in 0..100 {
-        let input_rpc = Rpc::new(tick as u32);
-        println!("Generated RPC: {:?} at {}", input_rpc, tick);
-        let transformed_rpc = plugins[0].execute(input_rpc);
-        channels[0].enqueue(transformed_rpc, tick);
-        let deq_rpc = channels[0].dequeue(tick);
-        if deq_rpc.is_some() {
-            println!("Final RPC: {:?} at {}", plugins[1].execute(deq_rpc.unwrap()), tick);
+    // Keep a vector of RPCs to be processed for each plugin.
+    let mut rpcs_per_plugin : Vec<Option<Rpc>> = vec![];
+    for plugin_id in 0..10 {
+        rpcs_per_plugin.push(Some(Rpc::new(plugin_id)));
+    }
+
+    // Now execute all the plugins.
+    for tick in 0..1000 {
+        for plugin_id  in 0..10 {
+            if !rpcs_per_plugin[plugin_id].is_none() {
+                println!("Input RPC for plugin {}: {:?} at {}",
+                         plugin_id, rpcs_per_plugin[plugin_id].as_ref().unwrap(), tick);
+                let transformed_rpc = plugins[plugin_id].execute(rpcs_per_plugin[plugin_id].as_ref().unwrap());
+                rpcs_per_plugin[plugin_id] = None;
+
+                // put in channel, destination TBD later
+                channels[plugin_id].enqueue(transformed_rpc, tick);
+            }
+            // dequeue if it's time
+            let deq_rpc = channels[plugin_id].dequeue(tick);
+            if deq_rpc.is_some() {
+                let next_destination = rng.gen_range(0, 10);
+                if !rpcs_per_plugin[next_destination].is_none() {
+                    println!("Overwriting rpcs_per_plugin at {}", next_destination);
+                }
+                rpcs_per_plugin[next_destination] = deq_rpc;
+            }
         }
     }
 }
