@@ -29,29 +29,24 @@ fn main() {
     // Keep a vector of RPCs to be processed for each plugin.
     let mut rpcs_per_plugin : Vec<Option<Rpc>> = vec![];
     for plugin_id in 0..10 {
-        rpcs_per_plugin.push(Some(Rpc::new(plugin_id)));
+        rpcs_per_plugin.push(None);
     }
 
     // Now execute all the plugins.
     for tick in 0..1000 {
         for plugin_id  in 0..10 {
-            if !rpcs_per_plugin[plugin_id].is_none() {
-                println!("Input RPC for plugin {}: {:?} at {}",
-                         plugin_id, rpcs_per_plugin[plugin_id].as_ref().unwrap(), tick);
-                let transformed_rpc = plugins[plugin_id].execute(rpcs_per_plugin[plugin_id].as_ref().unwrap());
-                rpcs_per_plugin[plugin_id] = None;
+            rpcs_per_plugin[plugin_id] = Some(Rpc::new(plugin_id as u32));
+            println!("Input RPC for plugin {}: {:?} at {}",
+                     plugin_id, rpcs_per_plugin[plugin_id].as_ref().unwrap(), tick);
+            let transformed_rpc = plugins[plugin_id].execute(rpcs_per_plugin[plugin_id].as_ref().unwrap());
 
-                // put in channel, destination TBD later
-                channels[plugin_id].enqueue(transformed_rpc, tick);
-            }
+            // put in channel
+            channels[plugin_id].enqueue(transformed_rpc, tick);
+
             // dequeue if it's time
             let deq_rpc = channels[plugin_id].dequeue(tick);
             if deq_rpc.is_some() {
-                let next_destination = rng.gen_range(0, 10);
-                if !rpcs_per_plugin[next_destination].is_none() {
-                    println!("Overwriting rpcs_per_plugin at {}", next_destination);
-                }
-                rpcs_per_plugin[next_destination] = deq_rpc;
+                println!("Dequeued RPC {:?} at {}", deq_rpc.as_ref().unwrap(), tick);
             }
         }
     }
