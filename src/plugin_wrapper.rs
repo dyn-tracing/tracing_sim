@@ -20,7 +20,7 @@ impl PluginWrapper {
         PluginWrapper { loaded_function : loaded_function, id : id }
     }
 
-    pub fn execute(&self, input : Rpc) -> Rpc {
+    pub fn execute(&self, input : &Rpc) -> Rpc {
         (self.loaded_function)(input)
     }
 }

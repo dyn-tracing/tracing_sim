@@ -3,7 +3,7 @@ mod codelet;
 use codelet::CodeletType;
 
 #[no_mangle]
-pub fn codelet (x : rpc::Rpc) -> rpc::Rpc { rpc::Rpc::new(x.get_id() + 5) }
+pub fn codelet (x : &rpc::Rpc) -> rpc::Rpc { rpc::Rpc::new(x.get_id() + 5) }
 
 // While the code fragment below does nothing useful at run time,
 // it forces rustc to check that codelet_function is of type CodeletType.
