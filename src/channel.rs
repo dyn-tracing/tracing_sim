@@ -10,8 +10,6 @@ struct TimestampedRpc {
 }
 
 pub struct Channel {
-    sender        : u32,
-    receiver      : u32,
     channel_queue : Queue<TimestampedRpc>,
     channel_delay : u64,
 }
@@ -39,8 +37,8 @@ impl Channel {
             return None;
         }
     }
-    pub fn new(sender : u32, receiver : u32, channel_delay : u64) -> Self {
-        Channel { sender : sender, receiver : receiver, channel_delay : channel_delay, channel_queue : queue![] }
+    pub fn new(channel_delay : u64) -> Self {
+        Channel { channel_delay : channel_delay, channel_queue : queue![] }
     }
 }
 
@@ -52,18 +50,18 @@ mod tests {
 
     #[test]
     fn test_channel() {
-        let _channel = Channel { channel_queue : queue![], channel_delay : 0, sender : 0, receiver : 0 };
+        let _channel = Channel { channel_queue : queue![], channel_delay : 0 };
     }
 
     #[bench]
     fn benchmark_enqueue(b : &mut Bencher) {
-        let mut channel = Channel{ channel_queue : queue![], channel_delay : 0, sender : 0, receiver : 0 };
+        let mut channel = Channel{ channel_queue : queue![], channel_delay : 0 };
         b.iter(|| for i in 1..100 { channel.enqueue(Rpc::new(0), i) });
     }
 
     #[bench]
     fn benchmark_dequeue(b : &mut Bencher) {
-        let mut channel = Channel{ channel_queue : queue![], channel_delay : 0, sender : 0, receiver : 0 };
+        let mut channel = Channel{ channel_queue : queue![], channel_delay : 0 };
         b.iter(|| { for i in 1..100 { channel.enqueue(Rpc::new(0), i); } for i in 1..100 { channel.dequeue(i); } } );
     }
 }

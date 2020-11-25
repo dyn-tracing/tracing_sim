@@ -8,27 +8,23 @@ mod codelet;
 use channel::Channel;
 use plugin_wrapper::PluginWrapper;
 use rpc::Rpc;
-use rand::{StdRng, Rng, SeedableRng};
 
 static LIBRARY : &str = "target/debug/libplugin_sample.dylib";
 static FUNCTION: &str = "codelet";
 
 fn main() {
-    // Create a random number generator.
-    let mut rng : StdRng = StdRng::from_seed(&[1, 2, 3, 4]);
-
     // Create plugins and a single channel for each plugin for all outgoing RPCs
     // regardless of destintion. This doesn't yet model capacity limits.
     let mut plugins  = vec![];
     let mut channels = vec![];
     for plugin_id in 0..10 {
         plugins.push(PluginWrapper::new(LIBRARY, FUNCTION, plugin_id));
-        channels.push(Channel::new(0, 0, 10));
+        channels.push(Channel::new(10));
     }
 
     // Keep a vector of RPCs to be processed for each plugin.
     let mut rpcs_per_plugin : Vec<Option<Rpc>> = vec![];
-    for plugin_id in 0..10 {
+    for _ in 0..10 {
         rpcs_per_plugin.push(None);
     }
 
