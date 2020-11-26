@@ -12,16 +12,18 @@ struct TimestampedRpc {
 }
 
 pub struct Channel {
-    channel_queue : Queue<TimestampedRpc>,
-    channel_delay : u64,
+    queue : Queue<TimestampedRpc>,
+    delay : u64,
+    id    : u32,
 }
 
 impl fmt::Display for Channel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(width) = f.width() {
-            write!(f, "{:width$}", &format!("Channel {{ channel_delay : {} }}", &self.channel_delay), width = width)
+            write!(f, "{:width$}", &format!("Channel {{ delay : {}, id : {} }}", &self.delay, &self.id),
+                   width = width)
         } else {
-            write!(f, "Channel {{ channel_delay : {} }}", &self.channel_delay)
+            write!(f, "Channel {{ delay : {}, id : {} }}", &self.delay, self.id)
         }
     }
 }
@@ -37,29 +39,29 @@ impl SimElement for Channel {
 
 impl Channel {
     pub fn enqueue(&mut self, x : Rpc, now : u64) {
-        self.channel_queue.add(TimestampedRpc{start_time : now, rpc : x}).unwrap();
+        self.queue.add(TimestampedRpc{start_time : now, rpc : x}).unwrap();
     }
     pub fn dequeue(&mut self, now : u64) -> Option<Rpc> {
-        if self.channel_queue.size() == 0 {
+        if self.queue.size() == 0 {
             return None;
-        } else if self.channel_queue.peek().unwrap().start_time + self.channel_delay <= now {
+        } else if self.queue.peek().unwrap().start_time + self.delay <= now {
             // Check that the inequality is an equality, i.e., we didn't skip any ticks.
-            assert!(self.channel_queue.peek().unwrap().start_time + self.channel_delay == now);
+            assert!(self.queue.peek().unwrap().start_time + self.delay == now);
 
             // Remove RPC from the head of the queue.
-            let rpc = self.channel_queue.remove().unwrap().rpc;
+            let rpc = self.queue.remove().unwrap().rpc;
 
             // Either the queue has emptied or no other RPCs are ready.
-            assert!((self.channel_queue.size() == 0) ||
-                    (self.channel_queue.peek().unwrap().start_time + self.channel_delay > now));
+            assert!((self.queue.size() == 0) ||
+                    (self.queue.peek().unwrap().start_time + self.delay > now));
             // println!("Dequeue {:?} out of channel at {}", rpc, now);
             return Some(rpc);
         } else {
             return None;
         }
     }
-    pub fn new(channel_delay : u64) -> Self {
-        Channel { channel_delay : channel_delay, channel_queue : queue![] }
+    pub fn new(delay : u64, id : u32) -> Self {
+        Channel { delay : delay, queue : queue![], id : id }
     }
 }
 
@@ -71,18 +73,18 @@ mod tests {
 
     #[test]
     fn test_channel() {
-        let _channel = Channel { channel_queue : queue![], channel_delay : 0 };
+        let _channel = Channel { queue : queue![], delay : 0, id : 0 };
     }
 
     #[bench]
     fn benchmark_enqueue(b : &mut Bencher) {
-        let mut channel = Channel{ channel_queue : queue![], channel_delay : 0 };
+        let mut channel = Channel{ queue : queue![], delay : 0, id : 0 };
         b.iter(|| for i in 1..100 { channel.enqueue(Rpc::new_rpc(0), i) });
     }
 
     #[bench]
     fn benchmark_dequeue(b : &mut Bencher) {
-        let mut channel = Channel{ channel_queue : queue![], channel_delay : 0 };
+        let mut channel = Channel{ queue : queue![], delay : 0, id : 0 };
         b.iter(|| { for i in 1..100 { channel.enqueue(Rpc::new_rpc(0), i); } for i in 1..100 { channel.dequeue(i); } } );
     }
 }

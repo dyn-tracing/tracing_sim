@@ -23,7 +23,7 @@ fn main() {
     // Add simulator elements to it
     let tgen = simulator.add_element(TrafficGenerator{});
     let pid0 = simulator.add_element(PluginWrapper::new(LIBRARY, FUNCTION, 0));
-    let cid  = simulator.add_element(Channel::new(5));
+    let cid  = simulator.add_element(Channel::new(5, 0));
     let pid1 = simulator.add_element(PluginWrapper::new(LIBRARY, FUNCTION, 1));
 
     // Connect them
