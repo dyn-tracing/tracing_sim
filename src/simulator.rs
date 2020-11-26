@@ -34,7 +34,10 @@ impl Simulator {
         // tick all elements to generate Rpcs
         for i in 0..self.elements.len() {
             self.rpc_buffer[i] = self.elements[i].tick(tick);
-            println!("@ tick {}, {:?} generated {:?}", tick, self.elements[i], self.rpc_buffer[i]);
+            println!("@ tick {}, {:?} outputs {:?}",
+                     tick,
+                     self.elements[i],
+                     self.rpc_buffer[i]);
         }
 
         // Send these elements to the next hops

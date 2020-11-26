@@ -10,6 +10,6 @@ impl SimElement for TrafficGenerator {
     }
 
     fn tick(&mut self, _tick : u64) -> Option<Rpc> {
-        return Some(Rpc::new(0)); 
+        return Some(Rpc::new_rpc(0));
     }
 }
