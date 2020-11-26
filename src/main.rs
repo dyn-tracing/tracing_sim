@@ -23,13 +23,15 @@ fn main() {
     // Add simulator elements to it
     let tgen = simulator.add_element(TrafficGenerator{});
     let pid0 = simulator.add_element(PluginWrapper::new(LIBRARY, FUNCTION, 0));
-    let cid  = simulator.add_element(Channel::new(5, 0));
+    let cid0 = simulator.add_element(Channel::new(2, 0));
     let pid1 = simulator.add_element(PluginWrapper::new(LIBRARY, FUNCTION, 1));
+    let cid1 = simulator.add_element(Channel::new(2, 1));
 
     // Connect them
     simulator.add_connection(tgen, pid0);
-    simulator.add_connection(pid0, cid);
-    simulator.add_connection(cid, pid1);
+    simulator.add_connection(pid0, cid0);
+    simulator.add_connection(cid0, pid1);
+    simulator.add_connection(pid1, cid1);
 
     // Execute the simulator
     for tick in 0..20 { simulator.tick(tick) ; }
