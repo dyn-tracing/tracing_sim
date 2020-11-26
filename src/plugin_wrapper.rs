@@ -58,7 +58,7 @@ mod tests {
     #[test]
     fn test_plugin_creation() {
         let plugin = PluginWrapper::new(LIBRARY, FUNCTION, 0);
-        assert!(plugin.execute(&Rpc::new(55)).get_id() == 60);
+        assert!(plugin.execute(&Rpc::new_rpc(55)).data == 60);
     }
 
     #[test]
@@ -67,6 +67,6 @@ mod tests {
         let plugin2 = PluginWrapper::new(LIBRARY, FUNCTION, 1);
         let plugin3 = PluginWrapper::new(LIBRARY, FUNCTION, 2);
         let plugin4 = PluginWrapper::new(LIBRARY, FUNCTION, 3);
-        assert!(25 == plugin4.execute(&plugin3.execute(&plugin2.execute(&plugin1.execute(&Rpc::new(5))))).get_id());
+        assert!(25 == plugin4.execute(&plugin3.execute(&plugin2.execute(&plugin1.execute(&Rpc::new_rpc(5))))).data);
     }
 }

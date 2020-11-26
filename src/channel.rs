@@ -75,12 +75,12 @@ mod tests {
     #[bench]
     fn benchmark_enqueue(b : &mut Bencher) {
         let mut channel = Channel{ channel_queue : queue![], channel_delay : 0 };
-        b.iter(|| for i in 1..100 { channel.enqueue(Rpc::new(0), i) });
+        b.iter(|| for i in 1..100 { channel.enqueue(Rpc::new_rpc(0), i) });
     }
 
     #[bench]
     fn benchmark_dequeue(b : &mut Bencher) {
         let mut channel = Channel{ channel_queue : queue![], channel_delay : 0 };
-        b.iter(|| { for i in 1..100 { channel.enqueue(Rpc::new(0), i); } for i in 1..100 { channel.dequeue(i); } } );
+        b.iter(|| { for i in 1..100 { channel.enqueue(Rpc::new_rpc(0), i); } for i in 1..100 { channel.dequeue(i); } } );
     }
 }
