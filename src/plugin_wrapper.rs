@@ -11,11 +11,13 @@ pub struct PluginWrapper {
     stored_rpc : Option<Rpc>,
 }
 
-impl fmt::Debug for PluginWrapper {
+impl fmt::Display for PluginWrapper {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("PluginWrapper")
-            .field("id", &self.id)
-            .finish()
+        if let Some(width) = f.width() {
+            write!(f, "{:width$}", &format!("PluginWrapper {{ id : {} }}", &self.id), width = width)
+        } else {
+            write!(f, "PluginWrapper {{ id : {} }}", &self.id)
+        }
     }
 }
 

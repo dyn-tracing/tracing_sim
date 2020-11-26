@@ -16,11 +16,13 @@ pub struct Channel {
     channel_delay : u64,
 }
 
-impl fmt::Debug for Channel {
+impl fmt::Display for Channel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Channel")
-            .field("channel_delay", &self.channel_delay) // TODO: Add channel ID
-            .finish()
+        if let Some(width) = f.width() {
+            write!(f, "{:width$}", &format!("Channel {{ channel_delay : {} }}", &self.channel_delay), width = width)
+        } else {
+            write!(f, "Channel {{ channel_delay : {} }}", &self.channel_delay)
+        }
     }
 }
 

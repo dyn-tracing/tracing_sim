@@ -1,12 +1,12 @@
 use crate::sim_element::SimElement;
 use crate::rpc::Rpc;
-use std::fmt::Debug;
+use std::fmt::Display;
 
 // Need to combine SimElement for simulation
 // and Debug for printing.
 // Uses this suggestion: https://stackoverflow.com/a/28898575
-pub trait PrintableElement : SimElement + Debug {}
-impl<T: SimElement + Debug> PrintableElement for T {}
+pub trait PrintableElement : SimElement + Display {}
+impl<T: SimElement + Display> PrintableElement for T {}
 
 #[derive(Default)]
 pub struct Simulator {
@@ -34,7 +34,7 @@ impl Simulator {
         // tick all elements to generate Rpcs
         for i in 0..self.elements.len() {
             self.rpc_buffer[i] = self.elements[i].tick(tick);
-            println!("@ tick {}, {:?} outputs {:?}",
+            println!("@ tick {:5}, {:30} outputs {:3?}",
                      tick,
                      self.elements[i],
                      self.rpc_buffer[i]);
@@ -44,7 +44,6 @@ impl Simulator {
         for (src, dst) in &self.connections {
             if self.rpc_buffer[*src].is_some() {
                 self.elements[*dst].recv(self.rpc_buffer[*src].unwrap(), tick);
-                // println!("{:?} received rpc {:?}", self.elements[*dst], self.rpc_buffer[*src].unwrap());
             }
         }
         println!("");
