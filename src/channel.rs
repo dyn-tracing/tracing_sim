@@ -1,17 +1,36 @@
 extern crate test;
 
 use crate::rpc::Rpc;
+use crate::sim_element::SimElement;
 use queues::*;
+use std::fmt;
 
 #[derive(Clone)]
 struct TimestampedRpc {
     pub start_time : u64,
-    pub rpc       : Rpc,
+    pub rpc        : Rpc,
 }
 
 pub struct Channel {
     channel_queue : Queue<TimestampedRpc>,
     channel_delay : u64,
+}
+
+impl fmt::Debug for Channel {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Channel")
+            .field("channel_delay", &self.channel_delay) // TODO: Add channel ID
+            .finish()
+    }
+}
+
+impl SimElement for Channel {
+    fn tick(&mut self, tick : u64) -> Option<Rpc> {
+        return self.dequeue(tick);
+    }
+    fn recv(&mut self, rpc : Rpc, tick : u64) {
+        self.enqueue(rpc, tick);
+    }
 }
 
 impl Channel {

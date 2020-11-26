@@ -4,46 +4,33 @@ mod channel;
 mod plugin_wrapper;
 mod rpc;
 mod codelet;
+mod sim_element;
+mod simulator;
+mod traffic_generator;
 
 use channel::Channel;
 use plugin_wrapper::PluginWrapper;
-use rpc::Rpc;
+use simulator::Simulator;
+use traffic_generator::TrafficGenerator;
 
 static LIBRARY : &str = "target/debug/libplugin_sample.dylib";
 static FUNCTION: &str = "codelet";
 
 fn main() {
-    // Create plugins and a single channel for each plugin for all outgoing RPCs
-    // regardless of destintion. This doesn't yet model capacity limits.
-    let mut plugins  = vec![];
-    let mut channels = vec![];
-    for plugin_id in 0..10 {
-        plugins.push(PluginWrapper::new(LIBRARY, FUNCTION, plugin_id));
-        channels.push(Channel::new(10));
-    }
+    // Create simulator object.
+    let mut simulator : Simulator = Simulator::new();
 
-    // Keep a vector of RPCs to be processed for each plugin.
-    let mut rpcs_per_plugin : Vec<Option<Rpc>> = vec![];
-    for _ in 0..10 {
-        rpcs_per_plugin.push(None);
-    }
+    // Add simulator elements to it
+    let tgen = simulator.add_element(TrafficGenerator{});
+    let pid0 = simulator.add_element(PluginWrapper::new(LIBRARY, FUNCTION, 0));
+    let cid  = simulator.add_element(Channel::new(5));
+    let pid1 = simulator.add_element(PluginWrapper::new(LIBRARY, FUNCTION, 1));
 
-    // Now execute all the plugins.
-    for tick in 0..1000 {
-        for plugin_id  in 0..10 {
-            rpcs_per_plugin[plugin_id] = Some(Rpc::new(plugin_id as u32));
-            println!("Input RPC for plugin {}: {:?} at {}",
-                     plugin_id, rpcs_per_plugin[plugin_id].as_ref().unwrap(), tick);
-            let transformed_rpc = plugins[plugin_id].execute(rpcs_per_plugin[plugin_id].as_ref().unwrap());
+    // Connect them
+    simulator.add_connection(tgen, pid0);
+    simulator.add_connection(pid0, cid);
+    simulator.add_connection(cid, pid1);
 
-            // put in channel
-            channels[plugin_id].enqueue(transformed_rpc, tick);
-
-            // dequeue if it's time
-            let deq_rpc = channels[plugin_id].dequeue(tick);
-            if deq_rpc.is_some() {
-                println!("Dequeued RPC {:?} at {}", deq_rpc.as_ref().unwrap(), tick);
-            }
-        }
-    }
+    // Execute the simulator
+    for tick in 0..20 { simulator.tick(tick) ; }
 }

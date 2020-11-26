@@ -1,12 +1,37 @@
 use crate::rpc::Rpc;
 use crate::codelet::CodeletType;
+use crate::sim_element::SimElement;
+use std::fmt;
 
-#[derive(Debug)]
 pub struct PluginWrapper {
     // https://docs.rs/libloading/0.6.5/libloading/os/index.html
     // TODO: Currently uses a platform-specific binding, which isn't very safe.
     loaded_function : libloading::os::unix::Symbol<CodeletType>,
     id : u32,
+    stored_rpc : Option<Rpc>,
+}
+
+impl fmt::Debug for PluginWrapper {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("PluginWrapper")
+            .field("id", &self.id)
+            .finish()
+    }
+}
+
+impl SimElement for PluginWrapper {
+    fn tick(&mut self, _tick : u64) -> Option<Rpc> {
+        if self.stored_rpc.is_some() {
+            let ret = Some(self.execute(&self.stored_rpc.unwrap()));
+            self.stored_rpc = None;
+            return ret;
+        } else {
+            return None;
+        }
+    }
+    fn recv(&mut self, rpc : Rpc, _tick : u64) {
+        self.stored_rpc = Some(rpc);
+    }
 }
 
 impl PluginWrapper {
@@ -17,7 +42,7 @@ impl PluginWrapper {
                 dyn_lib.get(function_name.as_bytes()).expect("load symbol");
             tmp_loaded_function.into_raw()
         };
-        PluginWrapper { loaded_function : loaded_function, id : id }
+        PluginWrapper { loaded_function : loaded_function, id : id, stored_rpc : None }
     }
 
     pub fn execute(&self, input : &Rpc) -> Rpc {
