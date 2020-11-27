@@ -32,9 +32,7 @@ impl fmt::Display for Channel {
 
 impl SimElement for Channel {
     fn tick(&mut self, tick : u64) -> Vec<Rpc> {
-        let deq = self.dequeue(tick);
-        if deq.is_some() { vec!(deq.unwrap()) }
-        else { vec![] }
+        self.dequeue(tick)
     }
     fn recv(&mut self, rpc : Rpc, tick : u64) {
         self.enqueue(rpc, tick);
@@ -45,23 +43,24 @@ impl Channel {
     pub fn enqueue(&mut self, x : Rpc, now : u64) {
         self.queue.add(TimestampedRpc{start_time : now, rpc : x}).unwrap();
     }
-    pub fn dequeue(&mut self, now : u64) -> Option<Rpc> {
+    pub fn dequeue(&mut self, now : u64) -> Vec<Rpc> {
         if self.queue.size() == 0 {
-            return None;
+            return vec![];
         } else if self.queue.peek().unwrap().start_time + self.delay <= now {
-            // Check that the inequality is an equality, i.e., we didn't skip any ticks.
-            assert!(self.queue.peek().unwrap().start_time + self.delay == now);
+            let mut ret = vec![];
+            while self.queue.peek().unwrap().start_time + self.delay <= now {
+                // Check that the inequality is an equality, i.e., we didn't skip any ticks.
+                assert!(self.queue.peek().unwrap().start_time + self.delay == now);
 
-            // Remove RPC from the head of the queue.
-            let rpc = self.queue.remove().unwrap().rpc;
-
+                // Remove RPC from the head of the queue.
+                ret.push(self.queue.remove().unwrap().rpc);
+            }
             // Either the queue has emptied or no other RPCs are ready.
             assert!((self.queue.size() == 0) ||
                     (self.queue.peek().unwrap().start_time + self.delay > now));
-            // println!("Dequeue {:?} out of channel at {}", rpc, now);
-            return Some(rpc);
+            return ret;
         } else {
-            return None;
+            return vec![];
         }
     }
     pub fn new(delay : u64, id : u32) -> Self {
