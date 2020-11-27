@@ -2,30 +2,37 @@ use crate::rpc::Rpc;
 use crate::sim_element::SimElement;
 use queues::*;
 use std::fmt;
+use std::cmp::min;
 
 pub struct Link {
     queue    : Queue<Rpc>,
     id       : u32,
-    capacity : u32, // TODO: Unused for now
+    capacity : u32,
 }
 
 impl fmt::Display for Link {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(width) = f.width() {
             write!(f, "{:width$}",
-                   &format!("Link {{ capacity : {}, id : {} }}", &self.capacity, &self.id),
+                   &format!("Link {{ capacity : {}, id : {}, queue : {} }}",
+                   &self.capacity, &self.id, &self.queue.size()),
                    width = width)
         } else {
-            write!(f, "Link {{ capacity : {}, id : {} }}", &self.capacity, &self.id)
+            write!(f, "Link {{ capacity : {}, id : {}, queue : {} }}",
+                   &self.capacity, &self.id, &self.queue.size())
         }
     }
 }
 
 impl SimElement for Link {
     fn tick(&mut self, tick : u64) -> Vec<Rpc> {
-        let deq = self.dequeue(tick);
-        if deq.is_some() { vec!(deq.unwrap()) }
-        else { vec![] }
+        let mut ret = vec![];
+        for _ in 0..min(self.capacity as usize, self.queue.size()) {
+            let deq = self.dequeue(tick);
+            assert!(deq.is_some());
+            ret.push(deq.unwrap());
+        }
+        ret
     }
     fn recv(&mut self, rpc : Rpc, tick : u64) {
         self.enqueue(rpc, tick);
@@ -43,7 +50,7 @@ impl Link {
             return Some(self.queue.remove().unwrap())
         }
     }
-    pub fn new(id : u32) -> Self {
-        Link { queue : queue![], id : id, capacity : 0}
+    pub fn new(id : u32, capacity : u32) -> Self {
+        Link { queue : queue![], id : id, capacity : capacity}
     }
 }

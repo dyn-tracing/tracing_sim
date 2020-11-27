@@ -34,7 +34,7 @@ impl Simulator {
         // tick all elements to generate Rpcs
         for i in 0..self.elements.len() {
             self.rpc_buffer[i] = self.elements[i].tick(tick);
-            println!("@ tick {:5}, {:30} outputs {:3?}",
+            println!("@ tick {:5}, {:40} outputs {:3?}",
                      tick,
                      self.elements[i],
                      self.rpc_buffer[i]);
