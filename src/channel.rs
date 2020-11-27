@@ -20,10 +20,12 @@ pub struct Channel {
 impl fmt::Display for Channel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(width) = f.width() {
-            write!(f, "{:width$}", &format!("Channel {{ delay : {}, id : {} }}", &self.delay, &self.id),
+            write!(f, "{:width$}", &format!("Channel {{ delay : {}, id : {}, queue : {} }}",
+                   &self.delay, &self.id, &self.queue.size()),
                    width = width)
         } else {
-            write!(f, "Channel {{ delay : {}, id : {} }}", &self.delay, self.id)
+            write!(f, "Channel {{ delay : {}, id : {}, queue : {} }}",
+                   &self.delay, self.id, &self.queue.size())
         }
     }
 }
