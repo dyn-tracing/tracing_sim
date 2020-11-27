@@ -88,6 +88,6 @@ mod tests {
     #[bench]
     fn benchmark_dequeue(b : &mut Bencher) {
         let mut channel = Channel{ queue : queue![], delay : 0, id : 0 };
-        b.iter(|| { for i in 1..100 { channel.enqueue(Rpc::new_rpc(0), i); } for i in 1..100 { channel.dequeue(i); } } );
+        b.iter(|| { for i in 1..100 { channel.enqueue(Rpc::new_rpc(0), i); } channel.dequeue(0); } );
     }
 }
