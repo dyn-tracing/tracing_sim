@@ -12,7 +12,7 @@ impl<T: SimElement + Display> PrintableElement for T {}
 pub struct Simulator {
     elements     : Vec<Box<dyn PrintableElement>>,
     connections  : Vec<(usize, usize)>,
-    rpc_buffer   : Vec<Option<Rpc>>,
+    rpc_buffer   : Vec<Vec<Rpc>>,
 }
 
 impl Simulator {
@@ -22,7 +22,7 @@ impl Simulator {
 
     pub fn add_element<T : 'static + PrintableElement>(&mut self, element : T) -> usize {
         self.elements.push(Box::new(element));
-        self.rpc_buffer.push(None);
+        self.rpc_buffer.push(vec![]);
         return self.elements.len() - 1;
     }
 
@@ -42,8 +42,8 @@ impl Simulator {
 
         // Send these elements to the next hops
         for (src, dst) in &self.connections {
-            if self.rpc_buffer[*src].is_some() {
-                self.elements[*dst].recv(self.rpc_buffer[*src].unwrap(), tick);
+            for rpc in &self.rpc_buffer[*src] {
+                self.elements[*dst].recv(*rpc, tick);
             }
         }
         println!("");

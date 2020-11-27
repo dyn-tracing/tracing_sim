@@ -29,8 +29,10 @@ impl fmt::Display for Channel {
 }
 
 impl SimElement for Channel {
-    fn tick(&mut self, tick : u64) -> Option<Rpc> {
-        return self.dequeue(tick);
+    fn tick(&mut self, tick : u64) -> Vec<Rpc> {
+        let deq = self.dequeue(tick);
+        if deq.is_some() { vec!(deq.unwrap()) }
+        else { vec![] }
     }
     fn recv(&mut self, rpc : Rpc, tick : u64) {
         self.enqueue(rpc, tick);

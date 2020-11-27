@@ -22,13 +22,13 @@ impl fmt::Display for PluginWrapper {
 }
 
 impl SimElement for PluginWrapper {
-    fn tick(&mut self, _tick : u64) -> Option<Rpc> {
+    fn tick(&mut self, _tick : u64) -> Vec<Rpc> {
         if self.stored_rpc.is_some() {
-            let ret = Some(self.execute(&self.stored_rpc.unwrap()));
+            let ret = self.execute(&self.stored_rpc.unwrap());
             self.stored_rpc = None;
-            return ret;
+            return vec!(ret);
         } else {
-            return None;
+            return vec![];
         }
     }
     fn recv(&mut self, rpc : Rpc, _tick : u64) {
