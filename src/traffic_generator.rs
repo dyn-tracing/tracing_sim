@@ -1,6 +1,7 @@
 use crate::rpc::Rpc;
 use crate::sim_element::SimElement;
 use std::fmt;
+use std::convert::TryInto;
 
 pub struct TrafficGenerator {}
 
@@ -9,8 +10,8 @@ impl SimElement for TrafficGenerator {
         unimplemented!("TrafficGenerator can not receive.");
     }
 
-    fn tick(&mut self, _tick : u64) -> Vec<Rpc> {
-        return vec!(Rpc::new_rpc(0));
+    fn tick(&mut self, tick : u64) -> Vec<Rpc> {
+        return vec!(Rpc::new_rpc(tick.try_into().unwrap()));
     }
 }
 
