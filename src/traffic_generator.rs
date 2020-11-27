@@ -11,7 +11,9 @@ impl SimElement for TrafficGenerator {
     }
 
     fn tick(&mut self, tick : u64) -> Vec<Rpc> {
-        return vec!(Rpc::new_rpc(tick.try_into().unwrap()));
+        let mut ret = vec![];
+        for _ in 0..10 { ret.push(Rpc::new_rpc(tick.try_into().unwrap())); }
+        return ret;
     }
 }
 
