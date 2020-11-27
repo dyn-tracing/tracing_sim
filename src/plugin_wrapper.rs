@@ -32,6 +32,7 @@ impl SimElement for PluginWrapper {
         }
     }
     fn recv(&mut self, rpc : Rpc, _tick : u64) {
+        assert!(self.stored_rpc.is_none(), "Overwriting previous RPC");
         self.stored_rpc = Some(rpc);
     }
 }
