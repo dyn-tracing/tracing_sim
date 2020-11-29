@@ -56,7 +56,7 @@ impl PluginWrapper {
 #[cfg(test)]
 mod tests {
     use super::*;
-    static LIBRARY : &str = "target/debug/libplugin_sample.dylib";
+    static LIBRARY : &str = "target/debug/libsample_plugin.dylib";
     static FUNCTION: &str = "codelet";
     #[test]
     fn test_plugin_creation() {
