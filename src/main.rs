@@ -15,7 +15,7 @@ use plugin_wrapper::PluginWrapper;
 use simulator::Simulator;
 use traffic_generator::TrafficGenerator;
 
-static LIBRARY : &str = "target/debug/libplugin_sample.dylib";
+static LIBRARY : &str = "target/debug/libsample_plugin.dylib";
 static FUNCTION: &str = "codelet";
 
 fn main() {
@@ -23,15 +23,17 @@ fn main() {
     let mut simulator : Simulator = Simulator::new();
 
     // Add simulator elements to it
-    let tgen = simulator.add_element(TrafficGenerator{});
+    let tgen = simulator.add_element(TrafficGenerator::new(1, 0));
     let cid0 = simulator.add_element(Channel::new(2, 0));
     let lid  = simulator.add_element(Link::new(0, 5));
     let cid1 = simulator.add_element(Channel::new(2, 1));
+    let pid0 = simulator.add_element(PluginWrapper::new(LIBRARY, FUNCTION, 0));
 
     // Connect them
     simulator.add_connection(tgen, cid0);
     simulator.add_connection(cid0, lid);
     simulator.add_connection(lid, cid1);
+    simulator.add_connection(cid1, pid0);
 
     // Execute the simulator
     for tick in 0..20 { simulator.tick(tick) ; }

@@ -12,6 +12,6 @@ queues = "1.0.2"
 rand="0.3.0"
 
 [lib]
-name = "plugin_sample"
-path = "src/plugin_sample.rs"
+name = "sample_plugin"
+path = "src/sample_plugin.rs"
 crate-type = ["dylib"]

@@ -26,9 +26,9 @@ impl SimElement for PluginWrapper {
         if self.stored_rpc.is_some() {
             let ret = self.execute(&self.stored_rpc.unwrap());
             self.stored_rpc = None;
-            return vec!(ret);
+            if ret.is_none() { vec![] } else { vec!(ret.unwrap()) }
         } else {
-            return vec![];
+            vec![]
         }
     }
     fn recv(&mut self, rpc : Rpc, _tick : u64) {
@@ -48,7 +48,7 @@ impl PluginWrapper {
         PluginWrapper { loaded_function : loaded_function, id : id, stored_rpc : None }
     }
 
-    pub fn execute(&self, input : &Rpc) -> Rpc {
+    pub fn execute(&self, input : &Rpc) -> Option<Rpc> {
         (self.loaded_function)(input)
     }
 }
@@ -61,7 +61,7 @@ mod tests {
     #[test]
     fn test_plugin_creation() {
         let plugin = PluginWrapper::new(LIBRARY, FUNCTION, 0);
-        assert!(plugin.execute(&Rpc::new_rpc(55)).data == 60);
+        assert!(plugin.execute(&Rpc::new_rpc(55)).unwrap().data == 60);
     }
 
     #[test]
@@ -70,6 +70,11 @@ mod tests {
         let plugin2 = PluginWrapper::new(LIBRARY, FUNCTION, 1);
         let plugin3 = PluginWrapper::new(LIBRARY, FUNCTION, 2);
         let plugin4 = PluginWrapper::new(LIBRARY, FUNCTION, 3);
-        assert!(25 == plugin4.execute(&plugin3.execute(&plugin2.execute(&plugin1.execute(&Rpc::new_rpc(5))))).data);
+        assert!(25 == plugin4.execute(
+                      &plugin3.execute(
+                      &plugin2.execute(
+                      &plugin1.execute(
+                      &Rpc::new_rpc(5))
+                      .unwrap()).unwrap()).unwrap()).unwrap().data);
     }
 }

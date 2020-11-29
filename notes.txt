@@ -1,40 +1,4 @@
-Concepts to be modeled in code:
+1. Multiple library targets are unsupported:
+https://internals.rust-lang.org/t/multiple-libraries-in-a-cargo-project/8259/23
 
-Graph structure:
-1. Nodes,
-2. Edges
-3. Buffer/Queue at each node-to-node edge.
-
-Dedicated ingress node where a trace enters:
-
-1. Trace
-2. RPC
-3. RPC headers.
-
-Computation within each node:
-
-1. Arithmetic
-2. Filtering of RPCs
-3. Making a call to other services
-4. Maintain and update state
-(Encapsulate 1 through 4 as a small snippet of C++ code.)
-
-Later on:
-
-1. Get WASM runtime into the node.
-2. For now, just simulate cc files directly.
-
-Backing store:
-
-1. To write results from each node for persistent storage.
-
-Other concerns:
-
-1. Randomize the order in which concurrent RPCs go out from one parent to its children.
-2. Structure this as a round-by-round or tick-by-tick simulator:
-All nodes read the state at the end of each round.
-They then write the new state into a temporary buffer during that round.
-The new state replaces the old state and the process repeats.
-Could shuffle the order in which nodes execute at each round.
-
-Model backpressure instead of packet drops.
+So we need a different mechanism to create multiple plugins within the same crate.
