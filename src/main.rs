@@ -15,7 +15,7 @@ use plugin_wrapper::PluginWrapper;
 use simulator::Simulator;
 use traffic_generator::TrafficGenerator;
 
-static LIBRARY : &str = "target/debug/libsample_plugin.dylib";
+static LIBRARY : &str = "libsample.dylib";
 static FUNCTION: &str = "codelet";
 
 fn main() {

@@ -10,8 +10,3 @@ edition = "2018"
 libloading = "0.6.5"
 queues = "1.0.2"
 rand="0.3.0"
-
-[lib]
-name = "sample_plugin"
-path = "src/sample_plugin.rs"
-crate-type = ["dylib"]
