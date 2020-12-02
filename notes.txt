@@ -2,3 +2,5 @@
 https://internals.rust-lang.org/t/multiple-libraries-in-a-cargo-project/8259/23
 
 So we need a different mechanism to create multiple plugins within the same crate.
+--> Simulate some level of routing and show destinations in the RPCs.
+--> Add abstraction for responses from applications, or a busy signal from an application.
