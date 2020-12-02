@@ -17,7 +17,6 @@ use traffic_generator::TrafficGenerator;
 
 static SAMPLE  : &str = "libsample.dylib";
 static SINK    : &str = "libsink.dylib";
-static FUNCTION: &str = "codelet";
 
 fn main() {
     // Create simulator object.
@@ -28,8 +27,8 @@ fn main() {
     let cid0 = simulator.add_element(Channel::new(2, 0));
     let lid  = simulator.add_element(Link::new(0, 5));
     let cid1 = simulator.add_element(Channel::new(2, 1));
-    let pid0 = simulator.add_element(PluginWrapper::new(SAMPLE, FUNCTION, 0));
-    let pid1 = simulator.add_element(PluginWrapper::new(SINK,   FUNCTION, 1));
+    let pid0 = simulator.add_element(PluginWrapper::new(SAMPLE, 0));
+    let pid1 = simulator.add_element(PluginWrapper::new(SINK,   1));
 
     // Connect them
     simulator.add_connection(tgen, cid0);

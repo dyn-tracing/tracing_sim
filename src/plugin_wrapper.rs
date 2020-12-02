@@ -38,11 +38,11 @@ impl SimElement for PluginWrapper {
 }
 
 impl PluginWrapper {
-    pub fn new(plugin_path : &str, function_name : &str, id : u32) -> PluginWrapper {
+    pub fn new(plugin_path : &str, id : u32) -> PluginWrapper {
         let dyn_lib = libloading::Library::new(plugin_path).expect("load library");
         let loaded_function = unsafe {
             let tmp_loaded_function : libloading::Symbol<CodeletType> =
-                dyn_lib.get(function_name.as_bytes()).expect("load symbol");
+                dyn_lib.get("codelet".as_bytes()).expect("load symbol");
             tmp_loaded_function.into_raw()
         };
         PluginWrapper { loaded_function : loaded_function, id : id, stored_rpc : None }
@@ -57,19 +57,18 @@ impl PluginWrapper {
 mod tests {
     use super::*;
     static LIBRARY : &str = "libsample.dylib";
-    static FUNCTION: &str = "codelet";
     #[test]
     fn test_plugin_creation() {
-        let plugin = PluginWrapper::new(LIBRARY, FUNCTION, 0);
+        let plugin = PluginWrapper::new(LIBRARY, 0);
         assert!(plugin.execute(&Rpc::new_rpc(55)).unwrap().data == 60);
     }
 
     #[test]
     fn test_chained_plugins() {
-        let plugin1 = PluginWrapper::new(LIBRARY, FUNCTION, 0);
-        let plugin2 = PluginWrapper::new(LIBRARY, FUNCTION, 1);
-        let plugin3 = PluginWrapper::new(LIBRARY, FUNCTION, 2);
-        let plugin4 = PluginWrapper::new(LIBRARY, FUNCTION, 3);
+        let plugin1 = PluginWrapper::new(LIBRARY, 0);
+        let plugin2 = PluginWrapper::new(LIBRARY, 1);
+        let plugin3 = PluginWrapper::new(LIBRARY, 2);
+        let plugin4 = PluginWrapper::new(LIBRARY, 3);
         assert!(25 == plugin4.execute(
                       &plugin3.execute(
                       &plugin2.execute(
