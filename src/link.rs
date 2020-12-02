@@ -50,7 +50,8 @@ impl Link {
             return Some(self.queue.remove().unwrap())
         }
     }
-    pub fn new(id : u32, capacity : u32) -> Self {
+    pub fn new(capacity : u32, id : u32) -> Self {
+        assert!(capacity >= 1);
         Link { queue : queue![], id : id, capacity : capacity}
     }
 }
