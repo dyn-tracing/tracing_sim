@@ -26,3 +26,5 @@ jobs:
       run: cargo test --verbose
     - name: Benchmark
       run: cargo bench --verbose
+    - name: Run main
+      run: cargo run
