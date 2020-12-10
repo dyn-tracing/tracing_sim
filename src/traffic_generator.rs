@@ -6,11 +6,12 @@ use std::convert::TryInto;
 pub struct TrafficGenerator {
     rate : u32, // Rpcs per tick
     id   : u32,
+    neighbor : Option<u32>,
 }
 
 impl TrafficGenerator {
     pub fn new(rate : u32, id : u32) -> Self {
-        return TrafficGenerator { rate : rate, id : id };
+        return TrafficGenerator { rate : rate, id : id, neighbor : None};
     }
 }
 
@@ -19,10 +20,15 @@ impl SimElement for TrafficGenerator {
         unimplemented!("TrafficGenerator can not receive.");
     }
 
-    fn tick(&mut self, tick : u64) -> Vec<Rpc> {
+    fn tick(&mut self, tick : u64) -> Vec<(Rpc, Option<u32>)> {
         let mut ret = vec![];
-        for _ in 0..self.rate { ret.push(Rpc::new_rpc(tick.try_into().unwrap())); }
+        for _ in 0..self.rate { ret.push((Rpc::new_rpc(tick.try_into().unwrap()),
+                                          self.neighbor)); }
         return ret;
+    }
+
+    fn add_connection(&mut self, neighbor : u32) {
+        self.neighbor = Some(neighbor);
     }
 }
 

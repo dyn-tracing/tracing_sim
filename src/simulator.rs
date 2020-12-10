@@ -1,6 +1,7 @@
 use crate::sim_element::SimElement;
 use crate::rpc::Rpc;
 use std::fmt::Display;
+use std::convert::TryInto;
 
 // Need to combine SimElement for simulation
 // and Debug for printing.
@@ -11,8 +12,7 @@ impl<T: SimElement + Display> PrintableElement for T {}
 #[derive(Default)]
 pub struct Simulator {
     elements     : Vec<Box<dyn PrintableElement>>,
-    connections  : Vec<(usize, usize)>,
-    rpc_buffer   : Vec<Vec<Rpc>>,
+    rpc_buffer   : Vec<Vec<(Rpc, Option<u32>)>>,
 }
 
 impl Simulator {
@@ -27,7 +27,7 @@ impl Simulator {
     }
 
     pub fn add_connection(&mut self, src : usize, dst : usize) {
-        self.connections.push((src, dst));
+        self.elements[src].add_connection(dst.try_into().unwrap());
     }
 
     pub fn tick(&mut self, tick : u64) {
@@ -41,9 +41,11 @@ impl Simulator {
         }
 
         // Send these elements to the next hops
-        for (src, dst) in &self.connections {
-            for rpc in &self.rpc_buffer[*src] {
-                self.elements[*dst].recv(*rpc, tick);
+        for src in 0..self.elements.len() {
+            for (rpc, dst) in &self.rpc_buffer[src] {
+                if (*dst).is_some() {
+                    self.elements[(*dst).unwrap() as usize].recv(*rpc, tick);
+                }
             }
         }
         println!("");

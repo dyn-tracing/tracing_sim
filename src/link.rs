@@ -8,6 +8,7 @@ pub struct Link {
     queue    : Queue<Rpc>,
     id       : u32,
     capacity : u32,
+    neighbor : Option<u32>,
 }
 
 impl fmt::Display for Link {
@@ -25,18 +26,21 @@ impl fmt::Display for Link {
 }
 
 impl SimElement for Link {
-    fn tick(&mut self, tick : u64) -> Vec<Rpc> {
+    fn tick(&mut self, tick : u64) -> Vec<(Rpc, Option<u32>)> {
         let mut ret = vec![];
         for _ in 0..min(self.capacity as usize, self.queue.size()) {
             let deq = self.dequeue(tick);
             assert!(deq.is_some());
-            ret.push(deq.unwrap());
+            ret.push((deq.unwrap(), self.neighbor));
         }
         ret
     }
     fn recv(&mut self, rpc : Rpc, tick : u64) {
         self.enqueue(rpc, tick);
     }
+    fn add_connection(&mut self, neighbor : u32) {
+        self.neighbor = Some(neighbor);
+    }  
 }
 
 impl Link {
@@ -52,6 +56,6 @@ impl Link {
     }
     pub fn new(capacity : u32, id : u32) -> Self {
         assert!(capacity >= 1);
-        Link { queue : queue![], id : id, capacity : capacity}
+        Link { queue : queue![], id : id, capacity : capacity, neighbor : None }
     }
 }

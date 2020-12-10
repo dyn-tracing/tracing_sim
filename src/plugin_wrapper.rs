@@ -9,6 +9,7 @@ pub struct PluginWrapper {
     loaded_function : libloading::os::unix::Symbol<CodeletType>,
     id : u32,
     stored_rpc : Option<Rpc>,
+    neighbor : Option<u32>,
 }
 
 impl fmt::Display for PluginWrapper {
@@ -22,11 +23,11 @@ impl fmt::Display for PluginWrapper {
 }
 
 impl SimElement for PluginWrapper {
-    fn tick(&mut self, _tick : u64) -> Vec<Rpc> {
+    fn tick(&mut self, _tick : u64) -> Vec<(Rpc, Option<u32>)> {
         if self.stored_rpc.is_some() {
             let ret = self.execute(&self.stored_rpc.unwrap());
             self.stored_rpc = None;
-            if ret.is_none() { vec![] } else { vec!(ret.unwrap()) }
+            if ret.is_none() { vec![] } else { vec!((ret.unwrap(), self.neighbor)) }
         } else {
             vec![]
         }
@@ -34,6 +35,9 @@ impl SimElement for PluginWrapper {
     fn recv(&mut self, rpc : Rpc, _tick : u64) {
         assert!(self.stored_rpc.is_none(), "Overwriting previous RPC");
         self.stored_rpc = Some(rpc);
+    }
+    fn add_connection(&mut self, neighbor : u32) {
+        self.neighbor = Some(neighbor);
     }
 }
 
@@ -45,7 +49,7 @@ impl PluginWrapper {
                 dyn_lib.get("codelet".as_bytes()).expect("load symbol");
             tmp_loaded_function.into_raw()
         };
-        PluginWrapper { loaded_function : loaded_function, id : id, stored_rpc : None }
+        PluginWrapper { loaded_function : loaded_function, id : id, stored_rpc : None, neighbor : None }
     }
 
     pub fn execute(&self, input : &Rpc) -> Option<Rpc> {
