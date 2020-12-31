@@ -17,6 +17,7 @@ use traffic_generator::TrafficGenerator;
 
 static SAMPLE  : &str = "libsample.dylib";
 static SAMPLE2 : &str = "libsample2.dylib";
+static COMPILED : &str = "libcompiled_sample.dylib";
 
 fn main() {
     // Create simulator object.
@@ -29,6 +30,7 @@ fn main() {
     let cid1 = simulator.add_element(Channel::new(2, 1));
     let pid0 = simulator.add_element(PluginWrapper::new(SAMPLE,  0));
     let pid1 = simulator.add_element(PluginWrapper::new(SAMPLE2, 1));
+    let pid2 = simulator.add_element(PluginWrapper::new(COMPILED,  2));
 
     // Connect them
     simulator.add_connection(tgen, cid0);
@@ -36,6 +38,7 @@ fn main() {
     simulator.add_connection(lid, cid1);
     simulator.add_connection(cid1, pid0);
     simulator.add_connection(cid1, pid1);
+    simulator.add_connection(cid1, pid2);
 
     // Execute the simulator
     for tick in 0..20 { simulator.tick(tick) ; }
