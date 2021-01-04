@@ -3,7 +3,7 @@ mod codelet;
 use codelet::CodeletType;
 
 #[no_mangle]
-pub fn codelet (x : &rpc::Rpc) -> Option<rpc::Rpc> { Some(rpc::Rpc{ data : x.data + 10, uid : x.uid }) }
+pub fn codelet (x : &rpc::Rpc) -> Option<rpc::Rpc> { Some(rpc::Rpc{ data : x.data + 10, uid : x.uid, path: x.path.clone() }) }
 
 // While the code fragment below does nothing useful at run time,
 // it forces rustc to check that codelet_function is of type CodeletType.

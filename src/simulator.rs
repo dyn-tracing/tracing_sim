@@ -44,7 +44,7 @@ impl Simulator {
         for src in 0..self.elements.len() {
             for (rpc, dst) in &self.rpc_buffer[src] {
                 if (*dst).is_some() {
-                    self.elements[(*dst).unwrap() as usize].recv(*rpc, tick);
+                    self.elements[(*dst).unwrap() as usize].recv(rpc.clone(), tick);
                 }
             }
         }
