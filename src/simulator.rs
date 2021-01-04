@@ -44,7 +44,11 @@ impl Simulator {
         for src in 0..self.elements.len() {
             for (rpc, dst) in &self.rpc_buffer[src] {
                 if (*dst).is_some() {
-                    self.elements[(*dst).unwrap() as usize].recv(rpc.clone(), tick);
+                    // Before we send this rpc on, we should update its path to include the most recently traversed element
+                    // TODO: is cloning the best way to do this?
+                    let mut new_rpc = rpc.clone();
+                    new_rpc.add_to_path(&src.to_string());
+                    self.elements[(*dst).unwrap() as usize].recv(new_rpc, tick);
                 }
             }
         }
