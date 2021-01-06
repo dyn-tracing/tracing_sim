@@ -71,7 +71,7 @@ impl PluginWrapper {
 #[cfg(test)]
 mod tests {
     use super::*;
-    static LIBRARY : &str = "libsample.dylib";
+    static LIBRARY : &str = "libsample_filter.dylib";
     #[test]
     fn test_plugin_creation() {
         let plugin = PluginWrapper::new(LIBRARY, 0);
