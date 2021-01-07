@@ -1,11 +1,13 @@
 use crate::rpc::Rpc;
-use crate::codelet::CodeletType;
+//use crate::codelet::CodeletType;
 use crate::sim_element::SimElement;
+use crate::filter::{CodeletType, Filter};
 use std::fmt;
 
 pub struct PluginWrapper {
     // https://docs.rs/libloading/0.6.5/libloading/os/index.html
     // TODO: Currently uses a platform-specific binding, which isn't very safe.
+    filter: Filter,
     loaded_function : libloading::os::unix::Symbol<CodeletType>,
     id : u32,
     stored_rpc : Option<Rpc>,
@@ -25,7 +27,7 @@ impl fmt::Display for PluginWrapper {
 impl SimElement for PluginWrapper {
     fn tick(&mut self, _tick : u64) -> Vec<(Rpc, Option<u32>)> {
         if self.stored_rpc.is_some() {
-            let ret = self.execute(&self.stored_rpc.unwrap());
+            let ret = self.execute(self.stored_rpc.as_ref().unwrap());
             self.stored_rpc = None;
             if ret.is_none() { vec![] } else { vec!((ret.unwrap(), self.neighbor)) }
         } else {
@@ -44,23 +46,33 @@ impl SimElement for PluginWrapper {
 impl PluginWrapper {
     pub fn new(plugin_path : &str, id : u32) -> PluginWrapper {
         let dyn_lib = libloading::Library::new(plugin_path).expect("load library");
-        let loaded_function = unsafe {
-            let tmp_loaded_function : libloading::Symbol<CodeletType> =
-                dyn_lib.get("codelet".as_bytes()).expect("load symbol");
+        // Dynamically load one function to initialize hash table in filter. 
+        let filter_init = unsafe {
+            let tmp_loaded_function : libloading::Symbol<fn() -> Filter> =
+                dyn_lib.get("new".as_bytes()).expect("load symbol");
             tmp_loaded_function.into_raw()
         };
-        PluginWrapper { loaded_function : loaded_function, id : id, stored_rpc : None, neighbor : None }
+
+        // Dynamically load another function to execute filter functionality.
+        let loaded_function = unsafe {
+            let tmp_loaded_function : libloading::Symbol<CodeletType> =
+                dyn_lib.get("execute".as_bytes()).expect("load symbol");
+            tmp_loaded_function.into_raw()
+        };
+
+        let new_filter = filter_init();
+        PluginWrapper { filter: new_filter, loaded_function : loaded_function, id : id, stored_rpc : None, neighbor : None }
     }
 
     pub fn execute(&self, input : &Rpc) -> Option<Rpc> {
-        (self.loaded_function)(input)
+        (self.loaded_function)(&self.filter, input)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    static LIBRARY : &str = "libsample.dylib";
+    static LIBRARY : &str = "libsample_filter.dylib";
     #[test]
     fn test_plugin_creation() {
         let plugin = PluginWrapper::new(LIBRARY, 0);
