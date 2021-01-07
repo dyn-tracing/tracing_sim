@@ -1,9 +1,9 @@
 #[derive(PartialEq, Clone, Debug)]
 #[repr(C)]
 pub struct Rpc {
-   pub data    : u32,
-   pub uid     : u64,
-   pub path    : String,
+   pub data    : u32,  // application data
+   pub uid     : u64,  // number of hops the message has taken
+   pub path    : String, // the path that the request has taken thus far
 }
 
 impl Rpc {
