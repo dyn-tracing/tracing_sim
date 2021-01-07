@@ -46,13 +46,14 @@ impl SimElement for PluginWrapper {
 impl PluginWrapper {
     pub fn new(plugin_path : &str, id : u32) -> PluginWrapper {
         let dyn_lib = libloading::Library::new(plugin_path).expect("load library");
-        
+        // Dynamically load one function to initialize hash table in filter. 
         let filter_init = unsafe {
             let tmp_loaded_function : libloading::Symbol<fn() -> Filter> =
                 dyn_lib.get("new".as_bytes()).expect("load symbol");
             tmp_loaded_function.into_raw()
         };
-        
+
+        // Dynamically load another function to execute filter functionality.
         let loaded_function = unsafe {
             let tmp_loaded_function : libloading::Symbol<CodeletType> =
                 dyn_lib.get("execute".as_bytes()).expect("load symbol");
