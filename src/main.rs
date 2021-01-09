@@ -3,7 +3,8 @@
 mod channel;
 mod plugin_wrapper;
 mod rpc;
-mod filter;
+mod filter_types;
+mod graph_utils;
 mod sim_element;
 mod simulator;
 mod traffic_generator;
@@ -15,7 +16,7 @@ use plugin_wrapper::PluginWrapper;
 use simulator::Simulator;
 use traffic_generator::TrafficGenerator;
 
-static COMPILED : &str = "libsample_filter.dylib";
+static COMPILED : &str = "libcompiled_filter.dylib";
 
 fn main() {
     // Create simulator object.
