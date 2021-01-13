@@ -15,18 +15,6 @@ pub struct Count {
     counter: u32
 }
 
-impl Count {
-    fn new() -> Count {
-        Count { counter: 0 }
-    }
-    fn execute(mut self) -> u32 {
-        self.counter = self.counter + 1;
-        self.counter
-    }
-}
-
-
-
 // This represents a piece of state of the filter
 // it either contains a user defined function, or some sort of 
 // other persistent state
