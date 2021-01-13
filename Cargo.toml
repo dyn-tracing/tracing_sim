@@ -10,4 +10,5 @@ edition = "2018"
 libloading = "0.6.5"
 queues = "1.0.2"
 rand="0.3.0"
-petgraph = "0.5.1"
+filter_lib = { path = "./filter_lib" }
+rpc_lib = { path = "./rpc_lib" }

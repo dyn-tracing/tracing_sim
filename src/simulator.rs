@@ -1,5 +1,5 @@
 use crate::sim_element::SimElement;
-use crate::rpc::Rpc;
+use rpc_lib::rpc::Rpc;
 use std::fmt::Display;
 use std::convert::TryInto;
 

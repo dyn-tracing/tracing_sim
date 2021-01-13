@@ -1,4 +1,4 @@
-use crate::rpc::Rpc;
+use rpc_lib::rpc::Rpc;
 use crate::sim_element::SimElement;
 use queues::*;
 use std::fmt;
