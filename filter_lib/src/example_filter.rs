@@ -2,7 +2,6 @@ use rpc_lib::rpc::Rpc;
 use std::collections::HashMap;
 use std::fs;
 use crate::graph_utils::{generate_target_graph, generate_trace_graph_from_headers, get_sub_graph_mapping};
-use std::io::{self, Write};
 
 pub type CodeletType = fn(&Filter, &Rpc) -> Option<Rpc>;
 
