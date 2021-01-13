@@ -1,7 +1,7 @@
 [package]
 name = "tracing_sim"
 version = "0.1.0"
-authors = ["Anirudh Sivaraman <sk.anirudh@gmail.com>"]
+authors = ["Anirudh Sivaraman <sk.anirudh@gmail.com>", "Jessica Berg <jb7399@nyu.edu>", "Fabian Ruffy <fruffy@nyu.edu>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -10,3 +10,5 @@ edition = "2018"
 libloading = "0.6.5"
 queues = "1.0.2"
 rand="0.3.0"
+filter_lib = { path = "./filter_lib" }
+rpc_lib = { path = "./rpc_lib" }

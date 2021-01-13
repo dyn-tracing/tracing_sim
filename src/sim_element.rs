@@ -1,4 +1,4 @@
-use crate::rpc::Rpc;
+use rpc_lib::rpc::Rpc;
 
 pub trait SimElement {
     fn add_connection(&mut self, neighbor : u32);

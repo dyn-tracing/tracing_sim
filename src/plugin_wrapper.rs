@@ -1,8 +1,8 @@
-use crate::rpc::Rpc;
-//use crate::codelet::CodeletType;
+use rpc_lib::rpc::Rpc;
 use crate::sim_element::SimElement;
-use crate::filter::{CodeletType, Filter};
 use std::fmt;
+use std::collections::HashMap;
+use crate::filter_types::{CodeletType, Filter};
 
 pub struct PluginWrapper {
     // https://docs.rs/libloading/0.6.5/libloading/os/index.html
@@ -48,8 +48,8 @@ impl PluginWrapper {
         let dyn_lib = libloading::Library::new(plugin_path).expect("load library");
         // Dynamically load one function to initialize hash table in filter. 
         let filter_init = unsafe {
-            let tmp_loaded_function : libloading::Symbol<fn() -> Filter> =
-                dyn_lib.get("new".as_bytes()).expect("load symbol");
+            let tmp_loaded_function : libloading::Symbol<fn(HashMap<String, String>) -> Filter> =
+                dyn_lib.get("new_with_envoy_properties".as_bytes()).expect("load symbol");
             tmp_loaded_function.into_raw()
         };
 
@@ -60,7 +60,10 @@ impl PluginWrapper {
             tmp_loaded_function.into_raw()
         };
 
-        let new_filter = filter_init();
+        // Put in envoy properties in the new filter
+        let mut envoy_properties = HashMap::new();
+        envoy_properties.insert(String::from("WORKLOAD_NAME"), id.to_string());
+        let new_filter = filter_init(envoy_properties);
         PluginWrapper { filter: new_filter, loaded_function : loaded_function, id : id, stored_rpc : None, neighbor : None }
     }
 
@@ -72,11 +75,11 @@ impl PluginWrapper {
 #[cfg(test)]
 mod tests {
     use super::*;
-    static LIBRARY : &str = "libsample_filter.dylib";
+    static LIBRARY : &str = "filter_lib/target/debug/libfilter_lib.dylib";
     #[test]
     fn test_plugin_creation() {
         let plugin = PluginWrapper::new(LIBRARY, 0);
-        assert!(plugin.execute(&Rpc::new_rpc(55)).unwrap().data == 60);
+        assert!(plugin.execute(&Rpc::new_rpc(55)).unwrap().data == 55);
     }
 
     #[test]
@@ -85,7 +88,7 @@ mod tests {
         let plugin2 = PluginWrapper::new(LIBRARY, 1);
         let plugin3 = PluginWrapper::new(LIBRARY, 2);
         let plugin4 = PluginWrapper::new(LIBRARY, 3);
-        assert!(25 == plugin4.execute(
+        assert!(5 == plugin4.execute(
                       &plugin3.execute(
                       &plugin2.execute(
                       &plugin1.execute(
