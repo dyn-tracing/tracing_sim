@@ -11,5 +11,5 @@ crate-type = ["dylib"]
 
 [dependencies]
 petgraph = "0.5.1"
-rpc_lib = { path = "../rpc_lib" }
+rpc_lib = { path = "../libs/rpc_lib" }
 
