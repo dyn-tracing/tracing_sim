@@ -12,8 +12,9 @@ env:
 jobs:
   build:
     runs-on: ${{ matrix.os }}
-    matrix:
-        os: [macos-latest, ubuntu-18.04]
+    strategy:
+      matrix:
+          os: [macos-latest, ubuntu-18.04]
     steps:
     - uses: actions/checkout@v2
     - name: Install
