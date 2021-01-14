@@ -1,5 +1,4 @@
 #![feature(test)]
-
 mod channel;
 mod plugin_wrapper;
 mod filter_types;
@@ -14,7 +13,7 @@ use plugin_wrapper::PluginWrapper;
 use simulator::Simulator;
 use traffic_generator::TrafficGenerator;
 
-static COMPILED : &str = "filter_lib/target/debug/libfilter_lib.dylib";
+static COMPILED : &str = "target/debug/libfilter_lib";
 
 fn main() {
     // Create simulator object.

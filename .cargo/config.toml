@@ -1,0 +1,3 @@
+[build]
+# custom flags to pass to all compiler invocations
+rustflags = ["-C", "prefer-dynamic"]

@@ -30,7 +30,7 @@ impl Count {
 
 
 // This represents a piece of state of the filter
-// it either contains a user defined function, or some sort of 
+// it either contains a user defined function, or some sort of
 // other persistent state
 #[derive(Clone, Debug)]
 pub struct State {
@@ -41,20 +41,20 @@ pub struct State {
 
 impl State {
     pub fn new() -> State {
-        State { 
+        State {
             type_of_state: None,
             string_data: None,
             udf_count:  None ,
         }
-    } 
+    }
 
     pub fn new_with_str(str_data: String) -> State {
-        State { 
+        State {
             type_of_state: Some(String::from("String")),
             string_data: Some(str_data),
             udf_count:  None ,
         }
-    } 
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -65,7 +65,7 @@ pub struct Filter {
 impl Filter {
     #[no_mangle]
     pub fn new() -> Filter {
-        Filter { 
+        Filter {
 	    filter_state: HashMap::new(),
 	}
     }
@@ -76,7 +76,7 @@ impl Filter {
          for key in string_data.keys() {
              hash.insert(key.clone(), State::new_with_str(string_data[key].clone()));
          }
-         let new_filter = Filter { 
+         let new_filter = Filter {
 	    filter_state: hash,
 	 };
          return new_filter;
@@ -88,14 +88,14 @@ impl Filter {
         let my_node = self.filter_state.get("WORKLOAD_NAME").unwrap().string_data.clone().unwrap();
 
         // 1. Do I need to put any udf variables/objects in?
-        
+
         if !self.filter_state.contains_key(&String::from("count")) {
             let mut new_state = State::new();
             new_state.type_of_state = Some(String::from("count"));
             new_state.udf_count = Some(Count::new());
             self.filter_state.insert(String::from("count"), new_state);
         }
-        
+
 
         // 2. TODO: Find the node attributes to be collected
 
@@ -106,34 +106,34 @@ impl Filter {
             let vertices = vec![ String::from("n"), String::from("m"),   ];
             let edges = vec![  ( String::from("n"), String::from("m"),  ),  ];
             let mut ids_to_properties: HashMap<String, Vec<String>> = HashMap::new();
-            
+
             ids_to_properties.insert(String::from("a"), vec![  String::from("node"),  String::from("metadata"),  String::from("WORKLOAD_NAME"),  ]);
-            
+
 
             let target_graph = generate_target_graph(vertices, edges, ids_to_properties);
             let trace_graph = generate_trace_graph_from_headers(x.path.clone());
-            let mapping = get_sub_graph_mapping(trace_graph, target_graph); 
+            let mapping = get_sub_graph_mapping(trace_graph, target_graph);
             if mapping.len() > 0 {
-                // In the non-simulator version, we will send the result to storage.  Given this is 
+                // In the non-simulator version, we will send the result to storage.  Given this is
                 // a simulation, we will write it to a file.
-                
+
                 let state_ptr = self.filter_state.get_mut("count").unwrap();
                 let count_ptr = state_ptr.udf_count.as_mut().unwrap();
                 let value = count_ptr.execute().to_string();
-                fs::write("result.txt", value).expect("Unable to write file"); 
-                
-       
+                fs::write("result.txt", value).expect("Unable to write file");
+
+
             }
         }
         let state_ptr = self.filter_state.get_mut("count").unwrap();
         let count_ptr = state_ptr.udf_count.as_mut().unwrap();
         count_ptr.execute();
-        
+
 
         // 4.  Pass the rpc on
-        Some(Rpc{ 
+        Some(Rpc{
             data: x.data, uid: x.uid , path: x.path.clone()
-             }   ) 
+             }   )
     }
 
 }
@@ -156,7 +156,8 @@ mod tests {
         count_ptr.execute();
         count_ptr.execute();
         count_ptr.execute();
-        assert!(my_filter.filter_state.get("count").unwrap().udf_count.unwrap().counter==3);
+        let udf_counter = my_filter.filter_state.get("count").unwrap().udf_count.unwrap().counter;
+        assert!(udf_counter==3, "Counter {} was not 3", udf_counter);
     }
 
     #[test]
@@ -170,7 +171,7 @@ mod tests {
         let count_ptr = state_ptr.udf_count.as_mut().unwrap();
         count_ptr.execute();
         count_ptr.execute();
-        
+
         assert!(map.get("hi").unwrap().udf_count.unwrap().counter==2);
 
     }
