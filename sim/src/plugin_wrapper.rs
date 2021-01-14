@@ -54,24 +54,33 @@ impl SimElement for PluginWrapper {
     }
 }
 
+fn load_lib(plugin_str: &str) -> libloading::Library {
+    // Convert the library string into a Path object
+    let mut plugin_path = PathBuf::from(plugin_str);
+    let dyn_lib;
+    // We have to load the library differently, depending on whether we are
+    // working with MacOS or Linux. Windows is not supported.
+    match env::consts::OS {
+        "macos" => {
+            plugin_path.set_extension("dylib");
+            dyn_lib = libloading::Library::new(plugin_path).expect("load library");
+        }
+        "linux" => {
+            plugin_path.set_extension("so");
+            // Load library with  RTLD_NODELETE | RTLD_NOW to avoid freeing the lib
+            // https://github.com/nagisa/rust_libloading/issues/41#issuecomment-448303856
+            let os_lib =
+                libloading::os::unix::Library::open(plugin_path.to_str(), 0x2 | 0x1000).unwrap();
+            dyn_lib = libloading::Library::from(os_lib);
+        }
+        _ => panic!("Unexpected operating system."),
+    }
+    dyn_lib
+}
+
 impl PluginWrapper {
     pub fn new(plugin_str: &str, id: u32) -> PluginWrapper {
-        let mut plugin_path = PathBuf::from(plugin_str);
-        match env::consts::OS {
-            "macos" => {
-                plugin_path.set_extension("dylib");
-            }
-            "linux" => {
-                plugin_path.set_extension("so");
-            }
-            _ => panic!("Unexpected operating system."),
-        }
-        // Load library with  RTLD_NODELETE | RTLD_NOW to avoid freeing the lib
-        // https://github.com/nagisa/rust_libloading/issues/5#issuecomment-244195096
-        let os_lib =
-            libloading::os::unix::Library::open(plugin_path.to_str(), 0x2 | 0x1000).unwrap();
-        let dyn_lib = libloading::Library::from(os_lib);
-
+        let dyn_lib = load_lib(plugin_str);
         // Dynamically load one function to initialize hash table in filter.
         let filter_init = unsafe {
             let tmp_loaded_function: libloading::Symbol<fn(HashMap<String, String>) -> Filter> =
@@ -94,8 +103,8 @@ impl PluginWrapper {
         let new_filter = filter_init(envoy_properties);
         PluginWrapper {
             filter: new_filter,
-            loaded_function: loaded_function,
-            id: id,
+            loaded_function,
+            id,
             stored_rpc: None,
             neighbor: None,
         }
