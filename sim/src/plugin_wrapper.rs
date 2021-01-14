@@ -70,6 +70,7 @@ fn load_lib(plugin_str: &str) -> libloading::Library {
     }
     // Load library with  RTLD_NODELETE | RTLD_NOW to avoid freeing the lib
     // https://github.com/nagisa/rust_libloading/issues/41#issuecomment-448303856
+    // also works on MacOS
     let os_lib = libloading::os::unix::Library::open(
         plugin_path.to_str(),
         libc::RTLD_NODELETE | libc::RTLD_NOW,
