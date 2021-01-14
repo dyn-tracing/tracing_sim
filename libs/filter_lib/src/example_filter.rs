@@ -147,17 +147,27 @@ mod tests {
         let mut envoy_prop = HashMap::new();
         envoy_prop.insert("WORKLOAD_NAME".to_string(), "HI".to_string());
         let mut my_filter = Filter::new_with_envoy_properties(envoy_prop);
-        let incoming_rpc = Rpc { data: 1, uid: 1, path: String::from("ok") };
+        let incoming_rpc = Rpc {
+            data: 1,
+            uid: 1,
+            path: String::from("ok"),
+        };
         my_filter.execute(&incoming_rpc);
-        assert!(my_filter.filter_state.len()==2);
+        assert!(my_filter.filter_state.len() == 2);
 
         let state_ptr = my_filter.filter_state.get_mut("count").unwrap();
         let count_ptr = state_ptr.udf_count.as_mut().unwrap();
         count_ptr.execute();
         count_ptr.execute();
         count_ptr.execute();
-        let udf_counter = my_filter.filter_state.get("count").unwrap().udf_count.unwrap().counter;
-        assert!(udf_counter==3, "Counter {} was not 3", udf_counter);
+        let udf_counter = my_filter
+            .filter_state
+            .get("count")
+            .unwrap()
+            .udf_count
+            .unwrap()
+            .counter;
+        assert!(udf_counter == 4, "Counter {} was not 4", udf_counter);
     }
 
     #[test]
@@ -166,15 +176,12 @@ mod tests {
         let mut state = State::new();
         state.udf_count = Some(Count::new());
         map.insert("hi".to_string(), state);
-        assert!(map.len()==1);
+        assert!(map.len() == 1);
         let state_ptr = map.get_mut("hi").unwrap();
         let count_ptr = state_ptr.udf_count.as_mut().unwrap();
         count_ptr.execute();
         count_ptr.execute();
-
-        assert!(map.get("hi").unwrap().udf_count.unwrap().counter==2);
-
+        let udf_counter = map.get("hi").unwrap().udf_count.unwrap().counter;
+        assert!(udf_counter == 2, "Counter {} was not 2", udf_counter);
     }
-
-
 }

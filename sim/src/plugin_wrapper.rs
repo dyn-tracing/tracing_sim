@@ -66,8 +66,12 @@ impl PluginWrapper {
             }
             _ => panic!("Unexpected operating system."),
         }
+        // Load library with  RTLD_NODELETE | RTLD_NOW to avoid freeing the lib
+        // https://github.com/nagisa/rust_libloading/issues/5#issuecomment-244195096
+        let os_lib =
+            libloading::os::unix::Library::open(plugin_path.to_str(), 0x2 | 0x1000).unwrap();
+        let dyn_lib = libloading::Library::from(os_lib);
 
-        let dyn_lib = libloading::Library::new(plugin_path).expect("load library");
         // Dynamically load one function to initialize hash table in filter.
         let filter_init = unsafe {
             let tmp_loaded_function: libloading::Symbol<fn(HashMap<String, String>) -> Filter> =
@@ -105,19 +109,26 @@ impl PluginWrapper {
 #[cfg(test)]
 mod tests {
     use super::*;
-    static LIBRARY: &str = "libfilter_lib";
     #[test]
     fn test_plugin_creation() {
-        let plugin = PluginWrapper::new(LIBRARY, 0);
-        assert!(plugin.execute(&Rpc::new_rpc(55)).unwrap().data == 55);
+        let mut cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        cargo_dir.push("../target/debug/libfilter_lib");
+        let library_str = cargo_dir.to_str().unwrap();
+        let plugin = PluginWrapper::new(library_str, 0);
+        let rpc = &Rpc::new_rpc(55);
+        let rpc_data = plugin.execute(rpc).unwrap().data;
+        assert!(rpc_data == 55);
     }
 
     #[test]
     fn test_chained_plugins() {
-        let plugin1 = PluginWrapper::new(LIBRARY, 0);
-        let plugin2 = PluginWrapper::new(LIBRARY, 1);
-        let plugin3 = PluginWrapper::new(LIBRARY, 2);
-        let plugin4 = PluginWrapper::new(LIBRARY, 3);
+        let mut cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        cargo_dir.push("../target/debug/libfilter_lib");
+        let library_str = cargo_dir.to_str().unwrap();
+        let plugin1 = PluginWrapper::new(library_str, 0);
+        let plugin2 = PluginWrapper::new(library_str, 1);
+        let plugin3 = PluginWrapper::new(library_str, 2);
+        let plugin4 = PluginWrapper::new(library_str, 3);
         assert!(
             5 == plugin4
                 .execute(
