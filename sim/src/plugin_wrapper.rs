@@ -58,7 +58,7 @@ impl PluginWrapper {
     pub fn new(plugin_str: &str, id: u32) -> PluginWrapper {
         let mut plugin_path = PathBuf::from(plugin_str);
         match env::consts::OS {
-            "osx" => {
+            "macos" => {
                 plugin_path.set_extension("dylib");
             }
             "linux" => {
