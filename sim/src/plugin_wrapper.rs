@@ -57,24 +57,25 @@ impl SimElement for PluginWrapper {
 fn load_lib(plugin_str: &str) -> libloading::Library {
     // Convert the library string into a Path object
     let mut plugin_path = PathBuf::from(plugin_str);
-    let dyn_lib;
     // We have to load the library differently, depending on whether we are
     // working with MacOS or Linux. Windows is not supported.
     match env::consts::OS {
         "macos" => {
             plugin_path.set_extension("dylib");
-            dyn_lib = libloading::Library::new(plugin_path).expect("load library");
         }
         "linux" => {
             plugin_path.set_extension("so");
             // Load library with  RTLD_NODELETE | RTLD_NOW to avoid freeing the lib
             // https://github.com/nagisa/rust_libloading/issues/41#issuecomment-448303856
-            let os_lib =
-                libloading::os::unix::Library::open(plugin_path.to_str(), 0x2 | 0x1000).unwrap();
-            dyn_lib = libloading::Library::from(os_lib);
         }
         _ => panic!("Unexpected operating system."),
     }
+    let os_lib = libloading::os::unix::Library::open(
+        plugin_path.to_str(),
+        libc::RTLD_NODELETE | libc::RTLD_NOW,
+    )
+    .unwrap();
+    let dyn_lib = libloading::Library::from(os_lib);
     dyn_lib
 }
 
