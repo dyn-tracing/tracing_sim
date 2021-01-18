@@ -1,7 +1,8 @@
 use rpc_lib::rpc::Rpc;
 use std::collections::HashMap;
 use std::fs;
-use crate::graph_utils::{generate_target_graph, generate_trace_graph_from_headers, get_sub_graph_mapping};
+use petgraph::algo::isomorphic_subgraph_mapping;
+use crate::graph_utils::{generate_target_graph, generate_trace_graph_from_headers};
 
 pub type CodeletType = fn(&Filter, &Rpc) -> Option<Rpc>;
 
@@ -112,8 +113,8 @@ impl Filter {
 
             let target_graph = generate_target_graph(vertices, edges, ids_to_properties);
             let trace_graph = generate_trace_graph_from_headers(x.path.clone());
-            let mapping = get_sub_graph_mapping(trace_graph, target_graph);
-            if mapping.len() > 0 {
+            let mapping = isomorphic_subgraph_mapping(&trace_graph, &target_graph);
+            if !mapping.is_none() {
                 // In the non-simulator version, we will send the result to storage.  Given this is
                 // a simulation, we will write it to a file.
 
