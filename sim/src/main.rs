@@ -6,9 +6,11 @@ mod plugin_wrapper;
 mod sim_element;
 mod simulator;
 mod traffic_generator;
+// mod node;
 
 use channel::Channel;
 use link::Link;
+// use node::Node;
 use plugin_wrapper::PluginWrapper;
 use simulator::Simulator;
 use traffic_generator::TrafficGenerator;
@@ -21,9 +23,9 @@ fn main() {
 
     // Add simulator elements to it
     let tgen = simulator.add_element(TrafficGenerator::new(1, 0));
-    let cid0 = simulator.add_element(Channel::new(2, 5, 0));
+    let cid0 = simulator.add_element(Channel::new(2, 0));
     let lid = simulator.add_element(Link::new(5, 0));
-    let cid1 = simulator.add_element(Channel::new(2, 5, 1));
+    let cid1 = simulator.add_element(Channel::new(2, 1));
     let pid0 = simulator.add_element(PluginWrapper::new(COMPILED, 0));
 
     // Connect them
