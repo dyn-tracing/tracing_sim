@@ -2,6 +2,8 @@
 members = [
     "libs/filter_lib",
     "libs/rpc_lib",
+    "libs/petgraph",
     "sim",
+    
 ]
 
