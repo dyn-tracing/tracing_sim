@@ -17,9 +17,10 @@ jobs:
       matrix:
           os: [macos-latest, ubuntu-18.04]
     steps:
-    - uses: actions/checkout@v2
-      with:
-        submodules: recursive
+    - name: Checkout repository
+      uses: actions/checkout@v2
+    - name: Checkout submodules
+      uses: textbook/git-checkout-submodule-action@v2
     - name: Install
       run: rustup install nightly
     - name: Change default
