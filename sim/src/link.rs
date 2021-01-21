@@ -62,13 +62,13 @@ impl SimElement for Link {
         }
         ret
     }
-    fn recv(&mut self, rpc : Rpc, tick : u64) {
+    fn recv(&mut self, rpc : Rpc, tick : u64, sender : u32) {
         if (self.queue.size() as u32) < self.capacity { // drop packets you cannot accept
             if self.plugin.is_none() {
                 self.enqueue(rpc, tick);
             }
             else {
-                self.plugin.as_mut().unwrap().recv(rpc, tick);
+                self.plugin.as_mut().unwrap().recv(rpc, tick, self.id);
                 let ret = self.plugin.as_mut().unwrap().tick(tick);
                 for filtered_rpc in ret {
                     self.enqueue(filtered_rpc.0, tick);
@@ -79,6 +79,9 @@ impl SimElement for Link {
     fn add_connection(&mut self, neighbor : u32) {
         self.neighbor.push(neighbor);
     }  
+    fn whoami(&self) -> (&str, u32, Vec<u32>) {
+        return ("Link", self.id, self.neighbor.clone());
+    }
 }
 
 impl  Link {
@@ -120,10 +123,10 @@ mod tests {
         let mut link = Link::new(2, 1, None, 0);
         assert!(link.capacity==2);
         assert!(link.egress_rate==1);
-        link.recv(Rpc::new_rpc(0), 0);
-        link.recv(Rpc::new_rpc(0), 0);
+        link.recv(Rpc::new_rpc(0), 0, 0);
+        link.recv(Rpc::new_rpc(0), 0, 0);
         assert!(link.queue.size()==2);
-        link.recv(Rpc::new_rpc(0), 0);
+        link.recv(Rpc::new_rpc(0), 0, 0);
         assert!(link.queue.size()==2);
         link.tick(0);
         assert!(link.queue.size()==1);
