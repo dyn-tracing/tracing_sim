@@ -12,6 +12,7 @@ use link::Link;
 use simulator::Simulator;
 use traffic_generator::TrafficGenerator;
 use std::path::PathBuf;
+use std::env;
 
 static COMPILED: &str = "../target/debug/librust_lib";
 
@@ -36,7 +37,12 @@ fn main() {
     let _edge8 = simulator.add_one_direction_edge(Channel::new(1, 8), node1, node4); // one way rpc sink
     
     // Print the graph
-    simulator.print_graph();
+    let args: Vec<String> = env::args().collect();
+    for arg in args {
+        if arg == "pg".to_string() {
+            simulator.print_graph();
+        }
+    }
 
     // Execute the simulator
     for tick in 0..20 {
