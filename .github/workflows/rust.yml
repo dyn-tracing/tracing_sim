@@ -25,6 +25,8 @@ jobs:
       run: rustup install nightly
     - name: Change default
       run: rustup default nightly
+    - name: Setup Graphviz
+      uses: ts-graphviz/setup-graphviz@v1
     - name: Build
       run: cargo build --verbose
     - name: Run tests
