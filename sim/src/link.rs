@@ -4,6 +4,7 @@ use crate::plugin_wrapper::PluginWrapper;
 use queues::*;
 use std::fmt;
 use std::cmp::min;
+use rand::seq::SliceRandom;
 
 pub struct Link {
     queue    : Queue<Rpc>,
@@ -11,7 +12,7 @@ pub struct Link {
     capacity : u32,
     egress_rate : u32,
     plugin : Option<PluginWrapper>,
-    neighbor : Option<u32>,
+    neighbor : Vec<u32>,
 }
 
 impl fmt::Display for Link {
@@ -49,7 +50,15 @@ impl SimElement for Link {
         for _ in 0..min(self.queue.size(), self.egress_rate as usize) {
             let deq = self.dequeue(tick);
             assert!(deq.is_some());
-            ret.push((deq.unwrap(), self.neighbor));
+            if self.neighbor.len() > 0 {
+                let which_neighbor : u32 = *self.neighbor.choose(&mut rand::thread_rng()).unwrap();
+                ret.push((deq.unwrap(), Some(which_neighbor)));
+            }
+            else {
+                ret.push((deq.unwrap(), None));
+
+            }
+
         }
         ret
     }
@@ -68,7 +77,7 @@ impl SimElement for Link {
         }
     }
     fn add_connection(&mut self, neighbor : u32) {
-        self.neighbor = Some(neighbor);
+        self.neighbor.push(neighbor);
     }  
 }
 
@@ -86,11 +95,11 @@ impl  Link {
     pub fn new(capacity : u32, egress_rate : u32, plugin : Option<&str>, id : u32) -> Link {
         assert!(capacity >= 1);
         if plugin.is_none() {
-            Link { queue : queue![], id : id, capacity : capacity, egress_rate : egress_rate, plugin : None, neighbor : None }
+            Link { queue : queue![], id : id, capacity : capacity, egress_rate : egress_rate, plugin : None, neighbor : Vec::new() }
         }
         else {
             let created_plugin = PluginWrapper::new(plugin.unwrap(), id);
-            Link { queue : queue![], id : id, capacity : capacity, egress_rate : egress_rate, plugin : Some(created_plugin), neighbor : None }
+            Link { queue : queue![], id : id, capacity : capacity, egress_rate : egress_rate, plugin : Some(created_plugin), neighbor : Vec::new() }
 
         }
     }
