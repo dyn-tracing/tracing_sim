@@ -62,7 +62,7 @@ impl SimElement for Link {
         }
         ret
     }
-    fn recv(&mut self, rpc : Rpc, tick : u64, sender : u32) {
+    fn recv(&mut self, rpc : Rpc, tick : u64, _sender : u32) {
         if (self.queue.size() as u32) < self.capacity { // drop packets you cannot accept
             if self.plugin.is_none() {
                 self.enqueue(rpc, tick);
@@ -137,7 +137,7 @@ mod tests {
         let mut cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         cargo_dir.push("../target/debug/libfilter_lib");
         let library_str = cargo_dir.to_str().unwrap();
-        let mut link = Link::new(2, 1, Some(library_str), 0);
+        let link = Link::new(2, 1, Some(library_str), 0);
         assert!(!link.plugin.is_none());
     }
 
