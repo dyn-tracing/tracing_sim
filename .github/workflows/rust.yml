@@ -20,7 +20,7 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v2
     - name: Checkout submodules
-      uses: textbook/git-checkout-submodule-action@v2
+      uses: textbook/git-checkout-submodule-action@master
     - name: Install
       run: rustup install nightly
     - name: Change default
