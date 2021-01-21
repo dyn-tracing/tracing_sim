@@ -13,7 +13,8 @@ use simulator::Simulator;
 use traffic_generator::TrafficGenerator;
 use std::path::PathBuf;
 
-static COMPILED: &str = "../target/debug/libfilter_lib";
+//static COMPILED: &str = "../target/debug/libfilter_lib";
+static COMPILED: &str = "../target/debug/librust_lib.dylib";
 
 fn main() {
     // Set up library access

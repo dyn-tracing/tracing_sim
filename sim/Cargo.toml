@@ -12,6 +12,7 @@ libloading = "0.6.5"
 queues = "1.0.2"
 rand="0.7.0"
 filter_lib = { path = "../libs/filter_lib" }
+rust_lib = { path = "../libs/rust_lib" }
 rpc_lib = { path = "../libs/rpc_lib" }
 petgraph = { path = "../libs/petgraph" }
 
