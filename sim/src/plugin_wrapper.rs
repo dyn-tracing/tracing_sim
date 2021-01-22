@@ -58,7 +58,6 @@ impl SimElement for PluginWrapper {
             neighbors.push(self.neighbor.unwrap());
         }
         return ("PluginWrapper", self.id, neighbors);
-        
     }
 }
 
@@ -131,7 +130,7 @@ mod tests {
     #[test]
     fn test_plugin_creation() {
         let mut cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        cargo_dir.push("../target/debug/libfilter_lib");
+        cargo_dir.push("../target/debug/libfilter_example");
         let library_str = cargo_dir.to_str().unwrap();
         let plugin = PluginWrapper::new(library_str, 0);
         let rpc = &Rpc::new_rpc(55);
@@ -142,7 +141,7 @@ mod tests {
     #[test]
     fn test_chained_plugins() {
         let mut cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        cargo_dir.push("../target/debug/libfilter_lib");
+        cargo_dir.push("../target/debug/libfilter_example");
         let library_str = cargo_dir.to_str().unwrap();
         let plugin1 = PluginWrapper::new(library_str, 0);
         let plugin2 = PluginWrapper::new(library_str, 1);

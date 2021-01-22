@@ -11,9 +11,7 @@ libc = "*"
 libloading = "0.6.5"
 queues = "1.0.2"
 rand="0.7.0"
-clap = "~2.27.0" 
-filter_lib = { path = "../libs/filter_lib" }
-rust_lib = { path = "../libs/rust_lib" }
+clap = "~2.27.0"
 rpc_lib = { path = "../libs/rpc_lib" }
 petgraph = { path = "../libs/petgraph" }
 
