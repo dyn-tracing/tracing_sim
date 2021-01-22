@@ -8,12 +8,12 @@ mod simulator;
 mod traffic_generator;
 
 use channel::Channel;
+use clap::{App, Arg};
 use link::Link;
 use simulator::Simulator;
-use traffic_generator::TrafficGenerator;
-use std::path::PathBuf;
 use std::env;
-use clap::{App, Arg};
+use std::path::PathBuf;
+use traffic_generator::TrafficGenerator;
 
 static COMPILED: &str = "../target/debug/librust_lib";
 
@@ -21,10 +21,10 @@ fn main() {
     let matches = App::new("Tracing Simulator")
         .arg(
             Arg::with_name("print_graph")
-                  .short("pg")
-                  .long("print_graph")
-                  .value_name("PRINT_GRAPH")
-                  .help("Set if you want ot produce a pdf of the graph you create"),
+                .short("pg")
+                .long("print_graph")
+                .value_name("PRINT_GRAPH")
+                .help("Set if you want ot produce a pdf of the graph you create"),
         )
         .get_matches();
 
@@ -46,7 +46,7 @@ fn main() {
     let _edge6 = simulator.add_edge(Channel::new(2, 6), node1, node2);
     let _edge7 = simulator.add_edge(Channel::new(2, 7), node1, node3);
     let _edge8 = simulator.add_one_direction_edge(Channel::new(1, 8), node1, node4); // one way rpc sink
-    
+
     // Print the graph
     if let Some(_argument) = matches.value_of("print_graph") {
         simulator.print_graph();
