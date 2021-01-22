@@ -1,9 +1,8 @@
 /* This file contains functions relating to creating and comparing trace and target (user-given) graphs */
 
+use petgraph::algo::{dijkstra, toposort};
 use petgraph::graph::{Graph, NodeIndex};
-use petgraph::algo::{toposort, dijkstra};
 use std::collections::HashMap;
-
 
 /* This function creates a petgraph graph representing the query given by the user.
  * For example, if the cql query were MATCH n -> m, e WHERE ... the input to this function
@@ -17,13 +16,14 @@ use std::collections::HashMap;
  * @graph: the constructed graph reprsenting the inputs
  */
 
-pub fn generate_target_graph(vertices: Vec<String>,
-                            edges: Vec<(String, String)>,
-                            _ids_to_properties: HashMap<String, Vec<String>>)
-                           -> Graph<String, String> {
+pub fn generate_target_graph(
+    vertices: Vec<String>,
+    edges: Vec<(String, String)>,
+    _ids_to_properties: HashMap<String, Vec<String>>,
+) -> Graph<String, String> {
     let mut graph = Graph::new();
 
-    // In order to make edges, we have to know the handles of the nodes, and you 
+    // In order to make edges, we have to know the handles of the nodes, and you
     // get the handles of the nodes by adding them to the graph
 
     let mut nodes_to_node_handles: HashMap<String, NodeIndex> = HashMap::new();
@@ -44,9 +44,8 @@ pub fn generate_target_graph(vertices: Vec<String>,
     graph
 }
 
-
 /*  This function creates a petgraph graph representing a single trace.
- *  The trace is represented in paths_header as a string where the first node is 
+ *  The trace is represented in paths_header as a string where the first node is
  *  the root.  Thus "0 1 2" is a graph that looks like 0 -> 1 -> 2 with 0 as root.
  *
  *  Arguments:
@@ -64,7 +63,10 @@ pub fn generate_trace_graph_from_headers(paths_header: String) -> Graph<String, 
         return graph; // clearly we don't have anything, so return an empty graph
     }
     let first_node_str = first_node.unwrap();
-    node_str_to_node_handle.insert(first_node_str.to_string(), graph.add_node(first_node_str.to_string()));
+    node_str_to_node_handle.insert(
+        first_node_str.to_string(),
+        graph.add_node(first_node_str.to_string()),
+    );
     let mut prev_node_handle = node_str_to_node_handle[first_node_str];
     for node_str in nodes_iterator {
         // 1. Is this node already in the graph?  If so, ignore it and move "up" the tree
@@ -73,8 +75,7 @@ pub fn generate_trace_graph_from_headers(paths_header: String) -> Graph<String, 
             node_str_to_node_handle.insert(node_str.to_string(), new_node_handle);
             graph.add_edge(prev_node_handle, new_node_handle, "".to_string());
             prev_node_handle = new_node_handle;
-        }
-        else {
+        } else {
             prev_node_handle = node_str_to_node_handle[node_str];
         }
     }
@@ -92,8 +93,9 @@ pub fn get_node_with_id(graph: &Graph<String, String>, node_name: String) -> Opt
 
 pub fn get_tree_height(graph: &Graph<String, String>, root: Option<NodeIndex>) -> u32 {
     let starting_point;
-    if !root.is_none() { starting_point = root.unwrap() }
-    else {
+    if !root.is_none() {
+        starting_point = root.unwrap()
+    } else {
         // The root of the tree by definition has no incoming edges
         let sorted = toposort(graph, None).unwrap();
         starting_point = sorted[0];
@@ -118,12 +120,11 @@ mod tests {
         graph
     }
 
-
     fn make_small_target_graph() -> Graph<String, String> {
         let a = String::from("a");
         let b = String::from("b");
         let c = String::from("c");
-        let vertices = vec![ a.clone(), b.clone(), c.clone()];
+        let vertices = vec![a.clone(), b.clone(), c.clone()];
         let edges = vec![(a.clone(), b.clone()), (b.clone(), c.clone())];
         let mut ids_to_properties = HashMap::new();
         for vertex in vertices.clone() {
@@ -147,11 +148,10 @@ mod tests {
         assert_eq!(graph.edge_count(), 2);
     }
 
-
     #[test]
     fn test_correctly_parse_branching_graphs() {
         let graph = generate_trace_graph_from_headers("0 1 3 1 2".to_string());
-        assert!(graph.node_count()==4);
+        assert!(graph.node_count() == 4);
         for node in graph.node_indices() {
             if graph.node_weight(node).unwrap() == "0" {
                 assert!(graph.neighbors(node).count() == 1);
@@ -160,18 +160,16 @@ mod tests {
                 assert!(graph.neighbors(node).count() == 2);
             }
         }
-
     }
 
     #[test]
     fn test_generate_trace_graph_from_headers_on_empty_string() {
         let graph = generate_trace_graph_from_headers(String::new());
-        assert!(graph.node_count()==0);
+        assert!(graph.node_count() == 0);
     }
     #[test]
     fn test_get_tree_height() {
         let graph = generate_trace_graph_from_headers("0 1 3 1 2".to_string());
-        assert!(get_tree_height(&graph, None)==2);
+        assert!(get_tree_height(&graph, None) == 2);
     }
-
 }

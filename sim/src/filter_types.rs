@@ -1,8 +1,7 @@
-use std::collections::HashMap;
 use rpc_lib::rpc::Rpc;
+use std::collections::HashMap;
 
 pub type CodeletType = fn(&Filter, &Rpc) -> Option<Rpc>;
-
 
 // user defined functions:
 // init_func: new
@@ -12,11 +11,11 @@ pub type CodeletType = fn(&Filter, &Rpc) -> Option<Rpc>;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Count {
-    counter: u32
+    counter: u32,
 }
 
 // This represents a piece of state of the filter
-// it either contains a user defined function, or some sort of 
+// it either contains a user defined function, or some sort of
 // other persistent state
 pub struct State {
     pub type_of_state: Option<String>,
@@ -27,4 +26,3 @@ pub struct State {
 pub struct Filter {
     pub filter_state: HashMap<String, State>,
 }
-
