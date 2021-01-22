@@ -1,6 +1,3 @@
-[workspace]
-members = []
-
 [package]
 name = "filter_example"
 version = "0.1.0"

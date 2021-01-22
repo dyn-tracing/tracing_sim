@@ -2,6 +2,7 @@
 members = [
     "libs/rpc_lib",
     "libs/petgraph",
+    "libs/filter_example",
     "sim",
 
 ]
