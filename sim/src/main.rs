@@ -13,10 +13,21 @@ use simulator::Simulator;
 use traffic_generator::TrafficGenerator;
 use std::path::PathBuf;
 use std::env;
+use clap::{App, Arg};
 
 static COMPILED: &str = "../target/debug/librust_lib";
 
 fn main() {
+    let matches = App::new("Tracing Simulator")
+        .arg(
+            Arg::with_name("print_graph")
+                  .short("pg")
+                  .long("print_graph")
+                  .value_name("PRINT_GRAPH")
+                  .help("Set if you want ot produce a pdf of the graph you create"),
+        )
+        .get_matches();
+
     // Set up library access
     let mut cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     cargo_dir.push(COMPILED);
@@ -37,11 +48,8 @@ fn main() {
     let _edge8 = simulator.add_one_direction_edge(Channel::new(1, 8), node1, node4); // one way rpc sink
     
     // Print the graph
-    let args: Vec<String> = env::args().collect();
-    for arg in args {
-        if arg == "pg".to_string() {
-            simulator.print_graph();
-        }
+    if let Some(_argument) = matches.value_of("print_graph") {
+        simulator.print_graph();
     }
 
     // Execute the simulator
