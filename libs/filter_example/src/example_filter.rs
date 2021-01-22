@@ -1,11 +1,10 @@
+use crate::graph_utils::{generate_target_graph, generate_trace_graph_from_headers};
+use petgraph::algo::isomorphic_subgraph_mapping;
 use rpc_lib::rpc::Rpc;
 use std::collections::HashMap;
 use std::fs;
-use petgraph::algo::isomorphic_subgraph_mapping;
-use crate::graph_utils::{generate_target_graph, generate_trace_graph_from_headers};
 
 pub type CodeletType = fn(&Filter, &Rpc) -> Option<Rpc>;
-
 
 // user defined functions:
 // init_func: new
@@ -15,7 +14,7 @@ pub type CodeletType = fn(&Filter, &Rpc) -> Option<Rpc>;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Count {
-    counter: u32
+    counter: u32,
 }
 
 impl Count {
@@ -23,12 +22,10 @@ impl Count {
         Count { counter: 0 }
     }
     fn execute(&mut self) -> u32 {
-        self.counter = self.counter+1;
+        self.counter = self.counter + 1;
         self.counter
     }
 }
-
-
 
 // This represents a piece of state of the filter
 // it either contains a user defined function, or some sort of
@@ -45,7 +42,7 @@ impl State {
         State {
             type_of_state: None,
             string_data: None,
-            udf_count:  None ,
+            udf_count: None,
         }
     }
 
@@ -53,7 +50,7 @@ impl State {
         State {
             type_of_state: Some(String::from("String")),
             string_data: Some(str_data),
-            udf_count:  None ,
+            udf_count: None,
         }
     }
 }
@@ -67,26 +64,30 @@ impl Filter {
     #[no_mangle]
     pub fn new() -> Filter {
         Filter {
-	    filter_state: HashMap::new(),
-	}
+            filter_state: HashMap::new(),
+        }
     }
 
     #[no_mangle]
     pub fn new_with_envoy_properties(string_data: HashMap<String, String>) -> Filter {
-         let mut hash = HashMap::new();
-         for key in string_data.keys() {
-             hash.insert(key.clone(), State::new_with_str(string_data[key].clone()));
-         }
-         let new_filter = Filter {
-	    filter_state: hash,
-	 };
-         return new_filter;
+        let mut hash = HashMap::new();
+        for key in string_data.keys() {
+            hash.insert(key.clone(), State::new_with_str(string_data[key].clone()));
+        }
+        let new_filter = Filter { filter_state: hash };
+        return new_filter;
     }
 
     #[no_mangle]
     pub fn execute(&mut self, x: &Rpc) -> Option<Rpc> {
         // 0. Who am I?
-        let my_node = self.filter_state.get("WORKLOAD_NAME").unwrap().string_data.clone().unwrap();
+        let my_node = self
+            .filter_state
+            .get("WORKLOAD_NAME")
+            .unwrap()
+            .string_data
+            .clone()
+            .unwrap();
 
         // 1. Do I need to put any udf variables/objects in?
 
@@ -97,19 +98,24 @@ impl Filter {
             self.filter_state.insert(String::from("count"), new_state);
         }
 
-
         // 2. TODO: Find the node attributes to be collected
 
         // 3.  Make a subgraph representing the query, check isomorphism compared to the
         //     observed trace, and do return calls based on that info
         if my_node == String::from("0") {
             // we need to create the graph given by the query
-            let vertices = vec![ String::from("n"), String::from("m"),   ];
-            let edges = vec![  ( String::from("n"), String::from("m"),  ),  ];
+            let vertices = vec![String::from("n"), String::from("m")];
+            let edges = vec![(String::from("n"), String::from("m"))];
             let mut ids_to_properties: HashMap<String, Vec<String>> = HashMap::new();
 
-            ids_to_properties.insert(String::from("a"), vec![  String::from("node"),  String::from("metadata"),  String::from("WORKLOAD_NAME"),  ]);
-
+            ids_to_properties.insert(
+                String::from("a"),
+                vec![
+                    String::from("node"),
+                    String::from("metadata"),
+                    String::from("WORKLOAD_NAME"),
+                ],
+            );
 
             let target_graph = generate_target_graph(vertices, edges, ids_to_properties);
             let trace_graph = generate_trace_graph_from_headers(x.path.clone());
@@ -122,21 +128,19 @@ impl Filter {
                 let count_ptr = state_ptr.udf_count.as_mut().unwrap();
                 let value = count_ptr.execute().to_string();
                 fs::write("result.txt", value).expect("Unable to write file");
-
-
             }
         }
         let state_ptr = self.filter_state.get_mut("count").unwrap();
         let count_ptr = state_ptr.udf_count.as_mut().unwrap();
         count_ptr.execute();
 
-
         // 4.  Pass the rpc on
-        Some(Rpc{
-            data: x.data, uid: x.uid , path: x.path.clone()
-             }   )
+        Some(Rpc {
+            data: x.data,
+            uid: x.uid,
+            path: x.path.clone(),
+        })
     }
-
 }
 
 #[cfg(test)]
