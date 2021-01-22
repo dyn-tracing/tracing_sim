@@ -45,12 +45,20 @@ impl SimElement for PluginWrapper {
             vec![]
         }
     }
-    fn recv(&mut self, rpc: Rpc, _tick: u64) {
+    fn recv(&mut self, rpc: Rpc, _tick: u64, _sender: u32) {
         assert!(self.stored_rpc.is_none(), "Overwriting previous RPC");
         self.stored_rpc = Some(rpc);
     }
     fn add_connection(&mut self, neighbor: u32) {
         self.neighbor = Some(neighbor);
+    }
+    fn whoami(&self) -> (&str, u32, Vec<u32>) {
+        let mut neighbors = Vec::new();
+        if !self.neighbor.is_none() {
+            neighbors.push(self.neighbor.unwrap());
+        }
+        return ("PluginWrapper", self.id, neighbors);
+        
     }
 }
 

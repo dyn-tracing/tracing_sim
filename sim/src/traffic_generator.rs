@@ -16,7 +16,7 @@ impl TrafficGenerator {
 }
 
 impl SimElement for TrafficGenerator {
-    fn recv(&mut self, _rpc : Rpc, _tick : u64) {
+    fn recv(&mut self, _rpc : Rpc, _tick : u64, _sender : u32) {
         unimplemented!("TrafficGenerator can not receive.");
     }
 
@@ -29,6 +29,14 @@ impl SimElement for TrafficGenerator {
 
     fn add_connection(&mut self, neighbor : u32) {
         self.neighbor = Some(neighbor);
+    }
+
+    fn whoami(&self) -> (&str, u32, Vec<u32>) {
+        let mut neighbors = Vec::new();
+        if !self.neighbor.is_none() {
+            neighbors.push(self.neighbor.unwrap());
+        }
+        return ("TrafficGenerator", self.id, neighbors);
     }
 }
 

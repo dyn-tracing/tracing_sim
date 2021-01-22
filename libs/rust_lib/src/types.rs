@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::fs;
 use crate::rpc::Rpc;
 
 pub type CodeletType = fn(&Filter, &Rpc) -> Option<Rpc>;
@@ -40,4 +39,3 @@ pub struct State {
 pub struct Filter {
     pub filter_state: HashMap<String, State>,
 }
-
