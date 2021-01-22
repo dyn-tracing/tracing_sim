@@ -58,7 +58,6 @@ impl SimElement for PluginWrapper {
             neighbors.push(self.neighbor.unwrap());
         }
         return ("PluginWrapper", self.id, neighbors);
-        
     }
 }
 

@@ -1,5 +1,8 @@
+[workspace]
+members = []
+
 [package]
-name = "filter_lib"
+name = "filter_example"
 version = "0.1.0"
 authors = ["Jessica Berg <jb7399@nyu.edu>"]
 edition = "2018"

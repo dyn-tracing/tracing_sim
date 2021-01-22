@@ -15,7 +15,7 @@ use std::env;
 use std::path::PathBuf;
 use traffic_generator::TrafficGenerator;
 
-static COMPILED: &str = "../target/debug/librust_lib";
+static COMPILED: &str = "../libs/rust_filter/target/debug/librust_filter";
 
 fn main() {
     let matches = App::new("Tracing Simulator")
@@ -45,7 +45,8 @@ fn main() {
     let _edge5 = simulator.add_one_direction_edge(Channel::new(1, 5), tgen, node1);
     let _edge6 = simulator.add_edge(Channel::new(2, 6), node1, node2);
     let _edge7 = simulator.add_edge(Channel::new(2, 7), node1, node3);
-    let _edge8 = simulator.add_one_direction_edge(Channel::new(1, 8), node1, node4); // one way rpc sink
+    // one way rpc sink
+    let _edge8 = simulator.add_one_direction_edge(Channel::new(1, 8), node1, node4);
 
     // Print the graph
     if let Some(_argument) = matches.value_of("print_graph") {
