@@ -1,6 +1,5 @@
 #![feature(test)]
 mod channel;
-mod filter_types;
 mod link;
 mod plugin_wrapper;
 mod sim_element;

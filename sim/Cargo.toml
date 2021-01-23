@@ -1,5 +1,5 @@
 [package]
-name = "tracing_sim"
+name = "sim"
 version = "0.1.0"
 authors = ["Anirudh Sivaraman <sk.anirudh@gmail.com>", "Jessica Berg <jb7399@nyu.edu>", "Fabian Ruffy <fruffy@nyu.edu>"]
 edition = "2018"
@@ -13,5 +13,6 @@ queues = "1.0.2"
 rand="0.7.0"
 clap = "~2.27.0"
 rpc_lib = { path = "../libs/rpc_lib" }
+type_lib = { path = "../libs/type_lib" }
 petgraph = { path = "../libs/petgraph" }
 
