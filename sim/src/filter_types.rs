@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use rpc_lib::rpc::Rpc;
 
-pub type CodeletType = fn(&Filter, &Rpc) -> Option<Rpc>;
+pub type CodeletType = fn(*mut Filter, &Rpc) -> Option<Rpc>;
 
 
 // This represents a piece of state of the filter

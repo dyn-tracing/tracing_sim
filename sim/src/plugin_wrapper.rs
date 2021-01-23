@@ -117,9 +117,7 @@ impl PluginWrapper {
     }
 
     pub fn execute(&self, input: &Rpc) -> Option<Rpc> {
-        unsafe {
-            (self.loaded_function)(&*self.filter, input)
-        }
+        (self.loaded_function)(self.filter, input)
     }
 }
 

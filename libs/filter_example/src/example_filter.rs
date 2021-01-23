@@ -74,7 +74,7 @@ impl Filter {
         for key in string_data.keys() {
             hash.insert(key.clone(), State::new_with_str(string_data[key].clone()));
         }
-        return Box::into_raw(Box::new(Filter { filter_state: hash }));
+        Box::into_raw(Box::new(Filter { filter_state: hash }))
     }
 
     #[no_mangle]
@@ -160,14 +160,14 @@ mod tests {
             path: String::from("ok"),
         };
         my_filter.execute(&incoming_rpc);
-        assert!((my_filter).filter_state.len() == 2);
+        assert!(my_filter.filter_state.len() == 2);
 
-        let state_ptr = (my_filter).filter_state.get_mut("count").unwrap();
+        let state_ptr = my_filter.filter_state.get_mut("count").unwrap();
         let count_ptr = state_ptr.udf_count.as_mut().unwrap();
         count_ptr.execute();
         count_ptr.execute();
         count_ptr.execute();
-        let udf_counter = (my_filter).filter_state
+        let udf_counter = my_filter.filter_state
             .get("count")
             .unwrap()
             .udf_count
