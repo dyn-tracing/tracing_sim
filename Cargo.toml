@@ -1,7 +1,6 @@
 [workspace]
 members = [
     "libs/rpc_lib",
-    "libs/type_lib",
     "libs/petgraph",
     "libs/filter_example",
     "sim",

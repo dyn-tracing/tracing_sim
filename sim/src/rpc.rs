@@ -9,7 +9,7 @@ pub struct Rpc {
 impl Rpc {
     pub fn new_rpc(data : u32 ) -> Self {
         static mut COUNTER : u64 = 0;
-        let ret = unsafe { Rpc { data : data, uid : COUNTER , path : String::new() } };
+        let ret = unsafe { Rpc { data, uid : COUNTER , path : String::new() } };
         unsafe { COUNTER = COUNTER + 1; }
         ret
     }

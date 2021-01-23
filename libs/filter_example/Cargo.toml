@@ -13,6 +13,5 @@ path = "src/lib.rs"
 [dependencies]
 petgraph = { path = "../petgraph" }
 rpc_lib = { path = "../rpc_lib" }
-type_lib = { path = "../type_lib" }
 
 
