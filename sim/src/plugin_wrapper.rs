@@ -1,15 +1,15 @@
-use crate::filter_types::{CodeletType, Filter};
 use crate::sim_element::SimElement;
 use rpc_lib::rpc::Rpc;
 use std::collections::HashMap;
 use std::env;
 use std::fmt;
 use std::path::PathBuf;
+use crate::filter_types::{CodeletType, Filter, NewWithEnvoyProperties};
 
 pub struct PluginWrapper {
     // https://docs.rs/libloading/0.6.5/libloading/os/index.html
     // TODO: Currently uses a platform-specific binding, which isn't very safe.
-    filter: Filter,
+    filter: *mut Filter,
     loaded_function: libloading::os::unix::Symbol<CodeletType>,
     id: u32,
     stored_rpc: Option<Rpc>,
@@ -91,25 +91,22 @@ impl PluginWrapper {
     pub fn new(plugin_str: &str, id: u32) -> PluginWrapper {
         let dyn_lib = load_lib(plugin_str);
         // Dynamically load one function to initialize hash table in filter.
-        let filter_init = unsafe {
-            let tmp_loaded_function: libloading::Symbol<fn(HashMap<String, String>) -> Filter> =
-                dyn_lib
-                    .get("new_with_envoy_properties".as_bytes())
-                    .expect("load symbol");
-            tmp_loaded_function.into_raw()
+        let init: libloading::Symbol<NewWithEnvoyProperties>;
+        let mut envoy_properties = HashMap::new();
+        envoy_properties.insert(String::from("WORKLOAD_NAME"), id.to_string());
+        let new_filter = unsafe {
+            init =  dyn_lib.get(b"new_with_envoy_properties\0").unwrap();
+             // Put in envoy properties in the new filter
+            init.into_raw()(envoy_properties)
         };
 
         // Dynamically load another function to execute filter functionality.
         let loaded_function = unsafe {
             let tmp_loaded_function: libloading::Symbol<CodeletType> =
-                dyn_lib.get("execute".as_bytes()).expect("load symbol");
+                dyn_lib.get(b"execute").expect("load symbol");
             tmp_loaded_function.into_raw()
         };
 
-        // Put in envoy properties in the new filter
-        let mut envoy_properties = HashMap::new();
-        envoy_properties.insert(String::from("WORKLOAD_NAME"), id.to_string());
-        let new_filter = filter_init(envoy_properties);
         PluginWrapper {
             filter: new_filter,
             loaded_function,
@@ -120,7 +117,7 @@ impl PluginWrapper {
     }
 
     pub fn execute(&self, input: &Rpc) -> Option<Rpc> {
-        (self.loaded_function)(&self.filter, input)
+        (self.loaded_function)(self.filter, input)
     }
 }
 

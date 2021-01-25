@@ -62,20 +62,19 @@ pub struct Filter {
 
 impl Filter {
     #[no_mangle]
-    pub fn new() -> Filter {
-        Filter {
+    pub fn new() -> *mut Filter {
+         Box::into_raw(Box::new(Filter {
             filter_state: HashMap::new(),
-        }
+        }))
     }
 
     #[no_mangle]
-    pub fn new_with_envoy_properties(string_data: HashMap<String, String>) -> Filter {
+    pub fn new_with_envoy_properties(string_data: HashMap<String, String>) -> *mut Filter {
         let mut hash = HashMap::new();
         for key in string_data.keys() {
             hash.insert(key.clone(), State::new_with_str(string_data[key].clone()));
         }
-        let new_filter = Filter { filter_state: hash };
-        return new_filter;
+        Box::into_raw(Box::new(Filter { filter_state: hash }))
     }
 
     #[no_mangle]
@@ -151,7 +150,10 @@ mod tests {
     fn test_count_is_persistent() {
         let mut envoy_prop = HashMap::new();
         envoy_prop.insert("WORKLOAD_NAME".to_string(), "HI".to_string());
-        let mut my_filter = Filter::new_with_envoy_properties(envoy_prop);
+        let my_filter = unsafe {
+            &mut *Filter::new_with_envoy_properties(envoy_prop)
+        };
+
         let incoming_rpc = Rpc {
             data: 1,
             uid: 1,
@@ -165,8 +167,7 @@ mod tests {
         count_ptr.execute();
         count_ptr.execute();
         count_ptr.execute();
-        let udf_counter = my_filter
-            .filter_state
+        let udf_counter = my_filter.filter_state
             .get("count")
             .unwrap()
             .udf_count

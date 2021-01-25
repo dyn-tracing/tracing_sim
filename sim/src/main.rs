@@ -1,11 +1,12 @@
 #![feature(test)]
+#![feature(extern_types)]
 mod channel;
-mod filter_types;
 mod link;
 mod plugin_wrapper;
 mod sim_element;
 mod simulator;
 mod traffic_generator;
+mod filter_types;
 
 use channel::Channel;
 use clap::{App, Arg};
