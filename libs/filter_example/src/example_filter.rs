@@ -110,7 +110,7 @@ impl Filter {
 
         // 3.  Make a subgraph representing the query, check isomorphism compared to the
         //     observed trace, and do return calls based on that info
-        if my_node == String::from("0") {
+        if my_node == String::from("1") {
             // we need to create the graph given by the query
             let vertices = vec![String::from("n"), String::from("m")];
             let edges = vec![(String::from("n"), String::from("m"))];
@@ -151,7 +151,7 @@ impl Filter {
                 &trace_graph,
                 |x, y| { 
                     for property in y.1.keys() {
-                        if &(x.1[property]) != &(y.1[property]) { return false; }
+                        if property != &"node.metadata.WORKLOAD_NAME".to_string() && &(x.1[property]) != &(y.1[property]) { return false; }
                     }
                 return true;
                 },
@@ -229,10 +229,70 @@ mod tests {
     }
 
     #[test]
-    fn plugin_test_copy() {
+    fn test_filter_creation() {
         let mut envoy_properties = HashMap::new();
         envoy_properties.insert("node.metadata.WORKLOAD_NAME".to_string(), "a".to_string());
-        let mut my_filter = Filter::new_with_envoy_properties(envoy_properties);
+        let my_filter = Filter::new_with_envoy_properties(envoy_properties);
         unsafe { my_filter.as_mut().unwrap().execute(&Rpc::new_rpc(0)) };
     }
+
+    fn test_isomorphism_works_with_properties(path: String) {
+        
+            let vertices = vec![String::from("n"), String::from("m")];
+            let edges = vec![(String::from("n"), String::from("m"))];
+            let mut ids_to_properties: HashMap<String, HashMap<String, String>> = HashMap::new();
+
+            let mut n_properties_hashmap = HashMap::new();
+            n_properties_hashmap.insert(
+                vec![
+                    String::from("node"),
+                    String::from("metadata"),
+                    String::from("WORKLOAD_NAME"),
+                ].join("."), 
+                "n".to_string()
+            );
+            ids_to_properties.insert(
+                String::from("n"),
+                n_properties_hashmap,
+            );
+
+            let mut m_properties_hashmap = HashMap::new();
+            m_properties_hashmap.insert(
+                vec![
+                    String::from("node"),
+                    String::from("metadata"),
+                    String::from("WORKLOAD_NAME"),
+                ].join("."), 
+                "m".to_string()
+            );
+            ids_to_properties.insert(
+                String::from("m"),
+                m_properties_hashmap,
+            );
+
+            let target_graph = generate_target_graph(vertices, edges, ids_to_properties);
+            let trace_graph = generate_trace_graph_from_headers(path);
+            let mapping = isomorphic_subgraph_matching(
+                &target_graph,
+                &trace_graph,
+                |x, y| { 
+                    for property in y.1.keys() {
+                        if property != &"node.metadata.WORKLOAD_NAME".to_string() && &(x.1[property]) != &(y.1[property]) { return false; }
+                    }
+                return true;
+                },
+                |x, y| x == y,
+            );
+            assert!(!mapping.is_none());
+            assert!(mapping.unwrap().len()>0);
+    }
+
+    #[test]
+    fn test_mappings() {
+        test_isomorphism_works_with_properties(" 0 1".to_string());
+        test_isomorphism_works_with_properties(" 0 1 2".to_string());
+
+
+    }
+
 }
