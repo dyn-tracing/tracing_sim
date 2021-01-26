@@ -89,6 +89,7 @@ impl Filter {
                        data: x.data,
                        uid: x.uid,
                        path: x.path.clone(),
+                       headers: x.headers.clone(),
                    });
         }
         let my_node = my_node_wrapped
@@ -176,6 +177,7 @@ impl Filter {
             data: x.data,
             uid: x.uid,
             path: x.path.clone(),
+            headers: x.headers.clone(),
         })
     }
 }
@@ -194,6 +196,7 @@ mod tests {
             data: 1,
             uid: 1,
             path: String::from("ok"),
+            headers: HashMap::new(),
         };
         my_filter.execute(&incoming_rpc);
         assert!(my_filter.filter_state.len() == 2);
