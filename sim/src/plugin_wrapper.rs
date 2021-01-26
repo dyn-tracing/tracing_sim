@@ -1,10 +1,10 @@
+use crate::filter_types::{CodeletType, Filter, NewWithEnvoyProperties};
 use crate::sim_element::SimElement;
 use rpc_lib::rpc::Rpc;
 use std::collections::HashMap;
 use std::env;
 use std::fmt;
 use std::path::PathBuf;
-use crate::filter_types::{CodeletType, Filter, NewWithEnvoyProperties};
 
 pub struct PluginWrapper {
     // https://docs.rs/libloading/0.6.5/libloading/os/index.html
@@ -93,10 +93,10 @@ impl PluginWrapper {
         // Dynamically load one function to initialize hash table in filter.
         let init: libloading::Symbol<NewWithEnvoyProperties>;
         let mut envoy_properties = HashMap::new();
-        envoy_properties.insert(String::from("WORKLOAD_NAME"), id.to_string());
+        envoy_properties.insert(String::from("node.metadata.WORKLOAD_NAME"), id.to_string());
         let new_filter = unsafe {
-            init =  dyn_lib.get(b"new_with_envoy_properties\0").unwrap();
-             // Put in envoy properties in the new filter
+            init = dyn_lib.get(b"new_with_envoy_properties\0").unwrap();
+            // Put in envoy properties in the new filter
             init.into_raw()(envoy_properties)
         };
 

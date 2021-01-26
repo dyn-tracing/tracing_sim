@@ -1,5 +1,5 @@
 use crate::graph_utils::{generate_target_graph, generate_trace_graph_from_headers};
-use petgraph::algo::isomorphic_subgraph_mapping;
+use petgraph::algo::isomorphic_subgraph_matching;
 use rpc_lib::rpc::Rpc;
 use std::collections::HashMap;
 use std::fs;
@@ -63,7 +63,7 @@ pub struct Filter {
 impl Filter {
     #[no_mangle]
     pub fn new() -> *mut Filter {
-         Box::into_raw(Box::new(Filter {
+        Box::into_raw(Box::new(Filter {
             filter_state: HashMap::new(),
         }))
     }
@@ -80,9 +80,18 @@ impl Filter {
     #[no_mangle]
     pub fn execute(&mut self, x: &Rpc) -> Option<Rpc> {
         // 0. Who am I?
-        let my_node = self
+        let my_node_wrapped = self
             .filter_state
-            .get("WORKLOAD_NAME")
+            .get("node.metadata.WORKLOAD_NAME");
+        if my_node_wrapped.is_none() {
+            print!("WARNING: filter was initialized without envoy properties and thus cannot function");
+            return Some(Rpc {
+                       data: x.data,
+                       uid: x.uid,
+                       path: x.path.clone(),
+                   });
+        }
+        let my_node = my_node_wrapped
             .unwrap()
             .string_data
             .clone()
@@ -105,20 +114,49 @@ impl Filter {
             // we need to create the graph given by the query
             let vertices = vec![String::from("n"), String::from("m")];
             let edges = vec![(String::from("n"), String::from("m"))];
-            let mut ids_to_properties: HashMap<String, Vec<String>> = HashMap::new();
+            let mut ids_to_properties: HashMap<String, HashMap<String, String>> = HashMap::new();
 
-            ids_to_properties.insert(
-                String::from("a"),
+            let mut n_properties_hashmap = HashMap::new();
+            n_properties_hashmap.insert(
                 vec![
                     String::from("node"),
                     String::from("metadata"),
                     String::from("WORKLOAD_NAME"),
-                ],
+                ].join("."), 
+                "n".to_string()
+            );
+            ids_to_properties.insert(
+                String::from("n"),
+                n_properties_hashmap,
+            );
+
+            let mut m_properties_hashmap = HashMap::new();
+            m_properties_hashmap.insert(
+                vec![
+                    String::from("node"),
+                    String::from("metadata"),
+                    String::from("WORKLOAD_NAME"),
+                ].join("."), 
+                "m".to_string()
+            );
+            ids_to_properties.insert(
+                String::from("m"),
+                m_properties_hashmap,
             );
 
             let target_graph = generate_target_graph(vertices, edges, ids_to_properties);
             let trace_graph = generate_trace_graph_from_headers(x.path.clone());
-            let mapping = isomorphic_subgraph_mapping(&trace_graph, &target_graph);
+            let mapping = isomorphic_subgraph_matching(
+                &target_graph,
+                &trace_graph,
+                |x, y| { 
+                    for property in y.1.keys() {
+                        if &(x.1[property]) != &(y.1[property]) { return false; }
+                    }
+                return true;
+                },
+                |x, y| x == y,
+            );
             if !mapping.is_none() {
                 // In the non-simulator version, we will send the result to storage.  Given this is
                 // a simulation, we will write it to a file.
@@ -149,10 +187,8 @@ mod tests {
     #[test]
     fn test_count_is_persistent() {
         let mut envoy_prop = HashMap::new();
-        envoy_prop.insert("WORKLOAD_NAME".to_string(), "HI".to_string());
-        let my_filter = unsafe {
-            &mut *Filter::new_with_envoy_properties(envoy_prop)
-        };
+        envoy_prop.insert("node.metadata.WORKLOAD_NAME".to_string(), "HI".to_string());
+        let my_filter = unsafe { &mut *Filter::new_with_envoy_properties(envoy_prop) };
 
         let incoming_rpc = Rpc {
             data: 1,
@@ -167,7 +203,8 @@ mod tests {
         count_ptr.execute();
         count_ptr.execute();
         count_ptr.execute();
-        let udf_counter = my_filter.filter_state
+        let udf_counter = my_filter
+            .filter_state
             .get("count")
             .unwrap()
             .udf_count
@@ -189,5 +226,13 @@ mod tests {
         count_ptr.execute();
         let udf_counter = map.get("hi").unwrap().udf_count.unwrap().counter;
         assert!(udf_counter == 2, "Counter {} was not 2", udf_counter);
+    }
+
+    #[test]
+    fn plugin_test_copy() {
+        let mut envoy_properties = HashMap::new();
+        envoy_properties.insert("node.metadata.WORKLOAD_NAME".to_string(), "a".to_string());
+        let mut my_filter = Filter::new_with_envoy_properties(envoy_properties);
+        unsafe { my_filter.as_mut().unwrap().execute(&Rpc::new_rpc(0)) };
     }
 }
