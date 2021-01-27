@@ -52,8 +52,9 @@ jobs:
          toolchain: nightly
          components: rustfmt
          override: true
-    - name: Check with fmt
+    - name: Add fmt
       run: rustup component add rustfmt
+    - name: Check with fmt
       uses: actions-rs/cargo@v1
       with:
         command: fmt
@@ -74,8 +75,9 @@ jobs:
          toolchain: nightly
          components: rustfmt
          override: true
-    - name: Check with clippy
+    - name: Add clippy
       run: rustup component add clippy
+    - name: Check with clippy
       uses: actions-rs/cargo@v1
       with:
        command: clippy
