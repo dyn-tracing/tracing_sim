@@ -28,8 +28,15 @@ pub fn generate_target_graph(
 
     let mut nodes_to_node_handles: HashMap<String, NodeIndex> = HashMap::new();
     for node in vertices {
-        assert!(ids_to_properties.contains_key(&node), "{0} is a node that wasn't in ids_to_properties\n", node);
-        nodes_to_node_handles.insert(node.clone(), graph.add_node((node.clone(), ids_to_properties[&node].clone())));
+        assert!(
+            ids_to_properties.contains_key(&node),
+            "{0} is a node that wasn't in ids_to_properties\n",
+            node
+        );
+        nodes_to_node_handles.insert(
+            node.clone(),
+            graph.add_node((node.clone(), ids_to_properties[&node].clone())),
+        );
     }
 
     // Make edges with handles instead of the vertex names
@@ -113,16 +120,23 @@ pub fn generate_trace_graph_from_headers(
                     property.push_str(&quality);
                     property.push_str(".");
                 }
-                let _ = property.pop();  // get rid of trailing period
-                let node_weight: &mut (String, HashMap<String, String>) = graph.node_weight_mut(node_str_to_node_handle[node]).unwrap();
-                node_weight.1.insert(property, values_iterator.next().unwrap().to_string());
+                let _ = property.pop(); // get rid of trailing period
+                let node_weight: &mut (String, HashMap<String, String>) = graph
+                    .node_weight_mut(node_str_to_node_handle[node])
+                    .unwrap();
+                node_weight
+                    .1
+                    .insert(property, values_iterator.next().unwrap().to_string());
             }
         }
     }
     graph
 }
 
-pub fn get_node_with_id(graph: &Graph<(String, HashMap<String, String>), String>, node_name: String) -> Option<NodeIndex> {
+pub fn get_node_with_id(
+    graph: &Graph<(String, HashMap<String, String>), String>,
+    node_name: String,
+) -> Option<NodeIndex> {
     for index in graph.node_indices() {
         if &graph.node_weight(index).unwrap().0 == &node_name {
             return Some(index);
@@ -198,7 +212,7 @@ mod tests {
         c_hashmap.insert("node.metadata.WORKLOAD_NAME".to_string(), "c".to_string());
         ids_to_properties.insert("c".to_string(), c_hashmap);
 
-        assert!(ids_to_properties.keys().len()==3);
+        assert!(ids_to_properties.keys().len() == 3);
         assert!(ids_to_properties.contains_key(&"a".to_string()));
         assert!(ids_to_properties.contains_key(&"b".to_string()));
         assert!(ids_to_properties.contains_key(&"c".to_string()));
@@ -251,10 +265,10 @@ mod tests {
 
     #[test]
     fn test_get_out_degree() {
-        let straight_graph = generate_trace_graph_from_headers("0 1 2 3 4 5 6".to_string(), String::new());
+        let straight_graph =
+            generate_trace_graph_from_headers("0 1 2 3 4 5 6".to_string(), String::new());
         assert!(get_out_degree(&straight_graph, None) == 1);
     }
-
 
     #[test]
     fn test_get_node_with_id() {
@@ -265,7 +279,10 @@ mod tests {
 
     #[test]
     fn test_parsing_of_properties_in_trace_graph_creation() {
-        let graph = generate_trace_graph_from_headers(" 0 1 2 3 ".to_string(), "0.property==thing,".to_string());
+        let graph = generate_trace_graph_from_headers(
+            " 0 1 2 3 ".to_string(),
+            "0.property==thing,".to_string(),
+        );
         let ret = get_node_with_id(&graph, "0".to_string()).unwrap();
         assert!(graph.node_weight(ret).unwrap().1[&"property".to_string()] == "thing");
     }
