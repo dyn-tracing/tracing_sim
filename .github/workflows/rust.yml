@@ -23,11 +23,11 @@ jobs:
         submodules: recursive
     - name: Setup rust
       uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly
-          components: rustfmt
-          override: true
+      with:
+         profile: minimal
+         toolchain: nightly
+         components: rustfmt
+         override: true
     - name: Build
       run: cargo build --verbose
     - name: Run tests
@@ -47,17 +47,17 @@ jobs:
         submodules: recursive
     - name: Setup rust
       uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly
-          components: rustfmt
-          override: true
+      with:
+         profile: minimal
+         toolchain: nightly
+         components: rustfmt
+         override: true
     - name: Check with fmt
-      - run: rustup component add rustfmt
-      - uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+      run: rustup component add rustfmt
+      uses: actions-rs/cargo@v1
+      with:
+        command: fmt
+        args: --all -- --check
 
   clippy:
     name: Clippy
@@ -69,14 +69,14 @@ jobs:
         submodules: recursive
     - name: Setup rust
       uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly
-          components: rustfmt
-          override: true
-    - name: Check with fmt
-      - run: rustup component add clippy
-      - uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: -- -D warnings
+      with:
+         profile: minimal
+         toolchain: nightly
+         components: rustfmt
+         override: true
+    - name: Check with clippy
+      run: rustup component add clippy
+      uses: actions-rs/cargo@v1
+      with:
+       command: clippy
+       args: -- -D warnings
