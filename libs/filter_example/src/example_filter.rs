@@ -1,31 +1,16 @@
-use crate::graph_utils::{generate_target_graph, generate_trace_graph_from_headers};
-use petgraph::algo::isomorphic_subgraph_matching;
 use rpc_lib::rpc::Rpc;
 use std::collections::HashMap;
 use std::fs;
+use petgraph::algo::isomorphic_subgraph_matching;
+use petgraph::graph::NodeIndex;
+use crate::graph_utils;
 
 pub type CodeletType = fn(&Filter, &Rpc) -> Option<Rpc>;
 
+
 // user defined functions:
-// init_func: new
-// exec_func: execute
-// struct_name: Count
-// id: count
 
-#[derive(Clone, Copy, Debug)]
-pub struct Count {
-    counter: u32,
-}
 
-impl Count {
-    fn new() -> Count {
-        Count { counter: 0 }
-    }
-    fn execute(&mut self) -> u32 {
-        self.counter = self.counter + 1;
-        self.counter
-    }
-}
 
 // This represents a piece of state of the filter
 // it either contains a user defined function, or some sort of
@@ -34,7 +19,7 @@ impl Count {
 pub struct State {
     pub type_of_state: Option<String>,
     pub string_data: Option<String>,
-    pub udf_count: Option<Count>,
+    
 }
 
 impl State {
@@ -42,7 +27,7 @@ impl State {
         State {
             type_of_state: None,
             string_data: None,
-            udf_count: None,
+            
         }
     }
 
@@ -50,7 +35,7 @@ impl State {
         State {
             type_of_state: Some(String::from("String")),
             string_data: Some(str_data),
-            udf_count: None,
+            
         }
     }
 }
@@ -63,7 +48,7 @@ pub struct Filter {
 impl Filter {
     #[no_mangle]
     pub fn new() -> *mut Filter {
-        Box::into_raw(Box::new(Filter {
+         Box::into_raw(Box::new(Filter {
             filter_state: HashMap::new(),
         }))
     }
@@ -79,18 +64,14 @@ impl Filter {
 
     #[no_mangle]
     pub fn execute(&mut self, x: &Rpc) -> Option<Rpc> {
+        let mut to_return = Rpc { data: x.data, uid: x.uid, path: x.path.clone(), headers: x.headers.clone() };
         // 0. Who am I?
         let my_node_wrapped = self
             .filter_state
             .get("node.metadata.WORKLOAD_NAME");
         if my_node_wrapped.is_none() {
             print!("WARNING: filter was initialized without envoy properties and thus cannot function");
-            return Some(Rpc {
-                       data: x.data,
-                       uid: x.uid,
-                       path: x.path.clone(),
-                       headers: x.headers.clone(),
-                   });
+            return Some(to_return);
         }
         let my_node = my_node_wrapped
             .unwrap()
@@ -98,59 +79,99 @@ impl Filter {
             .clone()
             .unwrap();
 
+
         // 1. Do I need to put any udf variables/objects in?
+        
 
-        if !self.filter_state.contains_key(&String::from("count")) {
-            let mut new_state = State::new();
-            new_state.type_of_state = Some(String::from("count"));
-            new_state.udf_count = Some(Count::new());
-            self.filter_state.insert(String::from("count"), new_state);
+        // 2. Include any relevant node attributes
+        let mut data_to_append: String;
+        let mut data_key: String;
+        let mut me;
+        
+
+        me = my_node.clone();
+        me.insert_str(0, " ");
+        me.push_str(".");
+
+        data_key = vec![  String::from("node"),  String::from("metadata"),  String::from("WORKLOAD_NAME"),  ].join(".");
+        data_to_append = self.filter_state[&data_key].string_data.as_ref().unwrap().to_string();
+        me.push_str(&data_key);
+        me.push_str("==");
+        me.push_str(&data_to_append);
+        me.push_str(",");
+
+        if to_return.headers.contains_key(&"properties".to_string()) {
+            to_return.headers.get_mut(&"properties".to_string()).unwrap().push_str(&me);
         }
+        else {
+            to_return.headers.insert("properties".to_string(), me);
+        }
+        
+        
 
-        // 2. TODO: Find the node attributes to be collected
+        me = my_node.clone();
+        me.insert_str(0, " ");
+        me.push_str(".");
+
+        data_key = vec![  String::from("response"),  String::from("total_size"),  ].join(".");
+        data_to_append = self.filter_state[&data_key].string_data.as_ref().unwrap().to_string();
+        me.push_str(&data_key);
+        me.push_str("==");
+        me.push_str(&data_to_append);
+        me.push_str(",");
+
+        if to_return.headers.contains_key(&"properties".to_string()) {
+            to_return.headers.get_mut(&"properties".to_string()).unwrap().push_str(&me);
+        }
+        else {
+            to_return.headers.insert("properties".to_string(), me);
+        }
+        
+        
 
         // 3.  Make a subgraph representing the query, check isomorphism compared to the
         //     observed trace, and do return calls based on that info
-        if my_node == String::from("1") {
+        if my_node == String::from("0") {
             // we need to create the graph given by the query
-            let vertices = vec![String::from("n"), String::from("m")];
-            let edges = vec![(String::from("n"), String::from("m"))];
+            let vertices = vec![ String::from("c"), String::from("d"), String::from("a"), String::from("b"),   ];
+            let edges = vec![  ( String::from("a"), String::from("b"),  ),  ( String::from("b"), String::from("c"),  ),  ( String::from("a"), String::from("d"),  ),  ];
+            // ids_to_properties is a HashMap taking <(NodeName, Properties), Desired Value>, so if the query says
+            // a.service_name == productpagev1"
+            // in ids_to_properties we have
+            // ids_to_properties("a", { node.metadata.WORKLOAD_NAME = "productpage-v1" } )
             let mut ids_to_properties: HashMap<String, HashMap<String, String>> = HashMap::new();
 
-            let mut n_properties_hashmap = HashMap::new();
-            n_properties_hashmap.insert(
-                vec![
-                    String::from("node"),
-                    String::from("metadata"),
-                    String::from("WORKLOAD_NAME"),
-                ].join("."), 
-                "n".to_string()
-            );
-            ids_to_properties.insert(
-                String::from("n"),
-                n_properties_hashmap,
-            );
+            
+            let mut a_property_hashmap = HashMap::new();
+            a_property_hashmap.insert(vec! [  String::from("node"),  String::from("metadata"),  String::from("WORKLOAD_NAME"),  ].join("."), "productpage-v1".to_string());
+            ids_to_properties.insert("a".to_string(), a_property_hashmap.clone());
+            
+            let mut b_property_hashmap = HashMap::new();
+            b_property_hashmap.insert(vec! [  String::from("node"),  String::from("metadata"),  String::from("WORKLOAD_NAME"),  ].join("."), "reviewsv2".to_string());
+            ids_to_properties.insert("b".to_string(), b_property_hashmap.clone());
+            
+            let mut c_property_hashmap = HashMap::new();
+            c_property_hashmap.insert(vec! [  String::from("node"),  String::from("metadata"),  String::from("WORKLOAD_NAME"),  ].join("."), "ratingsv1".to_string());
+            ids_to_properties.insert("c".to_string(), c_property_hashmap.clone());
+            
+            let mut d_property_hashmap = HashMap::new();
+            d_property_hashmap.insert(vec! [  String::from("node"),  String::from("metadata"),  String::from("WORKLOAD_NAME"),  ].join("."), "detailsv1".to_string());
+            ids_to_properties.insert("d".to_string(), d_property_hashmap.clone());
+            
 
-            let mut m_properties_hashmap = HashMap::new();
-            m_properties_hashmap.insert(
-                vec![
-                    String::from("node"),
-                    String::from("metadata"),
-                    String::from("WORKLOAD_NAME"),
-                ].join("."), 
-                "m".to_string()
-            );
-            ids_to_properties.insert(
-                String::from("m"),
-                m_properties_hashmap,
-            );
+            let target_graph = graph_utils::generate_target_graph(vertices, edges, ids_to_properties);
+            let trace_graph;
+            if x.headers.contains_key(&"properties".to_string()) {
+                trace_graph = graph_utils::generate_trace_graph_from_headers(x.path.clone(), to_return.headers.get_mut(&"properties".to_string()).unwrap().to_string());
+            }
+            else {
+                trace_graph = graph_utils::generate_trace_graph_from_headers(x.path.clone(), String::new());
 
-            let target_graph = generate_target_graph(vertices, edges, ids_to_properties);
-            let trace_graph = generate_trace_graph_from_headers(x.path.clone());
+            }
             let mapping = isomorphic_subgraph_matching(
                 &target_graph,
                 &trace_graph,
-                |x, y| { 
+                |x, y| {
                     for property in y.1.keys() {
                         if property != &"node.metadata.WORKLOAD_NAME".to_string() && &(x.1[property]) != &(y.1[property]) { return false; }
                     }
@@ -159,143 +180,34 @@ impl Filter {
                 |x, y| x == y,
             );
             if !mapping.is_none() {
+                let m = mapping.unwrap();
                 // In the non-simulator version, we will send the result to storage.  Given this is
                 // a simulation, we will write it to a file.
+                let node_ptr = graph_utils::get_node_with_id(&target_graph, "a".to_string());
+               if node_ptr.is_none() {
+                   print!("WARNING Node a not found");
+                   return  Some(to_return);
+               }
+               let trace_node_index = NodeIndex::new(m[node_ptr.unwrap().index()]);
+               let a_response_total_size_str = &trace_graph.node_weight(trace_node_index).unwrap().1[ &vec!["response", "total_size"].join(".") ];
 
-                let state_ptr = self.filter_state.get_mut("count").unwrap();
-                let count_ptr = state_ptr.udf_count.as_mut().unwrap();
-                let value = count_ptr.execute().to_string();
-                fs::write("result.txt", value).expect("Unable to write file");
+                
+                
+                fs::write("result.txt", a_response_total_size_str).expect("Unable to write file");
+                
+                
+
+
+                
+
             }
         }
-        let state_ptr = self.filter_state.get_mut("count").unwrap();
-        let count_ptr = state_ptr.udf_count.as_mut().unwrap();
-        count_ptr.execute();
-
-        // 4.  Pass the rpc on
-        Some(Rpc {
-            data: x.data,
-            uid: x.uid,
-            path: x.path.clone(),
-            headers: x.headers.clone(),
-        })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_count_is_persistent() {
-        let mut envoy_prop = HashMap::new();
-        envoy_prop.insert("node.metadata.WORKLOAD_NAME".to_string(), "HI".to_string());
-        let my_filter = unsafe { &mut *Filter::new_with_envoy_properties(envoy_prop) };
-
-        let incoming_rpc = Rpc {
-            data: 1,
-            uid: 1,
-            path: String::from("ok"),
-            headers: HashMap::new(),
-        };
-        my_filter.execute(&incoming_rpc);
-        assert!(my_filter.filter_state.len() == 2);
-
-        let state_ptr = my_filter.filter_state.get_mut("count").unwrap();
-        let count_ptr = state_ptr.udf_count.as_mut().unwrap();
-        count_ptr.execute();
-        count_ptr.execute();
-        count_ptr.execute();
-        let udf_counter = my_filter
-            .filter_state
-            .get("count")
-            .unwrap()
-            .udf_count
-            .unwrap()
-            .counter;
-        assert!(udf_counter == 4, "Counter {} was not 4", udf_counter);
-    }
-
-    #[test]
-    fn test_count_is_persistent_hashmap_level() {
-        let mut map = HashMap::new();
-        let mut state = State::new();
-        state.udf_count = Some(Count::new());
-        map.insert("hi".to_string(), state);
-        assert!(map.len() == 1);
-        let state_ptr = map.get_mut("hi").unwrap();
-        let count_ptr = state_ptr.udf_count.as_mut().unwrap();
-        count_ptr.execute();
-        count_ptr.execute();
-        let udf_counter = map.get("hi").unwrap().udf_count.unwrap().counter;
-        assert!(udf_counter == 2, "Counter {} was not 2", udf_counter);
-    }
-
-    #[test]
-    fn test_filter_creation() {
-        let mut envoy_properties = HashMap::new();
-        envoy_properties.insert("node.metadata.WORKLOAD_NAME".to_string(), "a".to_string());
-        let my_filter = Filter::new_with_envoy_properties(envoy_properties);
-        unsafe { my_filter.as_mut().unwrap().execute(&Rpc::new_rpc(0)) };
-    }
-
-    fn test_isomorphism_works_with_properties(path: String) {
+        // 4.  Allow udfs to execute
         
-            let vertices = vec![String::from("n"), String::from("m")];
-            let edges = vec![(String::from("n"), String::from("m"))];
-            let mut ids_to_properties: HashMap<String, HashMap<String, String>> = HashMap::new();
-
-            let mut n_properties_hashmap = HashMap::new();
-            n_properties_hashmap.insert(
-                vec![
-                    String::from("node"),
-                    String::from("metadata"),
-                    String::from("WORKLOAD_NAME"),
-                ].join("."), 
-                "n".to_string()
-            );
-            ids_to_properties.insert(
-                String::from("n"),
-                n_properties_hashmap,
-            );
-
-            let mut m_properties_hashmap = HashMap::new();
-            m_properties_hashmap.insert(
-                vec![
-                    String::from("node"),
-                    String::from("metadata"),
-                    String::from("WORKLOAD_NAME"),
-                ].join("."), 
-                "m".to_string()
-            );
-            ids_to_properties.insert(
-                String::from("m"),
-                m_properties_hashmap,
-            );
-
-            let target_graph = generate_target_graph(vertices, edges, ids_to_properties);
-            let trace_graph = generate_trace_graph_from_headers(path);
-            let mapping = isomorphic_subgraph_matching(
-                &target_graph,
-                &trace_graph,
-                |x, y| { 
-                    for property in y.1.keys() {
-                        if property != &"node.metadata.WORKLOAD_NAME".to_string() && &(x.1[property]) != &(y.1[property]) { return false; }
-                    }
-                return true;
-                },
-                |x, y| x == y,
-            );
-            assert!(!mapping.is_none());
-            assert!(mapping.unwrap().len()>0);
-    }
-
-    #[test]
-    fn test_mappings() {
-        test_isomorphism_works_with_properties(" 0 1".to_string());
-        test_isomorphism_works_with_properties(" 0 1 2".to_string());
 
 
+        // 5.  Pass the rpc on
+        Some(to_return)
     }
 
 }

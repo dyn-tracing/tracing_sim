@@ -94,6 +94,8 @@ impl PluginWrapper {
         let init: libloading::Symbol<NewWithEnvoyProperties>;
         let mut envoy_properties = HashMap::new();
         envoy_properties.insert(String::from("node.metadata.WORKLOAD_NAME"), id.to_string());
+        envoy_properties.insert(String::from("response.total_size"), "1".to_string());
+        envoy_properties.insert(String::from("response.code"), "200".to_string());
         let new_filter = unsafe {
             init = dyn_lib.get(b"new_with_envoy_properties\0").unwrap();
             // Put in envoy properties in the new filter
