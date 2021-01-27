@@ -72,6 +72,7 @@ impl Filter {
         if my_node_wrapped.is_none() {
             print!("WARNING: filter was initialized without envoy properties and thus cannot function");
             return Some(to_return);
+
         }
         let my_node = my_node_wrapped
             .unwrap()
@@ -190,12 +191,12 @@ impl Filter {
                }
                let trace_node_index = NodeIndex::new(m[node_ptr.unwrap().index()]);
                let a_response_total_size_str = &trace_graph.node_weight(trace_node_index).unwrap().1[ &vec!["response", "total_size"].join(".") ];
-
                 
                 
                 fs::write("result.txt", a_response_total_size_str).expect("Unable to write file");
                 
                 
+
 
 
                 
