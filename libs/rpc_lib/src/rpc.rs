@@ -21,12 +21,12 @@ impl Rpc {
             }
         };
         unsafe {
-            COUNTER = COUNTER + 1;
+            COUNTER += 1;
         }
         ret
     }
     pub fn add_to_path(&mut self, hop: &str) {
-        self.path.push_str(" ");
+        self.path.push(' ');
         self.path.push_str(hop);
     }
 }
