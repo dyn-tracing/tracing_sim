@@ -14,7 +14,7 @@ impl Rpc {
         static mut COUNTER: u64 = 0;
         let ret = unsafe {
             Rpc {
-                data: data,
+                data,
                 uid: COUNTER,
                 path: String::new(),
                 headers: HashMap::new(),
