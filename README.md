@@ -1,6 +1,6 @@
 # The Tracing Simulator
 
-Tracing Simulatorr is a simulator for webassembly extensions.  With it you can define your own microservices architecture, 
+Tracing Simulator is a simulator for WebAssembly extensions.  With it you can define your own microservices architecture, 
 and run user-defined extensions on each service.
 
 ## Quickstart
