@@ -7,7 +7,6 @@ mod plugin_wrapper;
 mod sim_element;
 mod simulator;
 
-
 use channel::Channel;
 use clap::{App, Arg};
 use node::Node;
