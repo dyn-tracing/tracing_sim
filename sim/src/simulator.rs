@@ -7,6 +7,7 @@ use std::convert::TryInto;
 use std::fmt::Display;
 use std::fs;
 use std::process::Command;
+use crate::node::Node;
 
 // Need to combine SimElement for simulation
 // and Debug for printing.
@@ -29,9 +30,8 @@ impl Simulator {
         }
     }
 
-    pub fn add_node<T: 'static + PrintableElement>(&mut self, element: T) -> usize {
+    pub fn add_node(&mut self, element: Node) -> usize {
         let what_is_element = element.whoami();
-        assert!(what_is_element.0 == "Link" || what_is_element.0 == "TrafficGenerator");
         let node_index = self.graph.add_node(what_is_element.1 as usize);
         self.node_index_to_node
             .insert(self.elements.len(), node_index);
@@ -109,8 +109,7 @@ impl Simulator {
                     // Before we send this rpc on, we should update its path to include the most recently traversed node if applicable
                     // TODO: is cloning the best way to do this?
                     let mut new_rpc = rpc.clone();
-                    if self.elements[src].whoami().0 == "Link"
-                        || self.elements[src].whoami().0 == "TrafficGenerator"
+                    if self.elements[src].whoami().0
                     {
                         new_rpc.add_to_path(&src.to_string());
                     }

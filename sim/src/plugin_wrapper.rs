@@ -52,12 +52,12 @@ impl SimElement for PluginWrapper {
     fn add_connection(&mut self, neighbor: u32) {
         self.neighbor = Some(neighbor);
     }
-    fn whoami(&self) -> (&str, u32, Vec<u32>) {
+    fn whoami(&self) -> (bool, u32, Vec<u32>) {
         let mut neighbors = Vec::new();
         if !self.neighbor.is_none() {
             neighbors.push(self.neighbor.unwrap());
         }
-        return ("PluginWrapper", self.id, neighbors);
+        return (false, self.id, neighbors);
     }
 }
 

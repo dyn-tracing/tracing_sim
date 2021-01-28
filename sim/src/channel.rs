@@ -62,8 +62,8 @@ impl SimElement for Channel {
         assert!(self.neighbor.len() < 2);
         self.neighbor.push(neighbor);
     }
-    fn whoami(&self) -> (&str, u32, Vec<u32>) {
-        return ("Channel", self.id, self.neighbor.clone());
+    fn whoami(&self) -> (bool, u32, Vec<u32>) {
+        return (false, self.id, self.neighbor.clone());
     }
 }
 

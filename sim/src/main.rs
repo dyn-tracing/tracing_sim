@@ -1,18 +1,16 @@
 #![feature(test)]
 #![feature(extern_types)]
 mod channel;
-mod link;
+mod node;
 mod plugin_wrapper;
 mod sim_element;
 mod simulator;
-mod traffic_generator;
 mod filter_types;
 
 use channel::Channel;
 use clap::{App, Arg};
-use link::Link;
+use node::Node;
 use simulator::Simulator;
-use traffic_generator::TrafficGenerator;
 
 fn main() {
     let matches = App::new("Tracing Simulator")
@@ -38,11 +36,11 @@ fn main() {
     // Create simulator object.
     let mut simulator: Simulator = Simulator::new();
 
-    let tgen = simulator.add_node(TrafficGenerator::new(1, 0));
-    let node1 = simulator.add_node(Link::new(2, 1, plugin_str, 1));
-    let node2 = simulator.add_node(Link::new(2, 1, plugin_str, 2));
-    let node3 = simulator.add_node(Link::new(2, 1, plugin_str, 3));
-    let node4 = simulator.add_node(Link::new(2, 1, plugin_str, 4));
+    let tgen = simulator.add_node(Node::new(2, 10, 1, plugin_str, 0)); // traffic generator
+    let node1 = simulator.add_node(Node::new(2, 1, 0, plugin_str, 1));
+    let node2 = simulator.add_node(Node::new(2, 1, 0, plugin_str, 2));
+    let node3 = simulator.add_node(Node::new(2, 1, 0, plugin_str, 3));
+    let node4 = simulator.add_node(Node::new(2, 1, 0, plugin_str, 4));
 
     let _edge5 = simulator.add_one_direction_edge(Channel::new(1, 5), tgen, node1);
     let _edge6 = simulator.add_edge(Channel::new(2, 6), node1, node2);
