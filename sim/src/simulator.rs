@@ -1,3 +1,4 @@
+use crate::node::Node;
 use crate::sim_element::SimElement;
 use petgraph::dot::{Config, Dot};
 use petgraph::graph::{Graph, NodeIndex};
@@ -7,7 +8,6 @@ use std::convert::TryInto;
 use std::fmt::Display;
 use std::fs;
 use std::process::Command;
-use crate::node::Node;
 
 // Need to combine SimElement for simulation
 // and Debug for printing.
@@ -109,8 +109,7 @@ impl Simulator {
                     // Before we send this rpc on, we should update its path to include the most recently traversed node if applicable
                     // TODO: is cloning the best way to do this?
                     let mut new_rpc = rpc.clone();
-                    if self.elements[src].whoami().0
-                    {
+                    if self.elements[src].whoami().0 {
                         new_rpc.add_to_path(&src.to_string());
                     }
                     self.elements[(*dst).unwrap() as usize].recv(new_rpc, tick, src as u32);

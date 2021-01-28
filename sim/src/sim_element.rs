@@ -14,5 +14,4 @@ pub trait SimElement {
     fn whoami(&self) -> (bool, u32, Vec<u32>);
 }
 
-
 pub trait Node {}

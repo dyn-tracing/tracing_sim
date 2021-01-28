@@ -7,13 +7,13 @@ use std::cmp::min;
 use std::fmt;
 
 pub struct Node {
-    queue: Queue<Rpc>,  // queue of rpcs
-    id: u32, // id of the node
-    capacity: u32, // capacity of the node;  how much it can hold at once
-    egress_rate: u32, // rate at which the node can send out rpcs
-    generation_rate: u32,  // rate at which the node can generate rpcs, which are generated regardless of input to the node
+    queue: Queue<Rpc>,             // queue of rpcs
+    id: u32,                       // id of the node
+    capacity: u32,                 // capacity of the node;  how much it can hold at once
+    egress_rate: u32,              // rate at which the node can send out rpcs
+    generation_rate: u32, // rate at which the node can generate rpcs, which are generated regardless of input to the node
     plugin: Option<PluginWrapper>, // filter to the node
-    neighbor: Vec<u32>, // who is the node connected to
+    neighbor: Vec<u32>,   // who is the node connected to
 }
 
 impl fmt::Display for Node {
@@ -54,17 +54,19 @@ impl SimElement for Node {
     fn tick(&mut self, tick: u64) -> Vec<(Rpc, Option<u32>)> {
         let mut ret = vec![];
         let mut rng = rand::thread_rng();
-        for _ in 0..min(self.queue.size()+(self.generation_rate as usize), self.egress_rate as usize) {
+        for _ in 0..min(
+            self.queue.size() + (self.generation_rate as usize),
+            self.egress_rate as usize,
+        ) {
             let mut which_neighbor = None;
             if self.neighbor.len() > 0 {
                 which_neighbor = Some(*self.neighbor.choose(&mut rng).unwrap());
-            } 
+            }
             if self.queue.size() > 0 {
                 let deq = self.dequeue(tick);
                 assert!(deq.is_some());
                 ret.push((deq.unwrap(), which_neighbor));
-            }
-            else {
+            } else {
                 ret.push((Rpc::new_rpc(tick as u32), which_neighbor));
             }
         }
@@ -103,7 +105,13 @@ impl Node {
             return Some(self.queue.remove().unwrap());
         }
     }
-    pub fn new(capacity: u32, egress_rate: u32, generation_rate : u32, plugin: Option<&str>, id: u32) -> Node {
+    pub fn new(
+        capacity: u32,
+        egress_rate: u32,
+        generation_rate: u32,
+        plugin: Option<&str>,
+        id: u32,
+    ) -> Node {
         assert!(capacity >= 1);
         if plugin.is_none() {
             Node {
@@ -162,5 +170,4 @@ mod tests {
         let node = Node::new(2, 1, 0, Some(library_str), 0);
         assert!(!node.plugin.is_none());
     }
-
 }
