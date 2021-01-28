@@ -21,10 +21,13 @@ jobs:
       uses: actions/checkout@v2
       with:
         submodules: recursive
-    - name: Install
-      run: rustup install nightly
-    - name: Change default
-      run: rustup default nightly
+    - name: Setup rust
+      uses: actions-rs/toolchain@v1
+      with:
+         profile: minimal
+         toolchain: nightly
+         components: rustfmt
+         override: true
     - name: Build
       run: cargo build --verbose
     - name: Run tests
@@ -33,3 +36,49 @@ jobs:
       run: cargo bench --verbose
     - name: Run main
       run: cargo run
+
+  fmt:
+    name: Rustfmt
+    runs-on: ubuntu-18.04
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+      with:
+        submodules: recursive
+    - name: Setup rust
+      uses: actions-rs/toolchain@v1
+      with:
+         profile: minimal
+         toolchain: nightly
+         components: rustfmt
+         override: true
+    - name: Add fmt
+      run: rustup component add rustfmt
+    - name: Check with fmt
+      uses: actions-rs/cargo@v1
+      with:
+        command: fmt
+        args: --all -- --check
+
+  # clippy:
+  #   name: Clippy
+  #   runs-on: ubuntu-18.04
+  #   steps:
+  #   - name: Checkout repository
+  #     uses: actions/checkout@v2
+  #     with:
+  #       submodules: recursive
+  #   - name: Setup rust
+  #     uses: actions-rs/toolchain@v1
+  #     with:
+  #        profile: minimal
+  #        toolchain: nightly
+  #        components: rustfmt
+  #        override: true
+  #   - name: Add clippy
+  #     run: rustup component add clippy
+  #   - name: Check with clippy
+  #     uses: actions-rs/cargo@v1
+  #     with:
+  #      command: clippy
+  #      args: -- -D warnings
