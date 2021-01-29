@@ -112,7 +112,7 @@ impl Node {
         }
     }
     pub fn new(
-        id: String,
+        id: &'static str,
         capacity: u32,
         egress_rate: u32,
         generation_rate: u32,
@@ -122,7 +122,7 @@ impl Node {
         if plugin.is_none() {
             Node {
                 queue: queue![],
-                id,
+                id: id.to_string(),
                 capacity,
                 egress_rate,
                 generation_rate,
@@ -135,7 +135,7 @@ impl Node {
             let created_plugin = PluginWrapper::new(plugin_id, plugin.unwrap().to_string());
             Node {
                 queue: queue![],
-                id,
+                id: id.to_string(),
                 capacity,
                 egress_rate,
                 generation_rate,
@@ -153,12 +153,12 @@ mod tests {
 
     #[test]
     fn test_node_creation() {
-        let _node = Node::new("0".to_string(), 2, 2, 1, None);
+        let _node = Node::new("0", 2, 2, 1, None);
     }
 
     #[test]
     fn test_node_capacity_and_egress_rate() {
-        let mut node = Node::new("0".to_string(), 2, 1, 0, None);
+        let mut node = Node::new("0", 2, 1, 0, None);
         assert!(node.capacity == 2);
         assert!(node.egress_rate == 1);
         node.recv(Rpc::new_rpc(0), 0, 0.to_string());
@@ -175,7 +175,7 @@ mod tests {
         let mut cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         cargo_dir.push("../target/debug/libfilter_example");
         let library_str = cargo_dir.to_str().unwrap();
-        let node = Node::new("0".to_string(), 2, 1, 0, Some(library_str));
+        let node = Node::new("0", 2, 1, 0, Some(library_str));
         assert!(!node.plugin.is_none());
     }
 }

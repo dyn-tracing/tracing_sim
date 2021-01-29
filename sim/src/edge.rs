@@ -18,7 +18,7 @@ struct TimestampedRpc {
 pub struct Edge {
     queue: Queue<TimestampedRpc>,
     delay: u64,
-    id: String,
+    id: &'static str,
     neighbor: Vec<String>,
 }
 
@@ -65,7 +65,7 @@ impl SimElement for Edge {
         self.neighbor.push(neighbor);
     }
     fn whoami(&self) -> (bool, String, Vec<String>) {
-        return (false, self.id.clone(), self.neighbor.clone());
+        return (false, self.id.to_string(), self.neighbor.clone());
     }
 }
 
@@ -131,7 +131,7 @@ impl Edge {
             return vec![];
         }
     }
-    pub fn new(id: String, delay: u64) -> Self {
+    pub fn new(id: &'static str, delay: u64) -> Self {
         Edge {
             id: id,
             delay: delay,
@@ -150,7 +150,7 @@ mod tests {
     #[test]
     fn test_edge() {
         let _edge = Edge {
-            id: "0".to_string(),
+            id: "0",
             queue: queue![],
             delay: 0,
             neighbor: Vec::new(),
@@ -160,7 +160,7 @@ mod tests {
     #[bench]
     fn benchmark_enqueue(b: &mut Bencher) {
         let mut edge = Edge {
-            id: "0".to_string(),
+            id: "0",
             queue: queue![],
             delay: 0,
             neighbor: Vec::new(),
@@ -175,7 +175,7 @@ mod tests {
     #[bench]
     fn benchmark_dequeue(b: &mut Bencher) {
         let mut edge = Edge {
-            id: "0".to_string(),
+            id: "0",
             queue: queue![],
             delay: 0,
             neighbor: Vec::new(),

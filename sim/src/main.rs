@@ -44,14 +44,15 @@ fn main() {
     // edge arguments go:  delay, endpoint1, endpoint2, unidirectional
     simulator.add_edge(
         1,
+        "tgen->node1",
         "traffic generator",
         "node 1",
         true,
     );
-    simulator.add_edge(1, "node 1", "node 2", false);
-    simulator.add_edge(1, "node 1", "node 3", false);
+    simulator.add_edge(1, "1->2", "node 1", "node 2", false);
+    simulator.add_edge(1, "1->3", "node 1", "node 3", false);
     //one way rpc sink
-    simulator.add_edge(1, "node 1", "node 4", true);
+    simulator.add_edge(1, "1->4", "node 1", "node 4", true);
 
     // Print the graph
     if let Some(_argument) = matches.value_of("print_graph") {

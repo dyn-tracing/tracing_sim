@@ -44,7 +44,7 @@ impl Simulator {
         generation_rate: u32,
         plugin: Option<&str>,
     ) {
-        let node = Node::new(id.to_string(), capacity, egress_rate, generation_rate, plugin);
+        let node = Node::new(id, capacity, egress_rate, generation_rate, plugin);
         self.add_element(id, node);
         self.node_index_to_node
             .insert(id, self.graph.add_node(id));
@@ -53,29 +53,25 @@ impl Simulator {
     pub fn add_edge(
         &mut self,
         delay: u32,
+        edge_name: &'static str,
         element1: &str,
         element2: &str,
         unidirectional: bool,
     ) {
-        // 1. create the id, which will be the two nodes' ids put together with a _
-        let mut id = element1.to_string();
-        id.push('_');
-        id.push_str(element2);
-
-        // 2. create the edge
-        let edge = Edge::new(id.clone(), delay.into());
-        self.add_element(&id, edge);
+        // 1. create the edge
+        let edge = Edge::new(edge_name, delay.into());
+        self.add_element(edge_name, edge);
         let e1_node = self.node_index_to_node[element1];
         let e2_node = self.node_index_to_node[element2];
         self.graph.add_edge(e1_node, e2_node, "");
 
         // 3. connect the edge to its nodes
-        self.add_connection(element1, &id);
-        self.add_connection(&id, element2);
+        self.add_connection(element1, edge_name);
+        self.add_connection(edge_name, element2);
 
         if !unidirectional {
-            self.add_connection(&id, element1);
-            self.add_connection(element2, &id);
+            self.add_connection(edge_name, element1);
+            self.add_connection(element2, edge_name);
         }
     }
 
