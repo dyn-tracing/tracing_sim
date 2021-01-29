@@ -1,3 +1,6 @@
+//! The struct representing an RPC.  In the simulation, all data carried by the RPC is a u32
+
+
 #[derive(PartialEq, Clone, Debug)]
 #[repr(C)]
 pub struct Rpc {

@@ -1,3 +1,6 @@
+//! This defines the simulator and coordinates all of the sim_elements.  It is a tick-based simulator, so at every tick,
+//! each sim_element will produce some RPCs and where they should go, and receive any in its own buffer.
+
 use crate::edge::Edge;
 use crate::node::Node;
 use crate::sim_element::SimElement;

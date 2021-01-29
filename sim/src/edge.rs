@@ -1,3 +1,5 @@
+//! An abstraction of an edge.  The edge can be unidirectional or bidirectional, depending on who its
+//! neighbors are (an edge can only send RPCs to its neighbors).  An edge is a sim_element.
 extern crate test;
 
 use crate::sim_element::SimElement;

@@ -1,3 +1,6 @@
+//! A sim_element is something that takes in RPCs and give them to other sim_elements.
+//! Right now the only sim_elements are nodes, edges, and plugin_wrappers.
+
 use rpc_lib::rpc::Rpc;
 
 pub trait SimElement {

@@ -1,3 +1,7 @@
+//! A plugin wrapper is a sim_element that takes an outside library that does some computation on RPCs.
+//! It is meant to represent a WebAssembly filter, and is a sim_element.  A plugin wrapper should only be
+//! created as a field of a node object.
+
 use crate::filter_types::{CodeletType, Filter, NewWithEnvoyProperties};
 use crate::sim_element::SimElement;
 use rpc_lib::rpc::Rpc;

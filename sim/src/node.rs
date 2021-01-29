@@ -1,3 +1,6 @@
+//! An abstraction of a node.  The node can have a plugin, which is meant to reprsent a WebAssembly filter
+//! A node is a sim_element.
+
 use crate::plugin_wrapper::PluginWrapper;
 use crate::sim_element::SimElement;
 use queues::*;
