@@ -17,7 +17,7 @@ pub struct PluginWrapper {
     loaded_function: libloading::os::unix::Symbol<CodeletType>,
     id: String,
     stored_rpc: Option<Rpc>,
-    neighbor: Option<String>,
+    neighbor: Vec<String>,
 }
 
 impl fmt::Display for PluginWrapper {
@@ -43,7 +43,11 @@ impl SimElement for PluginWrapper {
             if ret.is_none() {
                 vec![]
             } else {
-                vec![(ret.unwrap(), self.neighbor.clone())]
+                if self.neighbor.len() > 0 {
+                    vec![(ret.unwrap(), Some(self.neighbor[0].clone()))]
+                } else {
+                    vec![(ret.unwrap(), None)]
+                }
             }
         } else {
             vec![]
@@ -54,14 +58,16 @@ impl SimElement for PluginWrapper {
         self.stored_rpc = Some(rpc);
     }
     fn add_connection(&mut self, neighbor: String) {
-        self.neighbor = Some(neighbor);
-    }
-    fn whoami(&self) -> (bool, &str, Vec<String>) {
-        let mut neighbors = Vec::new();
-        if !self.neighbor.is_none() {
-            neighbors.push(self.neighbor.clone().unwrap());
+        // override the connection if there is already an element in it
+        if self.neighbor.len() > 0 {
+            let val = &mut self.neighbor[0];
+            *val = neighbor;
+        } else {
+            self.neighbor.push(neighbor);
         }
-        return (false, &self.id, neighbors.clone());
+    }
+    fn whoami(&self) -> (bool, &str, &Vec<String>) {
+        return (false, &self.id, &self.neighbor);
     }
 }
 
@@ -118,7 +124,7 @@ impl PluginWrapper {
             loaded_function,
             id,
             stored_rpc: None,
-            neighbor: None,
+            neighbor: vec![],
         }
     }
 

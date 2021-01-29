@@ -19,7 +19,7 @@ pub struct Edge {
     queue: Queue<TimestampedRpc>,
     delay: u64,
     id: String,
-    neighbor: Vec<String>,
+    neighbors: Vec<String>,
 }
 
 impl fmt::Display for Edge {
@@ -61,11 +61,11 @@ impl SimElement for Edge {
         self.enqueue(rpc, tick, sender);
     }
     fn add_connection(&mut self, neighbor: String) {
-        assert!(self.neighbor.len() < 2);
-        self.neighbor.push(neighbor);
+        assert!(self.neighbors.len() < 2);
+        self.neighbors.push(neighbor);
     }
-    fn whoami(&self) -> (bool, &str, Vec<String>) {
-        return (false, &self.id, self.neighbor.clone());
+    fn whoami(&self) -> (bool, &str, &Vec<String>) {
+        return (false, &self.id, &self.neighbors);
     }
 }
 
@@ -75,7 +75,7 @@ impl Edge {
             .add(TimestampedRpc {
                 start_time: now,
                 rpc: x,
-                sender: sender,
+                sender,
             })
             .unwrap();
     }
@@ -91,19 +91,19 @@ impl Edge {
 
                 // Remove RPC from the head of the queue.
                 let queue_element_to_remove = self.queue.remove().unwrap();
-                if self.neighbor.len() > 0 {
-                    assert!(self.neighbor.len() > 0);
+                if self.neighbors.len() > 0 {
+                    assert!(self.neighbors.len() > 0);
                     let mut which_neighbor = self
-                        .neighbor
+                        .neighbors
                         .choose(&mut rand::thread_rng())
                         .unwrap()
                         .to_string();
                     // Choose a random neighbor to send to, but do not send it back to the one who sent it to you
                     while which_neighbor == queue_element_to_remove.sender
-                        && self.neighbor.len() > 1
+                        && self.neighbors.len() > 1
                     {
                         which_neighbor = self
-                            .neighbor
+                            .neighbors
                             .choose(&mut rand::thread_rng())
                             .unwrap()
                             .to_string();
@@ -136,7 +136,7 @@ impl Edge {
             id,
             delay,
             queue: queue![],
-            neighbor: Vec::new(),
+            neighbors: Vec::new(),
         }
     }
 }
@@ -153,7 +153,7 @@ mod tests {
             id: "0".to_string(),
             queue: queue![],
             delay: 0,
-            neighbor: Vec::new(),
+            neighbors: Vec::new(),
         };
     }
 
@@ -163,7 +163,7 @@ mod tests {
             id: "0".to_string(),
             queue: queue![],
             delay: 0,
-            neighbor: Vec::new(),
+            neighbors: Vec::new(),
         };
         b.iter(|| {
             for i in 1..100 {
@@ -178,7 +178,7 @@ mod tests {
             id: "0".to_string(),
             queue: queue![],
             delay: 0,
-            neighbor: Vec::new(),
+            neighbors: Vec::new(),
         };
         b.iter(|| {
             for i in 1..100 {

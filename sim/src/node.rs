@@ -16,7 +16,7 @@ pub struct Node {
     egress_rate: u32,              // rate at which the node can send out rpcs
     generation_rate: u32, // rate at which the node can generate rpcs, which are generated regardless of input to the node
     plugin: Option<PluginWrapper>, // filter to the node
-    neighbor: Vec<String>, // who is the node connected to
+    neighbors: Vec<String>, // who is the node connected to
 }
 
 impl fmt::Display for Node {
@@ -62,8 +62,8 @@ impl SimElement for Node {
             self.egress_rate as usize,
         ) {
             let mut which_neighbor = None;
-            if self.neighbor.len() > 0 {
-                which_neighbor = Some((*self.neighbor.choose(&mut rng).unwrap()).clone());
+            if self.neighbors.len() > 0 {
+                which_neighbor = Some((*self.neighbors.choose(&mut rng).unwrap()).clone());
             }
             if self.queue.size() > 0 {
                 let deq = self.dequeue(tick);
@@ -93,10 +93,10 @@ impl SimElement for Node {
         }
     }
     fn add_connection(&mut self, neighbor: String) {
-        self.neighbor.push(neighbor.clone());
+        self.neighbors.push(neighbor);
     }
-    fn whoami(&self) -> (bool, &str, Vec<String>) {
-        return (true, &self.id, self.neighbor.clone());
+    fn whoami(&self) -> (bool, &str, &Vec<String>) {
+        return (true, &self.id, &self.neighbors);
     }
 }
 
@@ -127,7 +127,7 @@ impl Node {
                 egress_rate,
                 generation_rate,
                 plugin: None,
-                neighbor: Vec::new(),
+                neighbors: Vec::new(),
             }
         } else {
             let mut plugin_id = id.to_string();
@@ -140,7 +140,7 @@ impl Node {
                 egress_rate,
                 generation_rate,
                 plugin: Some(created_plugin),
-                neighbor: Vec::new(),
+                neighbors: Vec::new(),
             }
         }
     }
