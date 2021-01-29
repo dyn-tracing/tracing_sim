@@ -11,7 +11,7 @@ use std::fmt;
 
 pub struct Node {
     queue: Queue<Rpc>,             // queue of rpcs
-    id: &'static str,                    // id of the node
+    id: &'static str,              // id of the node
     capacity: u32,                 // capacity of the node;  how much it can hold at once
     egress_rate: u32,              // rate at which the node can send out rpcs
     generation_rate: u32, // rate at which the node can generate rpcs, which are generated regardless of input to the node
@@ -131,7 +131,8 @@ impl Node {
                 neighbor: Vec::new(),
             }
         } else {
-            let created_plugin = PluginWrapper::new(plugin_id.unwrap(), plugin.unwrap().to_string());
+            let created_plugin =
+                PluginWrapper::new(plugin_id.unwrap(), plugin.unwrap().to_string());
             Node {
                 queue: queue![],
                 id,

@@ -1,4 +1,4 @@
-//! This file is used for the plugin wrapper to understand the types of the 
+//! This file is used for the plugin wrapper to understand the types of the
 //! functions and objects in the external library.
 
 use rpc_lib::rpc::Rpc;

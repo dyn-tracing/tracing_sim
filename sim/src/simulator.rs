@@ -45,10 +45,16 @@ impl Simulator {
         plugin: Option<&str>,
         plugin_id: Option<&'static str>,
     ) {
-        let node = Node::new(id, capacity, egress_rate, generation_rate, plugin, plugin_id);
+        let node = Node::new(
+            id,
+            capacity,
+            egress_rate,
+            generation_rate,
+            plugin,
+            plugin_id,
+        );
         self.add_element(id, node);
-        self.node_index_to_node
-            .insert(id, self.graph.add_node(id));
+        self.node_index_to_node.insert(id, self.graph.add_node(id));
     }
 
     pub fn add_edge(
@@ -83,7 +89,10 @@ impl Simulator {
     }
 
     pub fn add_connection(&mut self, src: &str, dst: &str) {
-        self.elements.get_mut(src).unwrap().add_connection(dst.to_string());
+        self.elements
+            .get_mut(src)
+            .unwrap()
+            .add_connection(dst.to_string());
     }
 
     pub fn print_graph(&mut self) {
