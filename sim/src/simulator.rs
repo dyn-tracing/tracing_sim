@@ -44,21 +44,21 @@ impl Simulator {
         generation_rate: u32,
         plugin: Option<&str>,
     ) {
-        let node = Node::new(id.to_string(), capacity, egress_rate, generation_rate, plugin);
+        let node = Node::new(
+            id.to_string(),
+            capacity,
+            egress_rate,
+            generation_rate,
+            plugin,
+        );
         self.add_element(id, node);
         self.node_index_to_node
             .insert(id.to_string(), self.graph.add_node(id.to_string()));
     }
 
-    pub fn add_edge(
-        &mut self,
-        delay: u32,
-        element1: &str,
-        element2: &str,
-        unidirectional: bool,
-    ) {
+    pub fn add_edge(&mut self, delay: u32, element1: &str, element2: &str, unidirectional: bool) {
         // 1. create the id, which will be the two nodes' ids put together with a _
-        let id = element1.to_string() + "_" + element2 ;
+        let id = element1.to_string() + "_" + element2;
 
         // 2. create the edge
         let edge = Edge::new(id.to_string(), delay.into());
@@ -91,7 +91,10 @@ impl Simulator {
     }
 
     pub fn add_connection(&mut self, src: &str, dst: &str) {
-        self.elements.get_mut(src).unwrap().add_connection(dst.to_string());
+        self.elements
+            .get_mut(src)
+            .unwrap()
+            .add_connection(dst.to_string());
     }
 
     pub fn print_graph(&mut self) {
