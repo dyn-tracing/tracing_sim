@@ -95,8 +95,8 @@ impl SimElement for Node {
     fn add_connection(&mut self, neighbor: String) {
         self.neighbor.push(neighbor.clone());
     }
-    fn whoami(&self) -> (bool, String, Vec<String>) {
-        return (true, self.id.clone(), self.neighbor.clone());
+    fn whoami(&self) -> (bool, &str, Vec<String>) {
+        return (true, &self.id, self.neighbor.clone());
     }
 }
 

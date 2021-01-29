@@ -64,8 +64,8 @@ impl SimElement for Edge {
         assert!(self.neighbor.len() < 2);
         self.neighbor.push(neighbor);
     }
-    fn whoami(&self) -> (bool, String, Vec<String>) {
-        return (false, self.id.clone(), self.neighbor.clone());
+    fn whoami(&self) -> (bool, &str, Vec<String>) {
+        return (false, &self.id, self.neighbor.clone());
     }
 }
 
@@ -133,8 +133,8 @@ impl Edge {
     }
     pub fn new(id: String, delay: u64) -> Self {
         Edge {
-            id: id,
-            delay: delay,
+            id,
+            delay,
             queue: queue![],
             neighbor: Vec::new(),
         }

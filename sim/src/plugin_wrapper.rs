@@ -56,12 +56,12 @@ impl SimElement for PluginWrapper {
     fn add_connection(&mut self, neighbor: String) {
         self.neighbor = Some(neighbor);
     }
-    fn whoami(&self) -> (bool, String, Vec<String>) {
+    fn whoami(&self) -> (bool, &str, Vec<String>) {
         let mut neighbors = Vec::new();
         if !self.neighbor.is_none() {
             neighbors.push(self.neighbor.clone().unwrap());
         }
-        return (false, self.id.clone(), neighbors.clone());
+        return (false, &self.id, neighbors.clone());
     }
 }
 
