@@ -22,8 +22,8 @@ impl<T: SimElement + Display> PrintableElement for T {}
 pub struct Simulator {
     elements: HashMap<String, Box<dyn PrintableElement>>,
     rpc_buffer: HashMap<String, Vec<(Rpc, Option<String>)>>,
-    graph: Graph<String, String>,
-    node_index_to_node: HashMap<String, NodeIndex>,
+    graph: Graph<&'static str, &'static str>,
+    node_index_to_node: HashMap<&'static str, NodeIndex>,
 }
 
 impl Simulator {
@@ -38,7 +38,7 @@ impl Simulator {
 
     pub fn add_node(
         &mut self,
-        id: &str,
+        id: &'static str,
         capacity: u32,
         egress_rate: u32,
         generation_rate: u32,
@@ -47,7 +47,7 @@ impl Simulator {
         let node = Node::new(id.to_string(), capacity, egress_rate, generation_rate, plugin);
         self.add_element(id, node);
         self.node_index_to_node
-            .insert(id.to_string(), self.graph.add_node(id.to_string()));
+            .insert(id, self.graph.add_node(id));
     }
 
     pub fn add_edge(
@@ -65,9 +65,9 @@ impl Simulator {
         // 2. create the edge
         let edge = Edge::new(id.clone(), delay.into());
         self.add_element(&id, edge);
-        let e1_node = self.node_index_to_node[&element1.to_string()];
-        let e2_node = self.node_index_to_node[&element2.to_string()];
-        self.graph.add_edge(e1_node, e2_node, "".to_string());
+        let e1_node = self.node_index_to_node[element1];
+        let e2_node = self.node_index_to_node[element2];
+        self.graph.add_edge(e1_node, e2_node, "");
 
         // 3. connect the edge to its nodes
         self.add_connection(element1, &id);
