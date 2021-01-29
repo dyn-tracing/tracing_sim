@@ -20,8 +20,8 @@ impl<T: SimElement + Display> PrintableElement for T {}
 
 #[derive(Default)]
 pub struct Simulator {
-    elements: HashMap<String, Box<dyn PrintableElement>>,
-    rpc_buffer: HashMap<String, Vec<(Rpc, Option<String>)>>,
+    elements: HashMap<&'static str, Box<dyn PrintableElement>>,
+    rpc_buffer: HashMap<&'static str, Vec<(Rpc, Option<&'static str>)>>,
     graph: Graph<&'static str, &'static str>,
     node_index_to_node: HashMap<&'static str, NodeIndex>,
 }
@@ -61,8 +61,8 @@ impl Simulator {
         &mut self,
         delay: u32,
         edge_name: &'static str,
-        element1: &str,
-        element2: &str,
+        element1: &'static str,
+        element2: &'static str,
         unidirectional: bool,
     ) {
         // 1. create the edge
@@ -82,17 +82,17 @@ impl Simulator {
         }
     }
 
-    pub fn add_element<T: 'static + PrintableElement>(&mut self, id: &str, element: T) -> usize {
-        self.elements.insert(id.to_string(), Box::new(element));
-        self.rpc_buffer.insert(id.to_string(), vec![]);
+    pub fn add_element<T: 'static + PrintableElement>(&mut self, id: &'static str, element: T) -> usize {
+        self.elements.insert(id, Box::new(element));
+        self.rpc_buffer.insert(id, vec![]);
         return self.elements.len() - 1;
     }
 
-    pub fn add_connection(&mut self, src: &str, dst: &str) {
+    pub fn add_connection(&mut self, src: &str, dst: &'static str) {
         self.elements
             .get_mut(src)
             .unwrap()
-            .add_connection(dst.to_string());
+            .add_connection(dst);
     }
 
     pub fn print_graph(&mut self) {
@@ -113,7 +113,7 @@ impl Simulator {
         // tick all elements to generate Rpcs
         for (i, element) in self.elements.iter_mut() {
             let rpcs = element.tick(tick);
-            self.rpc_buffer.insert(i.to_string(), rpcs);
+            self.rpc_buffer.insert(i, rpcs);
             println!(
                 "After tick {:5}, {:45} \n\toutputs {:?}\n",
                 tick, element, self.rpc_buffer[i]
@@ -142,10 +142,8 @@ impl Simulator {
                         new_rpc.add_to_path(&src.to_string());
                     }
 
-                    self.elements
-                        .get_mut(dst.as_ref().clone().unwrap())
-                        .unwrap()
-                        .recv(new_rpc, tick, src.to_string());
+                    self.elements.get_mut(dst.unwrap()).unwrap()
+                        .recv(new_rpc, tick, src);
                 }
             }
         }

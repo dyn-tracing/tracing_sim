@@ -17,7 +17,7 @@ pub struct PluginWrapper {
     loaded_function: libloading::os::unix::Symbol<CodeletType>,
     id: &'static str,
     stored_rpc: Option<Rpc>,
-    neighbor: Option<String>,
+    neighbor: Option<&'static str>,
 }
 
 impl fmt::Display for PluginWrapper {
@@ -36,7 +36,7 @@ impl fmt::Display for PluginWrapper {
 }
 
 impl SimElement for PluginWrapper {
-    fn tick(&mut self, _tick: u64) -> Vec<(Rpc, Option<String>)> {
+    fn tick(&mut self, _tick: u64) -> Vec<(Rpc, Option<&'static str>)> {
         if self.stored_rpc.is_some() {
             let ret = self.execute(self.stored_rpc.as_ref().unwrap());
             self.stored_rpc = None;
@@ -49,14 +49,14 @@ impl SimElement for PluginWrapper {
             vec![]
         }
     }
-    fn recv(&mut self, rpc: Rpc, _tick: u64, _sender: String) {
+    fn recv(&mut self, rpc: Rpc, _tick: u64, _sender: &'static str) {
         assert!(self.stored_rpc.is_none(), "Overwriting previous RPC");
         self.stored_rpc = Some(rpc);
     }
-    fn add_connection(&mut self, neighbor: String) {
+    fn add_connection(&mut self, neighbor: &'static str) {
         self.neighbor = Some(neighbor);
     }
-    fn whoami(&self) -> (bool, &'static str, Vec<String>) {
+    fn whoami(&self) -> (bool, &'static str, Vec<&'static str>) {
         let mut neighbors = Vec::new();
         if !self.neighbor.is_none() {
             neighbors.push(self.neighbor.clone().unwrap());

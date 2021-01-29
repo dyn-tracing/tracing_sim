@@ -16,7 +16,7 @@ pub struct Node {
     egress_rate: u32,              // rate at which the node can send out rpcs
     generation_rate: u32, // rate at which the node can generate rpcs, which are generated regardless of input to the node
     plugin: Option<PluginWrapper>, // filter to the node
-    neighbor: Vec<String>, // who is the node connected to
+    neighbor: Vec<&'static str>, // who is the node connected to
 }
 
 impl fmt::Display for Node {
@@ -54,7 +54,7 @@ impl fmt::Display for Node {
 }
 
 impl SimElement for Node {
-    fn tick(&mut self, tick: u64) -> Vec<(Rpc, Option<String>)> {
+    fn tick(&mut self, tick: u64) -> Vec<(Rpc, Option<&'static str>)> {
         let mut ret = vec![];
         let mut rng = rand::thread_rng();
         for _ in 0..min(
@@ -75,7 +75,7 @@ impl SimElement for Node {
         }
         ret
     }
-    fn recv(&mut self, rpc: Rpc, tick: u64, _sender: String) {
+    fn recv(&mut self, rpc: Rpc, tick: u64, _sender: &'static str) {
         if (self.queue.size() as u32) < self.capacity {
             // drop packets you cannot accept
             if self.plugin.is_none() {
@@ -84,7 +84,7 @@ impl SimElement for Node {
                 self.plugin
                     .as_mut()
                     .unwrap()
-                    .recv(rpc, tick, self.id.to_string());
+                    .recv(rpc, tick, self.id);
                 let ret = self.plugin.as_mut().unwrap().tick(tick);
                 for filtered_rpc in ret {
                     self.enqueue(filtered_rpc.0, tick);
@@ -92,10 +92,10 @@ impl SimElement for Node {
             }
         }
     }
-    fn add_connection(&mut self, neighbor: String) {
+    fn add_connection(&mut self, neighbor: &'static str) {
         self.neighbor.push(neighbor.clone());
     }
-    fn whoami(&self) -> (bool, &'static str, Vec<String>) {
+    fn whoami(&self) -> (bool, &'static str, Vec<&'static str>) {
         return (true, self.id, self.neighbor.clone());
     }
 }
@@ -161,10 +161,10 @@ mod tests {
         let mut node = Node::new("0", 2, 1, 0, None, None);
         assert!(node.capacity == 2);
         assert!(node.egress_rate == 1);
-        node.recv(Rpc::new_rpc(0), 0, 0.to_string());
-        node.recv(Rpc::new_rpc(0), 0, 0.to_string());
+        node.recv(Rpc::new_rpc(0), 0, "0");
+        node.recv(Rpc::new_rpc(0), 0, "0");
         assert!(node.queue.size() == 2);
-        node.recv(Rpc::new_rpc(0), 0, 0.to_string());
+        node.recv(Rpc::new_rpc(0), 0, "0");
         assert!(node.queue.size() == 2);
         node.tick(0);
         assert!(node.queue.size() == 1);
