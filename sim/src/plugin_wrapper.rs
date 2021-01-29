@@ -15,7 +15,7 @@ pub struct PluginWrapper {
     // TODO: Currently uses a platform-specific binding, which isn't very safe.
     filter: *mut Filter,
     loaded_function: libloading::os::unix::Symbol<CodeletType>,
-    id: String,
+    id: &'static str,
     stored_rpc: Option<Rpc>,
     neighbor: Option<String>,
 }
@@ -56,12 +56,12 @@ impl SimElement for PluginWrapper {
     fn add_connection(&mut self, neighbor: String) {
         self.neighbor = Some(neighbor);
     }
-    fn whoami(&self) -> (bool, String, Vec<String>) {
+    fn whoami(&self) -> (bool, &'static str, Vec<String>) {
         let mut neighbors = Vec::new();
         if !self.neighbor.is_none() {
             neighbors.push(self.neighbor.clone().unwrap());
         }
-        return (false, self.id.clone(), neighbors.clone());
+        return (false, self.id, neighbors.clone());
     }
 }
 
@@ -92,7 +92,7 @@ fn load_lib(plugin_str: String) -> libloading::Library {
 }
 
 impl PluginWrapper {
-    pub fn new(id: String, plugin_str: String) -> PluginWrapper {
+    pub fn new(id: &'static str, plugin_str: String) -> PluginWrapper {
         let dyn_lib = load_lib(plugin_str);
         // Dynamically load one function to initialize hash table in filter.
         let init: libloading::Symbol<NewWithEnvoyProperties>;
@@ -135,7 +135,7 @@ mod tests {
         let mut cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         cargo_dir.push("../target/debug/libfilter_example");
         let library_str = cargo_dir.to_str().unwrap().to_string();
-        let plugin = PluginWrapper::new("0".to_string(), library_str);
+        let plugin = PluginWrapper::new("0", library_str);
         let rpc = &Rpc::new_rpc(55);
         let rpc_data = plugin.execute(rpc).unwrap().data;
         assert!(rpc_data == 55);
@@ -146,10 +146,10 @@ mod tests {
         let mut cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         cargo_dir.push("../target/debug/libfilter_example");
         let library_str = cargo_dir.to_str().unwrap().to_string();
-        let plugin1 = PluginWrapper::new("0".to_string(), library_str.clone());
-        let plugin2 = PluginWrapper::new("1".to_string(), library_str.clone());
-        let plugin3 = PluginWrapper::new("2".to_string(), library_str.clone());
-        let plugin4 = PluginWrapper::new("3".to_string(), library_str.clone());
+        let plugin1 = PluginWrapper::new("0", library_str.clone());
+        let plugin2 = PluginWrapper::new("1", library_str.clone());
+        let plugin3 = PluginWrapper::new("2", library_str.clone());
+        let plugin4 = PluginWrapper::new("3", library_str.clone());
         assert!(
             5 == plugin4
                 .execute(

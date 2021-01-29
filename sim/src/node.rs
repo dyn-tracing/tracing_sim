@@ -11,7 +11,7 @@ use std::fmt;
 
 pub struct Node {
     queue: Queue<Rpc>,             // queue of rpcs
-    id: String,                    // id of the node
+    id: &'static str,                    // id of the node
     capacity: u32,                 // capacity of the node;  how much it can hold at once
     egress_rate: u32,              // rate at which the node can send out rpcs
     generation_rate: u32, // rate at which the node can generate rpcs, which are generated regardless of input to the node
@@ -84,7 +84,7 @@ impl SimElement for Node {
                 self.plugin
                     .as_mut()
                     .unwrap()
-                    .recv(rpc, tick, self.id.clone());
+                    .recv(rpc, tick, self.id.to_string());
                 let ret = self.plugin.as_mut().unwrap().tick(tick);
                 for filtered_rpc in ret {
                     self.enqueue(filtered_rpc.0, tick);
@@ -95,8 +95,8 @@ impl SimElement for Node {
     fn add_connection(&mut self, neighbor: String) {
         self.neighbor.push(neighbor.clone());
     }
-    fn whoami(&self) -> (bool, String, Vec<String>) {
-        return (true, self.id.clone(), self.neighbor.clone());
+    fn whoami(&self) -> (bool, &'static str, Vec<String>) {
+        return (true, self.id, self.neighbor.clone());
     }
 }
 
@@ -117,12 +117,13 @@ impl Node {
         egress_rate: u32,
         generation_rate: u32,
         plugin: Option<&str>,
+        plugin_id: Option<&'static str>,
     ) -> Node {
         assert!(capacity >= 1);
         if plugin.is_none() {
             Node {
                 queue: queue![],
-                id: id.to_string(),
+                id,
                 capacity,
                 egress_rate,
                 generation_rate,
@@ -130,12 +131,10 @@ impl Node {
                 neighbor: Vec::new(),
             }
         } else {
-            let mut plugin_id = id.to_string();
-            plugin_id.push_str("_plugin");
-            let created_plugin = PluginWrapper::new(plugin_id, plugin.unwrap().to_string());
+            let created_plugin = PluginWrapper::new(plugin_id.unwrap(), plugin.unwrap().to_string());
             Node {
                 queue: queue![],
-                id: id.to_string(),
+                id,
                 capacity,
                 egress_rate,
                 generation_rate,
@@ -153,12 +152,12 @@ mod tests {
 
     #[test]
     fn test_node_creation() {
-        let _node = Node::new("0", 2, 2, 1, None);
+        let _node = Node::new("0", 2, 2, 1, None, None);
     }
 
     #[test]
     fn test_node_capacity_and_egress_rate() {
-        let mut node = Node::new("0", 2, 1, 0, None);
+        let mut node = Node::new("0", 2, 1, 0, None, None);
         assert!(node.capacity == 2);
         assert!(node.egress_rate == 1);
         node.recv(Rpc::new_rpc(0), 0, 0.to_string());
@@ -175,7 +174,7 @@ mod tests {
         let mut cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         cargo_dir.push("../target/debug/libfilter_example");
         let library_str = cargo_dir.to_str().unwrap();
-        let node = Node::new("0", 2, 1, 0, Some(library_str));
+        let node = Node::new("0", 2, 1, 0, Some(library_str), Some("library id"));
         assert!(!node.plugin.is_none());
     }
 }

@@ -64,8 +64,8 @@ impl SimElement for Edge {
         assert!(self.neighbor.len() < 2);
         self.neighbor.push(neighbor);
     }
-    fn whoami(&self) -> (bool, String, Vec<String>) {
-        return (false, self.id.to_string(), self.neighbor.clone());
+    fn whoami(&self) -> (bool, &'static str, Vec<String>) {
+        return (false, self.id, self.neighbor.clone());
     }
 }
 

@@ -43,8 +43,9 @@ impl Simulator {
         egress_rate: u32,
         generation_rate: u32,
         plugin: Option<&str>,
+        plugin_id: Option<&'static str>,
     ) {
-        let node = Node::new(id, capacity, egress_rate, generation_rate, plugin);
+        let node = Node::new(id, capacity, egress_rate, generation_rate, plugin, plugin_id);
         self.add_element(id, node);
         self.node_index_to_node
             .insert(id, self.graph.add_node(id));

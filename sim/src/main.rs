@@ -34,12 +34,12 @@ fn main() {
     // Create simulator object.
     let mut simulator: Simulator = Simulator::new();
 
-    // node arguments go:  id, capacity, egress_rate, generation_rate, plugin
-    simulator.add_node("traffic generator", 10, 1, 1, plugin_str);
-    simulator.add_node("node 1", 10, 1, 0, plugin_str);
-    simulator.add_node("node 2", 10, 1, 0, plugin_str);
-    simulator.add_node("node 3", 10, 1, 0, plugin_str);
-    simulator.add_node("node 4", 10, 1, 0, plugin_str);
+    // node arguments go:  id, capacity, egress_rate, generation_rate, plugin, plugin_id
+    simulator.add_node("traffic generator", 10, 1, 1, plugin_str, Some("tgen-plugin"));
+    simulator.add_node("node 1", 10, 1, 0, plugin_str, Some("1-plugin"));
+    simulator.add_node("node 2", 10, 1, 0, plugin_str, Some("2-plugin"));
+    simulator.add_node("node 3", 10, 1, 0, plugin_str, Some("3-plugin"));
+    simulator.add_node("node 4", 10, 1, 0, plugin_str, Some("4-plugin"));
 
     // edge arguments go:  delay, endpoint1, endpoint2, unidirectional
     simulator.add_edge(
