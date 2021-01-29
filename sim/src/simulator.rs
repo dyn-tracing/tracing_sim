@@ -38,55 +38,55 @@ impl Simulator {
 
     pub fn add_node(
         &mut self,
-        id: String,
+        id: &str,
         capacity: u32,
         egress_rate: u32,
         generation_rate: u32,
         plugin: Option<&str>,
     ) {
-        let node = Node::new(id.clone(), capacity, egress_rate, generation_rate, plugin);
-        self.add_element(id.clone(), node);
+        let node = Node::new(id.to_string(), capacity, egress_rate, generation_rate, plugin);
+        self.add_element(id, node);
         self.node_index_to_node
-            .insert(id.clone(), self.graph.add_node(id));
+            .insert(id.to_string(), self.graph.add_node(id.to_string()));
     }
 
     pub fn add_edge(
         &mut self,
         delay: u32,
-        element1: String,
-        element2: String,
+        element1: &str,
+        element2: &str,
         unidirectional: bool,
     ) {
         // 1. create the id, which will be the two nodes' ids put together with a _
-        let mut id = element1.clone();
+        let mut id = element1.to_string();
         id.push('_');
-        id.push_str(&element2);
+        id.push_str(element2);
 
         // 2. create the edge
         let edge = Edge::new(id.clone(), delay.into());
-        self.add_element(id.clone(), edge);
-        let e1_node = self.node_index_to_node[&element1];
-        let e2_node = self.node_index_to_node[&element2];
+        self.add_element(&id, edge);
+        let e1_node = self.node_index_to_node[&element1.to_string()];
+        let e2_node = self.node_index_to_node[&element2.to_string()];
         self.graph.add_edge(e1_node, e2_node, "".to_string());
 
         // 3. connect the edge to its nodes
-        self.add_connection(element1.clone(), id.clone());
-        self.add_connection(id.clone(), element2.clone());
+        self.add_connection(element1, &id);
+        self.add_connection(&id, element2);
 
         if !unidirectional {
-            self.add_connection(id.clone(), element1.clone());
-            self.add_connection(element2.clone(), id.clone());
+            self.add_connection(&id, element1);
+            self.add_connection(element2, &id);
         }
     }
 
-    pub fn add_element<T: 'static + PrintableElement>(&mut self, id: String, element: T) -> usize {
-        self.elements.insert(id.clone(), Box::new(element));
-        self.rpc_buffer.insert(id.clone(), vec![]);
+    pub fn add_element<T: 'static + PrintableElement>(&mut self, id: &str, element: T) -> usize {
+        self.elements.insert(id.to_string(), Box::new(element));
+        self.rpc_buffer.insert(id.to_string(), vec![]);
         return self.elements.len() - 1;
     }
 
-    pub fn add_connection(&mut self, src: String, dst: String) {
-        self.elements.get_mut(&src).unwrap().add_connection(dst);
+    pub fn add_connection(&mut self, src: &str, dst: &str) {
+        self.elements.get_mut(src).unwrap().add_connection(dst.to_string());
     }
 
     pub fn print_graph(&mut self) {
