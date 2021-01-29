@@ -11,9 +11,9 @@ pub struct PluginWrapper {
     // TODO: Currently uses a platform-specific binding, which isn't very safe.
     filter: *mut Filter,
     loaded_function: libloading::os::unix::Symbol<CodeletType>,
-    id: u32,
+    id: String,
     stored_rpc: Option<Rpc>,
-    neighbor: Option<u32>,
+    neighbor: Option<String>,
 }
 
 impl fmt::Display for PluginWrapper {
@@ -32,36 +32,36 @@ impl fmt::Display for PluginWrapper {
 }
 
 impl SimElement for PluginWrapper {
-    fn tick(&mut self, _tick: u64) -> Vec<(Rpc, Option<u32>)> {
+    fn tick(&mut self, _tick: u64) -> Vec<(Rpc, Option<String>)> {
         if self.stored_rpc.is_some() {
             let ret = self.execute(self.stored_rpc.as_ref().unwrap());
             self.stored_rpc = None;
             if ret.is_none() {
                 vec![]
             } else {
-                vec![(ret.unwrap(), self.neighbor)]
+                vec![(ret.unwrap(), self.neighbor.clone())]
             }
         } else {
             vec![]
         }
     }
-    fn recv(&mut self, rpc: Rpc, _tick: u64, _sender: u32) {
+    fn recv(&mut self, rpc: Rpc, _tick: u64, _sender: String) {
         assert!(self.stored_rpc.is_none(), "Overwriting previous RPC");
         self.stored_rpc = Some(rpc);
     }
-    fn add_connection(&mut self, neighbor: u32) {
+    fn add_connection(&mut self, neighbor: String) {
         self.neighbor = Some(neighbor);
     }
-    fn whoami(&self) -> (bool, u32, Vec<u32>) {
+    fn whoami(&self) -> (bool, String, Vec<String>) {
         let mut neighbors = Vec::new();
         if !self.neighbor.is_none() {
-            neighbors.push(self.neighbor.unwrap());
+            neighbors.push(self.neighbor.clone().unwrap());
         }
-        return (false, self.id, neighbors);
+        return (false, self.id.clone(), neighbors.clone());
     }
 }
 
-fn load_lib(plugin_str: &str) -> libloading::Library {
+fn load_lib(plugin_str: String) -> libloading::Library {
     // Convert the library string into a Path object
     let mut plugin_path = PathBuf::from(plugin_str);
     // We have to load the library differently, depending on whether we are
@@ -88,7 +88,7 @@ fn load_lib(plugin_str: &str) -> libloading::Library {
 }
 
 impl PluginWrapper {
-    pub fn new(plugin_str: &str, id: u32) -> PluginWrapper {
+    pub fn new(id: String, plugin_str: String) -> PluginWrapper {
         let dyn_lib = load_lib(plugin_str);
         // Dynamically load one function to initialize hash table in filter.
         let init: libloading::Symbol<NewWithEnvoyProperties>;
@@ -130,8 +130,8 @@ mod tests {
     fn test_plugin_creation() {
         let mut cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         cargo_dir.push("../target/debug/libfilter_example");
-        let library_str = cargo_dir.to_str().unwrap();
-        let plugin = PluginWrapper::new(library_str, 0);
+        let library_str = cargo_dir.to_str().unwrap().to_string();
+        let plugin = PluginWrapper::new("0".to_string(), library_str);
         let rpc = &Rpc::new_rpc(55);
         let rpc_data = plugin.execute(rpc).unwrap().data;
         assert!(rpc_data == 55);
@@ -141,11 +141,11 @@ mod tests {
     fn test_chained_plugins() {
         let mut cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         cargo_dir.push("../target/debug/libfilter_example");
-        let library_str = cargo_dir.to_str().unwrap();
-        let plugin1 = PluginWrapper::new(library_str, 0);
-        let plugin2 = PluginWrapper::new(library_str, 1);
-        let plugin3 = PluginWrapper::new(library_str, 2);
-        let plugin4 = PluginWrapper::new(library_str, 3);
+        let library_str = cargo_dir.to_str().unwrap().to_string();
+        let plugin1 = PluginWrapper::new("0".to_string(), library_str.clone());
+        let plugin2 = PluginWrapper::new("1".to_string(), library_str.clone());
+        let plugin3 = PluginWrapper::new("2".to_string(), library_str.clone());
+        let plugin4 = PluginWrapper::new("3".to_string(), library_str.clone());
         assert!(
             5 == plugin4
                 .execute(

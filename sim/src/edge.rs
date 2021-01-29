@@ -10,34 +10,34 @@ use std::fmt;
 struct TimestampedRpc {
     pub start_time: u64,
     pub rpc: Rpc,
-    pub sender: u32,
+    pub sender: String,
 }
 
-pub struct Channel {
+pub struct Edge {
     queue: Queue<TimestampedRpc>,
     delay: u64,
-    id: u32,
-    neighbor: Vec<u32>,
+    id: String,
+    neighbor: Vec<String>,
 }
 
-impl fmt::Display for Channel {
+impl fmt::Display for Edge {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(width) = f.width() {
             write!(
                 f,
                 "{:width$}",
                 &format!(
-                    "Channel {{ delay : {}, queue : {}, id : {} }}",
+                    "Edge {{ delay : {}, queue : {}, id : {} }}",
                     &self.delay,
                     &self.queue.size(),
-                    &self.id
+                    self.id
                 ),
                 width = width
             )
         } else {
             write!(
                 f,
-                "Channel {{ delay : {}, id : {}, queue : {} }}",
+                "Edge {{ delay : {}, id : {}, queue : {} }}",
                 &self.delay,
                 self.id,
                 &self.queue.size()
@@ -46,8 +46,8 @@ impl fmt::Display for Channel {
     }
 }
 
-impl SimElement for Channel {
-    fn tick(&mut self, tick: u64) -> Vec<(Rpc, Option<u32>)> {
+impl SimElement for Edge {
+    fn tick(&mut self, tick: u64) -> Vec<(Rpc, Option<String>)> {
         let ret = self.dequeue(tick);
         let mut to_return = Vec::new();
         for element in ret {
@@ -55,20 +55,20 @@ impl SimElement for Channel {
         }
         return to_return;
     }
-    fn recv(&mut self, rpc: Rpc, tick: u64, sender: u32) {
+    fn recv(&mut self, rpc: Rpc, tick: u64, sender: String) {
         self.enqueue(rpc, tick, sender);
     }
-    fn add_connection(&mut self, neighbor: u32) {
+    fn add_connection(&mut self, neighbor: String) {
         assert!(self.neighbor.len() < 2);
         self.neighbor.push(neighbor);
     }
-    fn whoami(&self) -> (bool, u32, Vec<u32>) {
-        return (false, self.id, self.neighbor.clone());
+    fn whoami(&self) -> (bool, String, Vec<String>) {
+        return (false, self.id.clone(), self.neighbor.clone());
     }
 }
 
-impl Channel {
-    pub fn enqueue(&mut self, x: Rpc, now: u64, sender: u32) {
+impl Edge {
+    pub fn enqueue(&mut self, x: Rpc, now: u64, sender: String) {
         self.queue
             .add(TimestampedRpc {
                 start_time: now,
@@ -77,7 +77,7 @@ impl Channel {
             })
             .unwrap();
     }
-    pub fn dequeue(&mut self, now: u64) -> Vec<(Rpc, Option<u32>, u32)> {
+    pub fn dequeue(&mut self, now: u64) -> Vec<(Rpc, Option<String>, String)> {
         if self.queue.size() == 0 {
             return vec![];
         } else if self.queue.peek().unwrap().start_time + self.delay <= now {
@@ -91,13 +91,20 @@ impl Channel {
                 let queue_element_to_remove = self.queue.remove().unwrap();
                 if self.neighbor.len() > 0 {
                     assert!(self.neighbor.len() > 0);
-                    let mut which_neighbor: u32 =
-                        *self.neighbor.choose(&mut rand::thread_rng()).unwrap();
+                    let mut which_neighbor = self
+                        .neighbor
+                        .choose(&mut rand::thread_rng())
+                        .unwrap()
+                        .to_string();
                     // Choose a random neighbor to send to, but do not send it back to the one who sent it to you
                     while which_neighbor == queue_element_to_remove.sender
                         && self.neighbor.len() > 1
                     {
-                        which_neighbor = *self.neighbor.choose(&mut rand::thread_rng()).unwrap();
+                        which_neighbor = self
+                            .neighbor
+                            .choose(&mut rand::thread_rng())
+                            .unwrap()
+                            .to_string();
                     }
                     ret.push((
                         queue_element_to_remove.rpc,
@@ -122,11 +129,11 @@ impl Channel {
             return vec![];
         }
     }
-    pub fn new(delay: u64, id: u32) -> Self {
-        Channel {
+    pub fn new(id: String, delay: u64) -> Self {
+        Edge {
+            id: id,
             delay: delay,
             queue: queue![],
-            id: id,
             neighbor: Vec::new(),
         }
     }
@@ -139,43 +146,43 @@ mod tests {
     use test::Bencher;
 
     #[test]
-    fn test_channel() {
-        let _channel = Channel {
+    fn test_edge() {
+        let _edge = Edge {
+            id: "0".to_string(),
             queue: queue![],
             delay: 0,
-            id: 0,
             neighbor: Vec::new(),
         };
     }
 
     #[bench]
     fn benchmark_enqueue(b: &mut Bencher) {
-        let mut channel = Channel {
+        let mut edge = Edge {
+            id: "0".to_string(),
             queue: queue![],
             delay: 0,
-            id: 0,
             neighbor: Vec::new(),
         };
         b.iter(|| {
             for i in 1..100 {
-                channel.enqueue(Rpc::new_rpc(0), i, 0)
+                edge.enqueue(Rpc::new_rpc(0), i, 0.to_string())
             }
         });
     }
 
     #[bench]
     fn benchmark_dequeue(b: &mut Bencher) {
-        let mut channel = Channel {
+        let mut edge = Edge {
+            id: "0".to_string(),
             queue: queue![],
             delay: 0,
-            id: 0,
             neighbor: Vec::new(),
         };
         b.iter(|| {
             for i in 1..100 {
-                channel.enqueue(Rpc::new_rpc(0), i, 0);
+                edge.enqueue(Rpc::new_rpc(0), i, 0.to_string());
             }
-            channel.dequeue(0);
+            edge.dequeue(0);
         });
     }
 }

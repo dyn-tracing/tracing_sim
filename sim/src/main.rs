@@ -1,15 +1,13 @@
 #![feature(test)]
 #![feature(extern_types)]
-mod channel;
+mod edge;
 mod filter_types;
 mod node;
 mod plugin_wrapper;
 mod sim_element;
 mod simulator;
 
-use channel::Channel;
 use clap::{App, Arg};
-use node::Node;
 use simulator::Simulator;
 
 fn main() {
@@ -36,17 +34,24 @@ fn main() {
     // Create simulator object.
     let mut simulator: Simulator = Simulator::new();
 
-    let tgen = simulator.add_node(Node::new(2, 10, 1, plugin_str, 0)); // traffic generator
-    let node1 = simulator.add_node(Node::new(2, 1, 0, plugin_str, 1));
-    let node2 = simulator.add_node(Node::new(2, 1, 0, plugin_str, 2));
-    let node3 = simulator.add_node(Node::new(2, 1, 0, plugin_str, 3));
-    let node4 = simulator.add_node(Node::new(2, 1, 0, plugin_str, 4));
+    // node arguments go:  id, capacity, egress_rate, generation_rate, plugin
+    simulator.add_node("traffic generator".to_string(), 10, 1, 1, plugin_str);
+    simulator.add_node("node 1".to_string(), 10, 1, 0, plugin_str);
+    simulator.add_node("node 2".to_string(), 10, 1, 0, plugin_str);
+    simulator.add_node("node 3".to_string(), 10, 1, 0, plugin_str);
+    simulator.add_node("node 4".to_string(), 10, 1, 0, plugin_str);
 
-    let _edge5 = simulator.add_one_direction_edge(Channel::new(1, 5), tgen, node1);
-    let _edge6 = simulator.add_edge(Channel::new(2, 6), node1, node2);
-    let _edge7 = simulator.add_edge(Channel::new(2, 7), node1, node3);
-    // one way rpc sink
-    let _edge8 = simulator.add_one_direction_edge(Channel::new(1, 8), node1, node4);
+    // edge arguments go:  delay, endpoint1, endpoint2, unidirectional
+    simulator.add_edge(
+        1,
+        "traffic generator".to_string(),
+        "node 1".to_string(),
+        true,
+    );
+    simulator.add_edge(1, "node 1".to_string(), "node 2".to_string(), false);
+    simulator.add_edge(1, "node 1".to_string(), "node 3".to_string(), false);
+    //one way rpc sink
+    simulator.add_edge(1, "node 1".to_string(), "node 4".to_string(), true);
 
     // Print the graph
     if let Some(_argument) = matches.value_of("print_graph") {
