@@ -12,7 +12,7 @@ use std::fmt;
 struct TimestampedRpc {
     pub start_time: u64,
     pub rpc: Rpc,
-    pub sender:  &'static str,
+    pub sender: &'static str,
 }
 
 pub struct Edge {
@@ -49,7 +49,7 @@ impl fmt::Display for Edge {
 }
 
 impl SimElement for Edge {
-    fn tick(&mut self, tick: u64) -> Vec<(Rpc, Option< &'static str>)> {
+    fn tick(&mut self, tick: u64) -> Vec<(Rpc, Option<&'static str>)> {
         let ret = self.dequeue(tick);
         let mut to_return = Vec::new();
         for element in ret {
@@ -57,20 +57,20 @@ impl SimElement for Edge {
         }
         return to_return;
     }
-    fn recv(&mut self, rpc: Rpc, tick: u64, sender:  &'static str) {
+    fn recv(&mut self, rpc: Rpc, tick: u64, sender: &'static str) {
         self.enqueue(rpc, tick, sender);
     }
-    fn add_connection(&mut self, neighbor:  &'static str) {
+    fn add_connection(&mut self, neighbor: &'static str) {
         assert!(self.neighbor.len() < 2);
         self.neighbor.push(neighbor);
     }
-    fn whoami(&self) -> (bool, &'static str, Vec< &'static str>) {
+    fn whoami(&self) -> (bool, &'static str, Vec<&'static str>) {
         return (false, self.id, self.neighbor.clone());
     }
 }
 
 impl Edge {
-    pub fn enqueue(&mut self, x: Rpc, now: u64, sender:  &'static str) {
+    pub fn enqueue(&mut self, x: Rpc, now: u64, sender: &'static str) {
         self.queue
             .add(TimestampedRpc {
                 start_time: now,
@@ -79,7 +79,7 @@ impl Edge {
             })
             .unwrap();
     }
-    pub fn dequeue(&mut self, now: u64) -> Vec<(Rpc, Option<&'static str>,  &'static str)> {
+    pub fn dequeue(&mut self, now: u64) -> Vec<(Rpc, Option<&'static str>, &'static str)> {
         if self.queue.size() == 0 {
             return vec![];
         } else if self.queue.peek().unwrap().start_time + self.delay <= now {
@@ -93,18 +93,13 @@ impl Edge {
                 let queue_element_to_remove = self.queue.remove().unwrap();
                 if self.neighbor.len() > 0 {
                     assert!(self.neighbor.len() > 0);
-                    let mut which_neighbor = *self
-                        .neighbor
-                        .choose(&mut rand::thread_rng())
-                        .unwrap();
+                    let mut which_neighbor =
+                        *self.neighbor.choose(&mut rand::thread_rng()).unwrap();
                     // Choose a random neighbor to send to, but do not send it back to the one who sent it to you
                     while which_neighbor == queue_element_to_remove.sender
                         && self.neighbor.len() > 1
                     {
-                        which_neighbor = self
-                            .neighbor
-                            .choose(&mut rand::thread_rng())
-                            .unwrap();
+                        which_neighbor = self.neighbor.choose(&mut rand::thread_rng()).unwrap();
                     }
                     ret.push((
                         queue_element_to_remove.rpc,

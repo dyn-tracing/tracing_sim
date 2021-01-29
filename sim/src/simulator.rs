@@ -82,17 +82,18 @@ impl Simulator {
         }
     }
 
-    pub fn add_element<T: 'static + PrintableElement>(&mut self, id: &'static str, element: T) -> usize {
+    pub fn add_element<T: 'static + PrintableElement>(
+        &mut self,
+        id: &'static str,
+        element: T,
+    ) -> usize {
         self.elements.insert(id, Box::new(element));
         self.rpc_buffer.insert(id, vec![]);
         return self.elements.len() - 1;
     }
 
     pub fn add_connection(&mut self, src: &str, dst: &'static str) {
-        self.elements
-            .get_mut(src)
-            .unwrap()
-            .add_connection(dst);
+        self.elements.get_mut(src).unwrap().add_connection(dst);
     }
 
     pub fn print_graph(&mut self) {
@@ -142,7 +143,9 @@ impl Simulator {
                         new_rpc.add_to_path(&src.to_string());
                     }
 
-                    self.elements.get_mut(dst.unwrap()).unwrap()
+                    self.elements
+                        .get_mut(dst.unwrap())
+                        .unwrap()
                         .recv(new_rpc, tick, src);
                 }
             }

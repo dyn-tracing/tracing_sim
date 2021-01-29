@@ -81,10 +81,7 @@ impl SimElement for Node {
             if self.plugin.is_none() {
                 self.enqueue(rpc, tick);
             } else {
-                self.plugin
-                    .as_mut()
-                    .unwrap()
-                    .recv(rpc, tick, self.id);
+                self.plugin.as_mut().unwrap().recv(rpc, tick, self.id);
                 let ret = self.plugin.as_mut().unwrap().tick(tick);
                 for filtered_rpc in ret {
                     self.enqueue(filtered_rpc.0, tick);
