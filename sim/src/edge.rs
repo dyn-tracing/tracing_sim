@@ -12,14 +12,14 @@ use std::fmt;
 struct TimestampedRpc {
     pub start_time: u64,
     pub rpc: Rpc,
-    pub sender: &'static str,
+    pub sender: String,
 }
 
 pub struct Edge {
     queue: Queue<TimestampedRpc>,
     delay: u64,
-    id: &'static str,
-    neighbor: Vec<&'static str>,
+    id: String,
+    neighbor: Vec<String>,
 }
 
 impl fmt::Display for Edge {
@@ -49,7 +49,7 @@ impl fmt::Display for Edge {
 }
 
 impl SimElement for Edge {
-    fn tick(&mut self, tick: u64) -> Vec<(Rpc, Option<&'static str>)> {
+    fn tick(&mut self, tick: u64) -> Vec<(Rpc, Option<String>)> {
         let ret = self.dequeue(tick);
         let mut to_return = Vec::new();
         for element in ret {
@@ -57,20 +57,20 @@ impl SimElement for Edge {
         }
         return to_return;
     }
-    fn recv(&mut self, rpc: Rpc, tick: u64, sender: &'static str) {
+    fn recv(&mut self, rpc: Rpc, tick: u64, sender: String) {
         self.enqueue(rpc, tick, sender);
     }
-    fn add_connection(&mut self, neighbor: &'static str) {
+    fn add_connection(&mut self, neighbor: String) {
         assert!(self.neighbor.len() < 2);
         self.neighbor.push(neighbor);
     }
-    fn whoami(&self) -> (bool, &'static str, Vec<&'static str>) {
-        return (false, self.id, self.neighbor.clone());
+    fn whoami(&self) -> (bool, String, Vec<String>) {
+        return (false, self.id.clone(), self.neighbor.clone());
     }
 }
 
 impl Edge {
-    pub fn enqueue(&mut self, x: Rpc, now: u64, sender: &'static str) {
+    pub fn enqueue(&mut self, x: Rpc, now: u64, sender: String) {
         self.queue
             .add(TimestampedRpc {
                 start_time: now,
@@ -79,7 +79,7 @@ impl Edge {
             })
             .unwrap();
     }
-    pub fn dequeue(&mut self, now: u64) -> Vec<(Rpc, Option<&'static str>, &'static str)> {
+    pub fn dequeue(&mut self, now: u64) -> Vec<(Rpc, Option<String>, String)> {
         if self.queue.size() == 0 {
             return vec![];
         } else if self.queue.peek().unwrap().start_time + self.delay <= now {
@@ -93,13 +93,20 @@ impl Edge {
                 let queue_element_to_remove = self.queue.remove().unwrap();
                 if self.neighbor.len() > 0 {
                     assert!(self.neighbor.len() > 0);
-                    let mut which_neighbor =
-                        *self.neighbor.choose(&mut rand::thread_rng()).unwrap();
+                    let mut which_neighbor = self
+                        .neighbor
+                        .choose(&mut rand::thread_rng())
+                        .unwrap()
+                        .to_string();
                     // Choose a random neighbor to send to, but do not send it back to the one who sent it to you
                     while which_neighbor == queue_element_to_remove.sender
                         && self.neighbor.len() > 1
                     {
-                        which_neighbor = self.neighbor.choose(&mut rand::thread_rng()).unwrap();
+                        which_neighbor = self
+                            .neighbor
+                            .choose(&mut rand::thread_rng())
+                            .unwrap()
+                            .to_string();
                     }
                     ret.push((
                         queue_element_to_remove.rpc,
@@ -124,7 +131,7 @@ impl Edge {
             return vec![];
         }
     }
-    pub fn new(id: &'static str, delay: u64) -> Self {
+    pub fn new(id: String, delay: u64) -> Self {
         Edge {
             id: id,
             delay: delay,
@@ -143,7 +150,7 @@ mod tests {
     #[test]
     fn test_edge() {
         let _edge = Edge {
-            id: "0",
+            id: "0".to_string(),
             queue: queue![],
             delay: 0,
             neighbor: Vec::new(),
@@ -153,14 +160,14 @@ mod tests {
     #[bench]
     fn benchmark_enqueue(b: &mut Bencher) {
         let mut edge = Edge {
-            id: "0",
+            id: "0".to_string(),
             queue: queue![],
             delay: 0,
             neighbor: Vec::new(),
         };
         b.iter(|| {
             for i in 1..100 {
-                edge.enqueue(Rpc::new_rpc(0), i, "0")
+                edge.enqueue(Rpc::new_rpc(0), i, 0.to_string())
             }
         });
     }
@@ -168,14 +175,14 @@ mod tests {
     #[bench]
     fn benchmark_dequeue(b: &mut Bencher) {
         let mut edge = Edge {
-            id: "0",
+            id: "0".to_string(),
             queue: queue![],
             delay: 0,
             neighbor: Vec::new(),
         };
         b.iter(|| {
             for i in 1..100 {
-                edge.enqueue(Rpc::new_rpc(0), i, "0");
+                edge.enqueue(Rpc::new_rpc(0), i, 0.to_string());
             }
             edge.dequeue(0);
         });

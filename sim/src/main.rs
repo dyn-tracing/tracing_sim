@@ -34,26 +34,24 @@ fn main() {
     // Create simulator object.
     let mut simulator: Simulator = Simulator::new();
 
-    // node arguments go:  id, capacity, egress_rate, generation_rate, plugin, plugin_id
-    simulator.add_node(
-        "traffic generator",
-        10,
-        1,
-        1,
-        plugin_str,
-        Some("tgen-plugin"),
-    );
-    simulator.add_node("node 1", 10, 1, 0, plugin_str, Some("1-plugin"));
-    simulator.add_node("node 2", 10, 1, 0, plugin_str, Some("2-plugin"));
-    simulator.add_node("node 3", 10, 1, 0, plugin_str, Some("3-plugin"));
-    simulator.add_node("node 4", 10, 1, 0, plugin_str, Some("4-plugin"));
+    // node arguments go:  id, capacity, egress_rate, generation_rate, plugin
+    simulator.add_node("traffic generator".to_string(), 10, 1, 1, plugin_str);
+    simulator.add_node("node 1".to_string(), 10, 1, 0, plugin_str);
+    simulator.add_node("node 2".to_string(), 10, 1, 0, plugin_str);
+    simulator.add_node("node 3".to_string(), 10, 1, 0, plugin_str);
+    simulator.add_node("node 4".to_string(), 10, 1, 0, plugin_str);
 
     // edge arguments go:  delay, endpoint1, endpoint2, unidirectional
-    simulator.add_edge(1, "tgen->node1", "traffic generator", "node 1", true);
-    simulator.add_edge(1, "1->2", "node 1", "node 2", false);
-    simulator.add_edge(1, "1->3", "node 1", "node 3", false);
+    simulator.add_edge(
+        1,
+        "traffic generator".to_string(),
+        "node 1".to_string(),
+        true,
+    );
+    simulator.add_edge(1, "node 1".to_string(), "node 2".to_string(), false);
+    simulator.add_edge(1, "node 1".to_string(), "node 3".to_string(), false);
     //one way rpc sink
-    simulator.add_edge(1, "1->4", "node 1", "node 4", true);
+    simulator.add_edge(1, "node 1".to_string(), "node 4".to_string(), true);
 
     // Print the graph
     if let Some(_argument) = matches.value_of("print_graph") {

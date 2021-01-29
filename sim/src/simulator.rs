@@ -20,10 +20,10 @@ impl<T: SimElement + Display> PrintableElement for T {}
 
 #[derive(Default)]
 pub struct Simulator {
-    elements: HashMap<&'static str, Box<dyn PrintableElement>>,
-    rpc_buffer: HashMap<&'static str, Vec<(Rpc, Option<&'static str>)>>,
-    graph: Graph<&'static str, &'static str>,
-    node_index_to_node: HashMap<&'static str, NodeIndex>,
+    elements: HashMap<String, Box<dyn PrintableElement>>,
+    rpc_buffer: HashMap<String, Vec<(Rpc, Option<String>)>>,
+    graph: Graph<String, String>,
+    node_index_to_node: HashMap<String, NodeIndex>,
 }
 
 impl Simulator {
@@ -38,62 +38,55 @@ impl Simulator {
 
     pub fn add_node(
         &mut self,
-        id: &'static str,
+        id: String,
         capacity: u32,
         egress_rate: u32,
         generation_rate: u32,
         plugin: Option<&str>,
-        plugin_id: Option<&'static str>,
     ) {
-        let node = Node::new(
-            id,
-            capacity,
-            egress_rate,
-            generation_rate,
-            plugin,
-            plugin_id,
-        );
-        self.add_element(id, node);
-        self.node_index_to_node.insert(id, self.graph.add_node(id));
+        let node = Node::new(id.clone(), capacity, egress_rate, generation_rate, plugin);
+        self.add_element(id.clone(), node);
+        self.node_index_to_node
+            .insert(id.clone(), self.graph.add_node(id));
     }
 
     pub fn add_edge(
         &mut self,
         delay: u32,
-        edge_name: &'static str,
-        element1: &'static str,
-        element2: &'static str,
+        element1: String,
+        element2: String,
         unidirectional: bool,
     ) {
-        // 1. create the edge
-        let edge = Edge::new(edge_name, delay.into());
-        self.add_element(edge_name, edge);
-        let e1_node = self.node_index_to_node[element1];
-        let e2_node = self.node_index_to_node[element2];
-        self.graph.add_edge(e1_node, e2_node, "");
+        // 1. create the id, which will be the two nodes' ids put together with a _
+        let mut id = element1.clone();
+        id.push('_');
+        id.push_str(&element2);
+
+        // 2. create the edge
+        let edge = Edge::new(id.clone(), delay.into());
+        self.add_element(id.clone(), edge);
+        let e1_node = self.node_index_to_node[&element1];
+        let e2_node = self.node_index_to_node[&element2];
+        self.graph.add_edge(e1_node, e2_node, "".to_string());
 
         // 3. connect the edge to its nodes
-        self.add_connection(element1, edge_name);
-        self.add_connection(edge_name, element2);
+        self.add_connection(element1.clone(), id.clone());
+        self.add_connection(id.clone(), element2.clone());
 
         if !unidirectional {
-            self.add_connection(edge_name, element1);
-            self.add_connection(element2, edge_name);
+            self.add_connection(id.clone(), element1.clone());
+            self.add_connection(element2.clone(), id.clone());
         }
     }
 
-    pub fn add_element<T: 'static + PrintableElement>(
-        &mut self,
-        id: &'static str,
-        element: T,
-    ) -> usize {
-        self.elements.insert(id, Box::new(element));
-        self.rpc_buffer.insert(id, vec![]);
+    pub fn add_element<T: 'static + PrintableElement>(&mut self, id: String, element: T) -> usize {
+        self.elements.insert(id.clone(), Box::new(element));
+        self.rpc_buffer.insert(id.clone(), vec![]);
         return self.elements.len() - 1;
     }
 
-    pub fn add_connection(&mut self, src: &str, dst: &'static str) {
-        self.elements.get_mut(src).unwrap().add_connection(dst);
+    pub fn add_connection(&mut self, src: String, dst: String) {
+        self.elements.get_mut(&src).unwrap().add_connection(dst);
     }
 
     pub fn print_graph(&mut self) {
@@ -114,7 +107,7 @@ impl Simulator {
         // tick all elements to generate Rpcs
         for (i, element) in self.elements.iter_mut() {
             let rpcs = element.tick(tick);
-            self.rpc_buffer.insert(i, rpcs);
+            self.rpc_buffer.insert(i.to_string(), rpcs);
             println!(
                 "After tick {:5}, {:45} \n\toutputs {:?}\n",
                 tick, element, self.rpc_buffer[i]
@@ -144,9 +137,9 @@ impl Simulator {
                     }
 
                     self.elements
-                        .get_mut(dst.unwrap())
+                        .get_mut(dst.as_ref().clone().unwrap())
                         .unwrap()
-                        .recv(new_rpc, tick, src);
+                        .recv(new_rpc, tick, src.to_string());
                 }
             }
         }
