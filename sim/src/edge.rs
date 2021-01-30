@@ -4,7 +4,7 @@ extern crate test;
 
 use crate::sim_element::SimElement;
 use queues::*;
-use rand::seq::SliceRandom;
+use rand::Rng;
 use rpc_lib::rpc::Rpc;
 use std::fmt;
 
@@ -57,7 +57,7 @@ impl SimElement for Edge {
         }
         return to_return;
     }
-    fn recv(&mut self, rpc: Rpc, tick: u64, sender: String) {
+    fn recv(&mut self, rpc: Rpc, tick: u64, sender: &str) {
         self.enqueue(rpc, tick, sender);
     }
     fn add_connection(&mut self, neighbor: String) {
@@ -70,12 +70,12 @@ impl SimElement for Edge {
 }
 
 impl Edge {
-    pub fn enqueue(&mut self, x: Rpc, now: u64, sender: String) {
+    pub fn enqueue(&mut self, x: Rpc, now: u64, sender: &str) {
         self.queue
             .add(TimestampedRpc {
                 start_time: now,
                 rpc: x,
-                sender,
+                sender: sender.to_string(),
             })
             .unwrap();
     }
@@ -91,22 +91,16 @@ impl Edge {
 
                 // Remove RPC from the head of the queue.
                 let queue_element_to_remove = self.queue.remove().unwrap();
-                if self.neighbors.len() > 0 {
-                    assert!(self.neighbors.len() > 0);
-                    let mut which_neighbor = self
-                        .neighbors
-                        .choose(&mut rand::thread_rng())
-                        .unwrap()
-                        .to_string();
+                let neigh_len = self.neighbors.len();
+                if neigh_len > 0 {
+                    let idx = rand::thread_rng().gen_range(0, neigh_len);
+                    let mut which_neighbor = self.neighbors[idx].clone();
                     // Choose a random neighbor to send to, but do not send it back to the one who sent it to you
                     while which_neighbor == queue_element_to_remove.sender
                         && self.neighbors.len() > 1
                     {
-                        which_neighbor = self
-                            .neighbors
-                            .choose(&mut rand::thread_rng())
-                            .unwrap()
-                            .to_string();
+                        let idx = rand::thread_rng().gen_range(0, neigh_len);
+                        which_neighbor = self.neighbors[idx].clone();
                     }
                     ret.push((
                         queue_element_to_remove.rpc,
@@ -131,9 +125,9 @@ impl Edge {
             return vec![];
         }
     }
-    pub fn new(id: String, delay: u64) -> Self {
+    pub fn new(id: &str, delay: u64) -> Self {
         Edge {
-            id,
+            id: id.to_string(),
             delay,
             queue: queue![],
             neighbors: Vec::new(),
@@ -167,7 +161,7 @@ mod tests {
         };
         b.iter(|| {
             for i in 1..100 {
-                edge.enqueue(Rpc::new_rpc(0), i, 0.to_string())
+                edge.enqueue(Rpc::new_rpc(0), i, "0")
             }
         });
     }
@@ -182,7 +176,7 @@ mod tests {
         };
         b.iter(|| {
             for i in 1..100 {
-                edge.enqueue(Rpc::new_rpc(0), i, 0.to_string());
+                edge.enqueue(Rpc::new_rpc(0), i, "0");
             }
             edge.dequeue(0);
         });

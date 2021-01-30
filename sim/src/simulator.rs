@@ -44,13 +44,7 @@ impl Simulator {
         generation_rate: u32,
         plugin: Option<&str>,
     ) {
-        let node = Node::new(
-            id.to_string(),
-            capacity,
-            egress_rate,
-            generation_rate,
-            plugin,
-        );
+        let node = Node::new(id, capacity, egress_rate, generation_rate, plugin);
         self.add_element(id, node);
         self.node_index_to_node
             .insert(id.to_string(), self.graph.add_node(id.to_string()));
@@ -61,14 +55,14 @@ impl Simulator {
         let id = element1.to_string() + "_" + element2;
 
         // 2. create the edge
-        let edge = Edge::new(id.to_string(), delay.into());
+        let edge = Edge::new(&id, delay.into());
         self.add_element(&id, edge);
         let e1_node = self.node_index_to_node[element1];
         let e2_node = self.node_index_to_node[element2];
         self.graph.add_edge(e1_node, e2_node, "".to_string());
 
         // 2. create the edge
-        let edge = Edge::new(id.clone(), delay.into());
+        let edge = Edge::new(&id, delay.into());
         self.add_element(&id, edge);
         let e1_node = self.node_index_to_node[element1];
         let e2_node = self.node_index_to_node[element2];
@@ -141,13 +135,13 @@ impl Simulator {
                     // TODO: is cloning the best way to do this?
                     let mut new_rpc = rpc.clone();
                     if self.elements[src].whoami().0 {
-                        new_rpc.add_to_path(&src.to_string());
+                        new_rpc.add_to_path(src);
                     }
 
                     self.elements
                         .get_mut(dst.as_ref().clone().unwrap())
                         .unwrap()
-                        .recv(new_rpc, tick, src.to_string());
+                        .recv(new_rpc, tick, src);
                 }
             }
         }

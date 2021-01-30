@@ -4,11 +4,10 @@
 use crate::plugin_wrapper::PluginWrapper;
 use crate::sim_element::SimElement;
 use queues::*;
-use rand::seq::SliceRandom;
+use rand::Rng;
 use rpc_lib::rpc::Rpc;
 use std::cmp::min;
 use std::fmt;
-
 pub struct Node {
     queue: Queue<Rpc>,             // queue of rpcs
     id: String,                    // id of the node
@@ -56,14 +55,16 @@ impl fmt::Display for Node {
 impl SimElement for Node {
     fn tick(&mut self, tick: u64) -> Vec<(Rpc, Option<String>)> {
         let mut ret = vec![];
-        let mut rng = rand::thread_rng();
         for _ in 0..min(
             self.queue.size() + (self.generation_rate as usize),
             self.egress_rate as usize,
         ) {
+            // send the rpc to a random neighbor, if there are any
             let mut which_neighbor = None;
-            if self.neighbors.len() > 0 {
-                which_neighbor = Some((*self.neighbors.choose(&mut rng).unwrap()).clone());
+            let neigh_len = self.neighbors.len();
+            if neigh_len > 0 {
+                let idx = rand::thread_rng().gen_range(0, neigh_len);
+                which_neighbor = Some(self.neighbors[idx].clone());
             }
             if self.queue.size() > 0 {
                 let deq = self.dequeue(tick);
@@ -75,16 +76,13 @@ impl SimElement for Node {
         }
         ret
     }
-    fn recv(&mut self, rpc: Rpc, tick: u64, _sender: String) {
+    fn recv(&mut self, rpc: Rpc, tick: u64, _sender: &str) {
         if (self.queue.size() as u32) < self.capacity {
             // drop packets you cannot accept
             if self.plugin.is_none() {
                 self.enqueue(rpc, tick);
             } else {
-                self.plugin
-                    .as_mut()
-                    .unwrap()
-                    .recv(rpc, tick, self.id.clone());
+                self.plugin.as_mut().unwrap().recv(rpc, tick, &self.id);
                 let ret = self.plugin.as_mut().unwrap().tick(tick);
                 for filtered_rpc in ret {
                     self.enqueue(filtered_rpc.0, tick);
@@ -112,36 +110,27 @@ impl Node {
         }
     }
     pub fn new(
-        id: String,
+        id: &str,
         capacity: u32,
         egress_rate: u32,
         generation_rate: u32,
         plugin: Option<&str>,
     ) -> Node {
         assert!(capacity >= 1);
-        if plugin.is_none() {
-            Node {
-                queue: queue![],
-                id,
-                capacity,
-                egress_rate,
-                generation_rate,
-                plugin: None,
-                neighbors: Vec::new(),
-            }
-        } else {
+        let mut created_plugin = None;
+        if !plugin.is_none() {
             let mut plugin_id = id.to_string();
             plugin_id.push_str("_plugin");
-            let created_plugin = PluginWrapper::new(plugin_id, plugin.unwrap().to_string());
-            Node {
-                queue: queue![],
-                id,
-                capacity,
-                egress_rate,
-                generation_rate,
-                plugin: Some(created_plugin),
-                neighbors: Vec::new(),
-            }
+            created_plugin = Some(PluginWrapper::new(&plugin_id, plugin.unwrap()));
+        }
+        Node {
+            queue: queue![],
+            id: id.to_string(),
+            capacity,
+            egress_rate,
+            generation_rate,
+            plugin: created_plugin,
+            neighbors: Vec::new(),
         }
     }
 }
@@ -153,18 +142,18 @@ mod tests {
 
     #[test]
     fn test_node_creation() {
-        let _node = Node::new("0".to_string(), 2, 2, 1, None);
+        let _node = Node::new("0", 2, 2, 1, None);
     }
 
     #[test]
     fn test_node_capacity_and_egress_rate() {
-        let mut node = Node::new("0".to_string(), 2, 1, 0, None);
+        let mut node = Node::new("0", 2, 1, 0, None);
         assert!(node.capacity == 2);
         assert!(node.egress_rate == 1);
-        node.recv(Rpc::new_rpc(0), 0, 0.to_string());
-        node.recv(Rpc::new_rpc(0), 0, 0.to_string());
+        node.recv(Rpc::new_rpc(0), 0, "0");
+        node.recv(Rpc::new_rpc(0), 0, "0");
         assert!(node.queue.size() == 2);
-        node.recv(Rpc::new_rpc(0), 0, 0.to_string());
+        node.recv(Rpc::new_rpc(0), 0, "0");
         assert!(node.queue.size() == 2);
         node.tick(0);
         assert!(node.queue.size() == 1);
@@ -175,7 +164,7 @@ mod tests {
         let mut cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         cargo_dir.push("../target/debug/libfilter_example");
         let library_str = cargo_dir.to_str().unwrap();
-        let node = Node::new("0".to_string(), 2, 1, 0, Some(library_str));
+        let node = Node::new("0", 2, 1, 0, Some(library_str));
         assert!(!node.plugin.is_none());
     }
 }

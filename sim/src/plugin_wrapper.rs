@@ -53,7 +53,7 @@ impl SimElement for PluginWrapper {
             vec![]
         }
     }
-    fn recv(&mut self, rpc: Rpc, _tick: u64, _sender: String) {
+    fn recv(&mut self, rpc: Rpc, _tick: u64, _sender: &str) {
         assert!(self.stored_rpc.is_none(), "Overwriting previous RPC");
         self.stored_rpc = Some(rpc);
     }
@@ -71,7 +71,7 @@ impl SimElement for PluginWrapper {
     }
 }
 
-fn load_lib(plugin_str: String) -> libloading::Library {
+fn load_lib(plugin_str: &str) -> libloading::Library {
     // Convert the library string into a Path object
     let mut plugin_path = PathBuf::from(plugin_str);
     // We have to load the library differently, depending on whether we are
@@ -98,7 +98,7 @@ fn load_lib(plugin_str: String) -> libloading::Library {
 }
 
 impl PluginWrapper {
-    pub fn new(id: String, plugin_str: String) -> PluginWrapper {
+    pub fn new(id: &str, plugin_str: &str) -> PluginWrapper {
         let dyn_lib = load_lib(plugin_str);
         // Dynamically load one function to initialize hash table in filter.
         let init: libloading::Symbol<NewWithEnvoyProperties>;
@@ -122,7 +122,7 @@ impl PluginWrapper {
         PluginWrapper {
             filter: new_filter,
             loaded_function,
-            id,
+            id: id.to_string(),
             stored_rpc: None,
             neighbor: vec![],
         }
@@ -140,8 +140,8 @@ mod tests {
     fn test_plugin_creation() {
         let mut cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         cargo_dir.push("../target/debug/libfilter_example");
-        let library_str = cargo_dir.to_str().unwrap().to_string();
-        let plugin = PluginWrapper::new("0".to_string(), library_str);
+        let library_str = cargo_dir.to_str().unwrap();
+        let plugin = PluginWrapper::new("0", library_str);
         let rpc = &Rpc::new_rpc(55);
         let rpc_data = plugin.execute(rpc).unwrap().data;
         assert!(rpc_data == 55);
@@ -151,11 +151,11 @@ mod tests {
     fn test_chained_plugins() {
         let mut cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         cargo_dir.push("../target/debug/libfilter_example");
-        let library_str = cargo_dir.to_str().unwrap().to_string();
-        let plugin1 = PluginWrapper::new("0".to_string(), library_str.clone());
-        let plugin2 = PluginWrapper::new("1".to_string(), library_str.clone());
-        let plugin3 = PluginWrapper::new("2".to_string(), library_str.clone());
-        let plugin4 = PluginWrapper::new("3".to_string(), library_str.clone());
+        let library_str = cargo_dir.to_str().unwrap();
+        let plugin1 = PluginWrapper::new("0", library_str);
+        let plugin2 = PluginWrapper::new("1", library_str);
+        let plugin3 = PluginWrapper::new("2", library_str);
+        let plugin4 = PluginWrapper::new("3", library_str);
         assert!(
             5 == plugin4
                 .execute(
