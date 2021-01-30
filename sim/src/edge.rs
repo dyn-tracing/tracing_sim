@@ -153,12 +153,7 @@ mod tests {
 
     #[bench]
     fn benchmark_enqueue(b: &mut Bencher) {
-        let mut edge = Edge {
-            id: "0".to_string(),
-            queue: queue![],
-            delay: 0,
-            neighbors: Vec::new(),
-        };
+        let mut edge = Edge::new("0", 0);
         b.iter(|| {
             for i in 1..100 {
                 edge.enqueue(Rpc::new_rpc(0), i, "0")
@@ -168,12 +163,7 @@ mod tests {
 
     #[bench]
     fn benchmark_dequeue(b: &mut Bencher) {
-        let mut edge = Edge {
-            id: "0".to_string(),
-            queue: queue![],
-            delay: 0,
-            neighbors: Vec::new(),
-        };
+        let mut edge = Edge::new("0", 0);
         b.iter(|| {
             for i in 1..100 {
                 edge.enqueue(Rpc::new_rpc(0), i, "0");
