@@ -1,18 +1,14 @@
 #![feature(test)]
 #![feature(extern_types)]
-mod channel;
+mod edge;
 mod filter_types;
-mod link;
+mod node;
 mod plugin_wrapper;
 mod sim_element;
 mod simulator;
-mod traffic_generator;
 
-use channel::Channel;
 use clap::{App, Arg};
-use link::Link;
 use simulator::Simulator;
-use traffic_generator::TrafficGenerator;
 
 fn main() {
     let matches = App::new("Tracing Simulator")
@@ -38,17 +34,19 @@ fn main() {
     // Create simulator object.
     let mut simulator: Simulator = Simulator::new();
 
-    let tgen = simulator.add_node(TrafficGenerator::new(1, 0));
-    let node1 = simulator.add_node(Link::new(2, 1, plugin_str, 1));
-    let node2 = simulator.add_node(Link::new(2, 1, plugin_str, 2));
-    let node3 = simulator.add_node(Link::new(2, 1, plugin_str, 3));
-    let node4 = simulator.add_node(Link::new(2, 1, plugin_str, 4));
+    // node arguments go:  id, capacity, egress_rate, generation_rate, plugin
+    simulator.add_node("traffic-gen", 10, 1, 1, plugin_str);
+    simulator.add_node("node-1", 10, 1, 0, plugin_str);
+    simulator.add_node("node-2", 10, 1, 0, plugin_str);
+    simulator.add_node("node-3", 10, 1, 0, plugin_str);
+    simulator.add_node("node-4", 10, 1, 0, plugin_str);
 
-    let _edge5 = simulator.add_one_direction_edge(Channel::new(1, 5), tgen, node1);
-    let _edge6 = simulator.add_edge(Channel::new(2, 6), node1, node2);
-    let _edge7 = simulator.add_edge(Channel::new(2, 7), node1, node3);
-    // one way rpc sink
-    let _edge8 = simulator.add_one_direction_edge(Channel::new(1, 8), node1, node4);
+    // edge arguments go:  delay, endpoint1, endpoint2, unidirectional
+    simulator.add_edge(1, "traffic-gen", "node-1", true);
+    simulator.add_edge(1, "node-1", "node-2", false);
+    simulator.add_edge(1, "node-1", "node-3", false);
+    //one way rpc sink
+    simulator.add_edge(1, "node-1", "node-4", true);
 
     // Print the graph
     if let Some(_argument) = matches.value_of("print_graph") {

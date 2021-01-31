@@ -1,3 +1,7 @@
+//! A plugin wrapper is a sim_element that takes an outside library that does some computation on RPCs.
+//! It is meant to represent a WebAssembly filter, and is a sim_element.  A plugin wrapper should only be
+//! created as a field of a node object.
+
 use crate::filter_types::{CodeletType, Filter, NewWithEnvoyProperties};
 use crate::sim_element::SimElement;
 use rpc_lib::rpc::Rpc;
@@ -11,9 +15,9 @@ pub struct PluginWrapper {
     // TODO: Currently uses a platform-specific binding, which isn't very safe.
     filter: *mut Filter,
     loaded_function: libloading::os::unix::Symbol<CodeletType>,
-    id: u32,
+    id: String,
     stored_rpc: Option<Rpc>,
-    neighbor: Option<u32>,
+    neighbor: Vec<String>,
 }
 
 impl fmt::Display for PluginWrapper {
@@ -32,32 +36,38 @@ impl fmt::Display for PluginWrapper {
 }
 
 impl SimElement for PluginWrapper {
-    fn tick(&mut self, _tick: u64) -> Vec<(Rpc, Option<u32>)> {
+    fn tick(&mut self, _tick: u64) -> Vec<(Rpc, Option<String>)> {
         if self.stored_rpc.is_some() {
             let ret = self.execute(self.stored_rpc.as_ref().unwrap());
             self.stored_rpc = None;
             if ret.is_none() {
                 vec![]
             } else {
-                vec![(ret.unwrap(), self.neighbor)]
+                if self.neighbor.len() > 0 {
+                    vec![(ret.unwrap(), Some(self.neighbor[0].clone()))]
+                } else {
+                    vec![(ret.unwrap(), None)]
+                }
             }
         } else {
             vec![]
         }
     }
-    fn recv(&mut self, rpc: Rpc, _tick: u64, _sender: u32) {
+    fn recv(&mut self, rpc: Rpc, _tick: u64, _sender: &str) {
         assert!(self.stored_rpc.is_none(), "Overwriting previous RPC");
         self.stored_rpc = Some(rpc);
     }
-    fn add_connection(&mut self, neighbor: u32) {
-        self.neighbor = Some(neighbor);
-    }
-    fn whoami(&self) -> (&str, u32, Vec<u32>) {
-        let mut neighbors = Vec::new();
-        if !self.neighbor.is_none() {
-            neighbors.push(self.neighbor.unwrap());
+    fn add_connection(&mut self, neighbor: String) {
+        // override the connection if there is already an element in it
+        if self.neighbor.len() > 0 {
+            let val = &mut self.neighbor[0];
+            *val = neighbor;
+        } else {
+            self.neighbor.push(neighbor);
         }
-        return ("PluginWrapper", self.id, neighbors);
+    }
+    fn whoami(&self) -> (bool, &str, &Vec<String>) {
+        return (false, &self.id, &self.neighbor);
     }
 }
 
@@ -88,7 +98,7 @@ fn load_lib(plugin_str: &str) -> libloading::Library {
 }
 
 impl PluginWrapper {
-    pub fn new(plugin_str: &str, id: u32) -> PluginWrapper {
+    pub fn new(id: &str, plugin_str: &str) -> PluginWrapper {
         let dyn_lib = load_lib(plugin_str);
         // Dynamically load one function to initialize hash table in filter.
         let init: libloading::Symbol<NewWithEnvoyProperties>;
@@ -112,9 +122,9 @@ impl PluginWrapper {
         PluginWrapper {
             filter: new_filter,
             loaded_function,
-            id,
+            id: id.to_string(),
             stored_rpc: None,
-            neighbor: None,
+            neighbor: vec![],
         }
     }
 
@@ -131,7 +141,7 @@ mod tests {
         let mut cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         cargo_dir.push("../target/debug/libfilter_example");
         let library_str = cargo_dir.to_str().unwrap();
-        let plugin = PluginWrapper::new(library_str, 0);
+        let plugin = PluginWrapper::new("0", library_str);
         let rpc = &Rpc::new_rpc(55);
         let rpc_data = plugin.execute(rpc).unwrap().data;
         assert!(rpc_data == 55);
@@ -142,10 +152,10 @@ mod tests {
         let mut cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         cargo_dir.push("../target/debug/libfilter_example");
         let library_str = cargo_dir.to_str().unwrap();
-        let plugin1 = PluginWrapper::new(library_str, 0);
-        let plugin2 = PluginWrapper::new(library_str, 1);
-        let plugin3 = PluginWrapper::new(library_str, 2);
-        let plugin4 = PluginWrapper::new(library_str, 3);
+        let plugin1 = PluginWrapper::new("0", library_str);
+        let plugin2 = PluginWrapper::new("1", library_str);
+        let plugin3 = PluginWrapper::new("2", library_str);
+        let plugin4 = PluginWrapper::new("3", library_str);
         assert!(
             5 == plugin4
                 .execute(
