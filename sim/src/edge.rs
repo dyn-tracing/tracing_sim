@@ -95,11 +95,7 @@ impl Edge {
                 if dest == queue_element_to_remove.sender {
                     dest = self.neighbors[1].clone();
                 }
-                ret.push((
-                    queue_element_to_remove.rpc,
-                    None,
-                    dest,
-                ));
+                ret.push((queue_element_to_remove.rpc, None, dest));
             }
             // Either the queue has emptied or no other RPCs are ready.
             assert!(
