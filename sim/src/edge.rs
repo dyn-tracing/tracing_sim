@@ -4,7 +4,7 @@ extern crate test;
 
 use crate::sim_element::SimElement;
 use queues::*;
-use rand::Rng;
+use rand::{rngs::StdRng, Rng, SeedableRng};
 use rpc_lib::rpc::Rpc;
 use std::fmt;
 
@@ -20,6 +20,7 @@ pub struct Edge {
     delay: u64,
     id: String,
     neighbors: Vec<String>,
+    seed: Option<u64>,
 }
 
 impl fmt::Display for Edge {
@@ -93,15 +94,14 @@ impl Edge {
                 let queue_element_to_remove = self.queue.remove().unwrap();
                 let neigh_len = self.neighbors.len();
                 if neigh_len > 0 {
-                    let idx = rand::thread_rng().gen_range(0, neigh_len);
-                    let mut which_neighbor = self.neighbors[idx].clone();
-                    // Choose a random neighbor to send to, but do not send it back to the one who sent it to you
-                    while which_neighbor == queue_element_to_remove.sender
-                        && self.neighbors.len() > 1
-                    {
-                        let idx = rand::thread_rng().gen_range(0, neigh_len);
-                        which_neighbor = self.neighbors[idx].clone();
+                    let idx;
+                    if self.seed.is_none() {
+                        idx = rand::thread_rng().gen_range(0, neigh_len);
+                    } else {
+                        let mut rng: StdRng = SeedableRng::seed_from_u64(self.seed.unwrap());
+                        idx = rng.gen_range(0, neigh_len);
                     }
+                    let which_neighbor = self.neighbors[idx].clone();
                     ret.push((
                         queue_element_to_remove.rpc,
                         Some(which_neighbor),
@@ -125,12 +125,13 @@ impl Edge {
             return vec![];
         }
     }
-    pub fn new(id: &str, delay: u64) -> Self {
+    pub fn new(id: &str, delay: u64, seed: Option<u64>) -> Self {
         Edge {
             id: id.to_string(),
             delay,
             queue: queue![],
             neighbors: Vec::new(),
+            seed,
         }
     }
 }

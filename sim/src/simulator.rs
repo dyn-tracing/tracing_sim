@@ -24,15 +24,22 @@ pub struct Simulator {
     rpc_buffer: HashMap<String, Vec<(Rpc, Option<String>)>>,
     graph: Graph<String, String>,
     node_index_to_node: HashMap<String, NodeIndex>,
+    seed: Option<u64>,
 }
 
 impl Simulator {
-    pub fn new() -> Self {
+    pub fn new(seed: Option<&str>) -> Self {
+        let mut new_seed = None;
+        if !seed.is_none() {
+            let num: u64 = seed.unwrap().parse().unwrap();
+            new_seed = Some(num);
+        }
         Simulator {
             elements: HashMap::new(),
             rpc_buffer: HashMap::new(),
             graph: Graph::new(),
             node_index_to_node: HashMap::new(),
+            seed: new_seed,
         }
     }
 
@@ -44,7 +51,14 @@ impl Simulator {
         generation_rate: u32,
         plugin: Option<&str>,
     ) {
-        let node = Node::new(id, capacity, egress_rate, generation_rate, plugin);
+        let node = Node::new(
+            id,
+            capacity,
+            egress_rate,
+            generation_rate,
+            plugin,
+            self.seed,
+        );
         self.add_element(id, node);
         self.node_index_to_node
             .insert(id.to_string(), self.graph.add_node(id.to_string()));
@@ -55,14 +69,7 @@ impl Simulator {
         let id = element1.to_string() + "_" + element2;
 
         // 2. create the edge
-        let edge = Edge::new(&id, delay.into());
-        self.add_element(&id, edge);
-        let e1_node = self.node_index_to_node[element1];
-        let e2_node = self.node_index_to_node[element2];
-        self.graph.add_edge(e1_node, e2_node, "".to_string());
-
-        // 2. create the edge
-        let edge = Edge::new(&id, delay.into());
+        let edge = Edge::new(&id, delay.into(), self.seed);
         self.add_element(&id, edge);
         let e1_node = self.node_index_to_node[element1];
         let e2_node = self.node_index_to_node[element2];
