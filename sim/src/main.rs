@@ -45,7 +45,7 @@ fn main() {
         seed = rng.gen::<u64>();
         print!("Using seed {0}\n", seed);
     } else {
-        seed = seed_arg.unwrap().parse().unwrap();
+        seed = seed_arg.unwrap().parse::<u64>().unwrap();
     }
 
     // Create simulator object.
