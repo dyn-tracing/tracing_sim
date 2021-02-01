@@ -8,6 +8,7 @@ mod sim_element;
 mod simulator;
 
 use clap::{App, Arg};
+use rand::Rng;
 use simulator::Simulator;
 
 fn main() {
@@ -26,20 +27,36 @@ fn main() {
                 .value_name("PLUGIN")
                 .help("Path to the plugin."),
         )
+        .arg(
+            Arg::with_name("random_num_seed")
+                .short("r")
+                .long("random_num_seed")
+                .value_name("RANDOM_NUM_SEED")
+                .help("A seed for all the random routing decisions."),
+        )
         .get_matches();
 
     // Set up library access
     let plugin_str = matches.value_of("plugin");
+    let seed_arg = matches.value_of("random_num_seed");
+    let seed;
+    if seed_arg.is_none() {
+        let mut rng = rand::thread_rng();
+        seed = rng.gen::<u64>();
+        print!("Using seed {0}\n", seed);
+    } else {
+        seed = seed_arg.unwrap().parse::<u64>().unwrap();
+    }
 
     // Create simulator object.
-    let mut simulator: Simulator = Simulator::new();
+    let mut simulator: Simulator = Simulator::new(seed);
 
     // node arguments go:  id, capacity, egress_rate, generation_rate, plugin
     simulator.add_node("traffic-gen", 10, 1, 1, plugin_str);
     simulator.add_node("node-1", 10, 1, 0, plugin_str);
     simulator.add_node("node-2", 10, 1, 0, plugin_str);
     simulator.add_node("node-3", 10, 1, 0, plugin_str);
-    simulator.add_node("node-4", 10, 1, 0, plugin_str);
+    simulator.add_node("node-4", 1, 0, 0, plugin_str); // in setting egress rate to 0, we are making a sink
 
     // edge arguments go:  delay, endpoint1, endpoint2, unidirectional
     simulator.add_edge(1, "traffic-gen", "node-1", true);

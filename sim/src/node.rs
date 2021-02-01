@@ -4,10 +4,11 @@
 use crate::plugin_wrapper::PluginWrapper;
 use crate::sim_element::SimElement;
 use queues::*;
-use rand::Rng;
+use rand::{rngs::StdRng, Rng, SeedableRng};
 use rpc_lib::rpc::Rpc;
 use std::cmp::min;
 use std::fmt;
+
 pub struct Node {
     queue: Queue<Rpc>,             // queue of rpcs
     id: String,                    // id of the node
@@ -16,6 +17,7 @@ pub struct Node {
     generation_rate: u32, // rate at which the node can generate rpcs, which are generated regardless of input to the node
     plugin: Option<PluginWrapper>, // filter to the node
     neighbors: Vec<String>, // who is the node connected to
+    seed: u64,
 }
 
 impl fmt::Display for Node {
@@ -63,7 +65,8 @@ impl SimElement for Node {
             let mut which_neighbor = None;
             let neigh_len = self.neighbors.len();
             if neigh_len > 0 {
-                let idx = rand::thread_rng().gen_range(0, neigh_len);
+                let mut rng: StdRng = SeedableRng::seed_from_u64(self.seed);
+                let idx = rng.gen_range(0, neigh_len);
                 which_neighbor = Some(self.neighbors[idx].clone());
             }
             if self.queue.size() > 0 {
@@ -115,6 +118,7 @@ impl Node {
         egress_rate: u32,
         generation_rate: u32,
         plugin: Option<&str>,
+        seed: u64,
     ) -> Node {
         assert!(capacity >= 1);
         let mut created_plugin = None;
@@ -131,6 +135,7 @@ impl Node {
             generation_rate,
             plugin: created_plugin,
             neighbors: Vec::new(),
+            seed,
         }
     }
 }
@@ -142,12 +147,12 @@ mod tests {
 
     #[test]
     fn test_node_creation() {
-        let _node = Node::new("0", 2, 2, 1, None);
+        let _node = Node::new("0", 2, 2, 1, None, 1);
     }
 
     #[test]
     fn test_node_capacity_and_egress_rate() {
-        let mut node = Node::new("0", 2, 1, 0, None);
+        let mut node = Node::new("0", 2, 1, 0, None, 1);
         assert!(node.capacity == 2);
         assert!(node.egress_rate == 1);
         node.recv(Rpc::new_rpc(0), 0, "0");
@@ -164,7 +169,7 @@ mod tests {
         let mut cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         cargo_dir.push("../target/debug/libfilter_example");
         let library_str = cargo_dir.to_str().unwrap();
-        let node = Node::new("0", 2, 1, 0, Some(library_str));
+        let node = Node::new("0", 2, 1, 0, Some(library_str), 1);
         assert!(!node.plugin.is_none());
     }
 }

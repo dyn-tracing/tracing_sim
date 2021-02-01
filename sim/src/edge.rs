@@ -4,7 +4,6 @@ extern crate test;
 
 use crate::sim_element::SimElement;
 use queues::*;
-use rand::Rng;
 use rpc_lib::rpc::Rpc;
 use std::fmt;
 
@@ -91,29 +90,12 @@ impl Edge {
 
                 // Remove RPC from the head of the queue.
                 let queue_element_to_remove = self.queue.remove().unwrap();
-                let neigh_len = self.neighbors.len();
-                if neigh_len > 0 {
-                    let idx = rand::thread_rng().gen_range(0, neigh_len);
-                    let mut which_neighbor = self.neighbors[idx].clone();
-                    // Choose a random neighbor to send to, but do not send it back to the one who sent it to you
-                    while which_neighbor == queue_element_to_remove.sender
-                        && self.neighbors.len() > 1
-                    {
-                        let idx = rand::thread_rng().gen_range(0, neigh_len);
-                        which_neighbor = self.neighbors[idx].clone();
-                    }
-                    ret.push((
-                        queue_element_to_remove.rpc,
-                        Some(which_neighbor),
-                        queue_element_to_remove.sender,
-                    ));
-                } else {
-                    ret.push((
-                        queue_element_to_remove.rpc,
-                        None,
-                        queue_element_to_remove.sender,
-                    ));
+                let mut dest = self.neighbors[0].clone();
+                // send the RPC to the other end of the edge
+                if dest == queue_element_to_remove.sender {
+                    dest = self.neighbors[1].clone();
                 }
+                ret.push((queue_element_to_remove.rpc, None, dest));
             }
             // Either the queue has emptied or no other RPCs are ready.
             assert!(
