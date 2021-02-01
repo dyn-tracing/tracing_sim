@@ -152,12 +152,12 @@ mod tests {
 
     #[test]
     fn test_node_creation() {
-        let _node = Node::new("0", 2, 2, 1, None);
+        let _node = Node::new("0", 2, 2, 1, None, None);
     }
 
     #[test]
     fn test_node_capacity_and_egress_rate() {
-        let mut node = Node::new("0", 2, 1, 0, None);
+        let mut node = Node::new("0", 2, 1, 0, None, None);
         assert!(node.capacity == 2);
         assert!(node.egress_rate == 1);
         node.recv(Rpc::new_rpc(0), 0, "0");
@@ -174,7 +174,7 @@ mod tests {
         let mut cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         cargo_dir.push("../target/debug/libfilter_example");
         let library_str = cargo_dir.to_str().unwrap();
-        let node = Node::new("0", 2, 1, 0, Some(library_str));
+        let node = Node::new("0", 2, 1, 0, Some(library_str), None);
         assert!(!node.plugin.is_none());
     }
 }
