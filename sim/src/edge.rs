@@ -4,7 +4,6 @@ extern crate test;
 
 use crate::sim_element::SimElement;
 use queues::*;
-use rand::{rngs::StdRng, Rng, SeedableRng};
 use rpc_lib::rpc::Rpc;
 use std::fmt;
 
@@ -20,7 +19,6 @@ pub struct Edge {
     delay: u64,
     id: String,
     neighbors: Vec<String>,
-    seed: Option<u64>,
 }
 
 impl fmt::Display for Edge {
@@ -92,28 +90,16 @@ impl Edge {
 
                 // Remove RPC from the head of the queue.
                 let queue_element_to_remove = self.queue.remove().unwrap();
-                let neigh_len = self.neighbors.len();
-                if neigh_len > 0 {
-                    let idx;
-                    if self.seed.is_none() {
-                        idx = rand::thread_rng().gen_range(0, neigh_len);
-                    } else {
-                        let mut rng: StdRng = SeedableRng::seed_from_u64(self.seed.unwrap());
-                        idx = rng.gen_range(0, neigh_len);
-                    }
-                    let which_neighbor = self.neighbors[idx].clone();
-                    ret.push((
-                        queue_element_to_remove.rpc,
-                        Some(which_neighbor),
-                        queue_element_to_remove.sender,
-                    ));
-                } else {
-                    ret.push((
-                        queue_element_to_remove.rpc,
-                        None,
-                        queue_element_to_remove.sender,
-                    ));
+                let mut dest = self.neighbors[0].clone();
+                // send the RPC to the other end of the edge
+                if dest == queue_element_to_remove.sender {
+                    dest = self.neighbors[1].clone();
                 }
+                ret.push((
+                    queue_element_to_remove.rpc,
+                    None,
+                    dest,
+                ));
             }
             // Either the queue has emptied or no other RPCs are ready.
             assert!(
@@ -125,13 +111,12 @@ impl Edge {
             return vec![];
         }
     }
-    pub fn new(id: &str, delay: u64, seed: Option<u64>) -> Self {
+    pub fn new(id: &str, delay: u64) -> Self {
         Edge {
             id: id.to_string(),
             delay,
             queue: queue![],
             neighbors: Vec::new(),
-            seed,
         }
     }
 }

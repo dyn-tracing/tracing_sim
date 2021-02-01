@@ -69,7 +69,7 @@ impl Simulator {
         let id = element1.to_string() + "_" + element2;
 
         // 2. create the edge
-        let edge = Edge::new(&id, delay.into(), self.seed);
+        let edge = Edge::new(&id, delay.into());
         self.add_element(&id, edge);
         let e1_node = self.node_index_to_node[element1];
         let e2_node = self.node_index_to_node[element2];
