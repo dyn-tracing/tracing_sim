@@ -24,22 +24,17 @@ pub struct Simulator {
     rpc_buffer: HashMap<String, Vec<(Rpc, Option<String>)>>,
     graph: Graph<String, String>,
     node_index_to_node: HashMap<String, NodeIndex>,
-    seed: Option<u64>,
+    seed: u64,
 }
 
 impl Simulator {
-    pub fn new(seed: Option<&str>) -> Self {
-        let mut new_seed = None;
-        if !seed.is_none() {
-            let num: u64 = seed.unwrap().parse().unwrap();
-            new_seed = Some(num);
-        }
+    pub fn new(seed: u64) -> Self {
         Simulator {
             elements: HashMap::new(),
             rpc_buffer: HashMap::new(),
             graph: Graph::new(),
             node_index_to_node: HashMap::new(),
-            seed: new_seed,
+            seed,
         }
     }
 

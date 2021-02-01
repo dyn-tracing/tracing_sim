@@ -8,6 +8,7 @@ mod sim_element;
 mod simulator;
 
 use clap::{App, Arg};
+use rand::Rng;
 use simulator::Simulator;
 
 fn main() {
@@ -37,7 +38,15 @@ fn main() {
 
     // Set up library access
     let plugin_str = matches.value_of("plugin");
-    let seed = matches.value_of("random_num_seed");
+    let seed_arg = matches.value_of("random_num_seed");
+    let seed;
+    if seed_arg.is_none() {
+        let mut rng = rand::thread_rng();
+        seed = rng.gen::<u64>();
+        print!("Using seed {0}\n", seed);
+    } else {
+        seed = seed_arg.unwrap().parse().unwrap();
+    }
 
     // Create simulator object.
     let mut simulator: Simulator = Simulator::new(seed);

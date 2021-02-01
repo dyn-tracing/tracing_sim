@@ -17,7 +17,7 @@ pub struct Node {
     generation_rate: u32, // rate at which the node can generate rpcs, which are generated regardless of input to the node
     plugin: Option<PluginWrapper>, // filter to the node
     neighbors: Vec<String>, // who is the node connected to
-    seed: Option<u64>,
+    seed: u64,
 }
 
 impl fmt::Display for Node {
@@ -65,13 +65,8 @@ impl SimElement for Node {
             let mut which_neighbor = None;
             let neigh_len = self.neighbors.len();
             if neigh_len > 0 {
-                let idx;
-                if self.seed.is_none() {
-                    idx = rand::thread_rng().gen_range(0, neigh_len);
-                } else {
-                    let mut rng: StdRng = SeedableRng::seed_from_u64(self.seed.unwrap());
-                    idx = rng.gen_range(0, neigh_len);
-                }
+                let mut rng: StdRng = SeedableRng::seed_from_u64(self.seed);
+                let idx = rng.gen_range(0, neigh_len);
                 which_neighbor = Some(self.neighbors[idx].clone());
             }
             if self.queue.size() > 0 {
@@ -123,7 +118,7 @@ impl Node {
         egress_rate: u32,
         generation_rate: u32,
         plugin: Option<&str>,
-        seed: Option<u64>,
+        seed: u64,
     ) -> Node {
         assert!(capacity >= 1);
         let mut created_plugin = None;
@@ -152,12 +147,12 @@ mod tests {
 
     #[test]
     fn test_node_creation() {
-        let _node = Node::new("0", 2, 2, 1, None, None);
+        let _node = Node::new("0", 2, 2, 1, None, 1);
     }
 
     #[test]
     fn test_node_capacity_and_egress_rate() {
-        let mut node = Node::new("0", 2, 1, 0, None, None);
+        let mut node = Node::new("0", 2, 1, 0, None, 1);
         assert!(node.capacity == 2);
         assert!(node.egress_rate == 1);
         node.recv(Rpc::new_rpc(0), 0, "0");
@@ -174,7 +169,7 @@ mod tests {
         let mut cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         cargo_dir.push("../target/debug/libfilter_example");
         let library_str = cargo_dir.to_str().unwrap();
-        let node = Node::new("0", 2, 1, 0, Some(library_str), None);
+        let node = Node::new("0", 2, 1, 0, Some(library_str), 1);
         assert!(!node.plugin.is_none());
     }
 }
