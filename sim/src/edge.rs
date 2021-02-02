@@ -48,7 +48,7 @@ impl fmt::Display for Edge {
 }
 
 impl SimElement for Edge {
-    fn tick(&mut self, tick: u64) -> Vec<(Rpc, Option<String>)> {
+    fn tick(&mut self, tick: u64) -> Vec<(Rpc, String)> {
         let ret = self.dequeue(tick);
         let mut to_return = Vec::new();
         for element in ret {
@@ -78,7 +78,7 @@ impl Edge {
             })
             .unwrap();
     }
-    pub fn dequeue(&mut self, now: u64) -> Vec<(Rpc, Option<String>)> {
+    pub fn dequeue(&mut self, now: u64) -> Vec<(Rpc, String)> {
         if self.queue.size() == 0 {
             return vec![];
         } else if self.queue.peek().unwrap().start_time + self.delay <= now {
@@ -95,7 +95,7 @@ impl Edge {
                 if dest == queue_element_to_remove.sender {
                     dest = self.neighbors[1].clone();
                 }
-                ret.push((queue_element_to_remove.rpc, Some(dest)));
+                ret.push((queue_element_to_remove.rpc, dest));
             }
             // Either the queue has emptied or no other RPCs are ready.
             assert!(

@@ -106,7 +106,7 @@ impl Simulator {
     pub fn tick(&mut self, tick: u64) {
         let mut rpc_buffer = HashMap::new();
         // tick all elements to generate Rpcs
-        // this is the send phase
+        // this is the send phase. collect all the rpcs
         for (elem_name, element_obj) in self.elements.iter_mut() {
             let rpcs = element_obj.tick(tick);
             let mut input_rpcs = vec![];
@@ -124,10 +124,8 @@ impl Simulator {
         // now start the receive phase
         for (elem_name, rpc_tuples) in rpc_buffer {
             for (rpc, dst) in rpc_tuples {
-                if dst.is_some() {
-                    let elem = self.elements.get_mut(&dst.unwrap()).unwrap();
-                    elem.recv(&rpc, tick, &elem_name);
-                }
+                let elem = self.elements.get_mut(&dst).unwrap();
+                elem.recv(&rpc, tick, &elem_name);
             }
         }
 

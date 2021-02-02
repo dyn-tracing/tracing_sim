@@ -55,7 +55,7 @@ impl fmt::Display for Node {
 }
 
 impl SimElement for Node {
-    fn tick(&mut self, tick: u64) -> Vec<(Rpc, Option<String>)> {
+    fn tick(&mut self, tick: u64) -> Vec<(Rpc, String)> {
         let mut ret = vec![];
         for _ in 0..min(
             self.queue.size() + (self.generation_rate as usize),
@@ -69,12 +69,16 @@ impl SimElement for Node {
                 let idx = rng.gen_range(0, neigh_len);
                 which_neighbor = Some(self.neighbors[idx].clone());
             }
+            let rpc: Rpc;
             if self.queue.size() > 0 {
                 let deq = self.dequeue(tick);
                 assert!(deq.is_some());
-                ret.push((deq.unwrap(), which_neighbor));
+                rpc = deq.unwrap();
             } else {
-                ret.push((Rpc::new_rpc(tick as u32), which_neighbor));
+                rpc = Rpc::new_rpc(tick as u32);
+            }
+            if which_neighbor.is_some() {
+                ret.push((rpc, which_neighbor.unwrap()));
             }
         }
         ret
@@ -103,7 +107,7 @@ impl SimElement for Node {
 
 impl Node {
     pub fn enqueue(&mut self, x: &Rpc, _now: u64) {
-        self.queue.add(x.clone());
+        let _res = self.queue.add(x.clone());
     }
     pub fn dequeue(&mut self, _now: u64) -> Option<Rpc> {
         if self.queue.size() == 0 {

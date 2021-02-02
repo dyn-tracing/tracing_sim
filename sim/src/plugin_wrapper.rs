@@ -36,7 +36,7 @@ impl fmt::Display for PluginWrapper {
 }
 
 impl SimElement for PluginWrapper {
-    fn tick(&mut self, _tick: u64) -> Vec<(Rpc, Option<String>)> {
+    fn tick(&mut self, _tick: u64) -> Vec<(Rpc, String)> {
         if self.stored_rpc.is_some() {
             let ret = self.execute(self.stored_rpc.as_ref().unwrap());
             self.stored_rpc = None;
@@ -44,9 +44,9 @@ impl SimElement for PluginWrapper {
                 vec![]
             } else {
                 if self.neighbor.len() > 0 {
-                    vec![(ret.unwrap(), Some(self.neighbor[0].clone()))]
+                    vec![(ret.unwrap(), self.neighbor[0].clone())]
                 } else {
-                    vec![(ret.unwrap(), None)]
+                    vec![]
                 }
             }
         } else {
