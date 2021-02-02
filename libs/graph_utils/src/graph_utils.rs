@@ -4,6 +4,7 @@ use petgraph::algo::{dijkstra, toposort};
 use petgraph::graph::{Graph, NodeIndex};
 use std::collections::HashMap;
 
+
 /* This function creates a petgraph graph representing the query given by the user.
  * For example, if the cql query were MATCH n -> m, e WHERE ... the input to this function
  * would be vertices = [n, m], edges = [(n,m)].
@@ -114,7 +115,8 @@ pub fn generate_trace_graph_from_headers(
                 let mut values_iterator = statement.split("==");
                 let property_with_node = values_iterator.next().unwrap().clone().to_string();
                 let mut period_iterator = property_with_node.split(".");
-                let node = period_iterator.next().unwrap();
+                let mut node = period_iterator.next().unwrap().to_string();
+                node.retain(|c| !c.is_whitespace());
                 let mut property = String::new();
                 for quality in period_iterator {
                     property.push_str(&quality);
@@ -122,7 +124,7 @@ pub fn generate_trace_graph_from_headers(
                 }
                 let _ = property.pop(); // get rid of trailing period
                 let node_weight: &mut (String, HashMap<String, String>) = graph
-                    .node_weight_mut(node_str_to_node_handle[node])
+                    .node_weight_mut(node_str_to_node_handle[&node])
                     .unwrap();
                 node_weight
                     .1
