@@ -53,9 +53,9 @@ impl SimElement for PluginWrapper {
             vec![]
         }
     }
-    fn recv(&mut self, rpc: &Rpc, _tick: u64, _sender: &str) {
+    fn recv(&mut self, rpc: Rpc, _tick: u64, _sender: &str) {
         assert!(self.stored_rpc.is_none(), "Overwriting previous RPC");
-        self.stored_rpc = Some(rpc.clone());
+        self.stored_rpc = Some(rpc);
     }
     fn add_connection(&mut self, neighbor: String) {
         // override the connection if there is already an element in it

@@ -8,7 +8,7 @@ pub trait SimElement {
 
     fn tick(&mut self, tick: u64) -> Vec<(Rpc, String)>;
 
-    fn recv(&mut self, rpc: &Rpc, tick: u64, sender: &str);
+    fn recv(&mut self, rpc: Rpc, tick: u64, sender: &str);
 
     // This returns the following information about a simulator element
     // 1. what its ID is

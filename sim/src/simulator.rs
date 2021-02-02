@@ -125,7 +125,7 @@ impl Simulator {
         for (elem_name, rpc_tuples) in rpc_buffer {
             for (rpc, dst) in rpc_tuples {
                 let elem = self.elements.get_mut(&dst).unwrap();
-                elem.recv(&rpc, tick, &elem_name);
+                elem.recv(rpc, tick, &elem_name);
             }
         }
 
