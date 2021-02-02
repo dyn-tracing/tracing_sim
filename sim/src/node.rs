@@ -36,17 +36,17 @@ impl fmt::Display for Node {
             }
         } else {
             if self.plugin.is_none() {
-                write!(f, "Node {{ capacity : {}, egress_rate : {}, generation_rate : {}, plugin : None, id : {}, queue : {} }}",
-                       &self.capacity, &self.egress_rate, &self.generation_rate, &self.id, &self.queue.size())
+                write!(f, "Node {{ id : {}, egress_rate : {}, generation_rate : {}, plugin : None, capacity : {}, queue : {} }}",
+                       &self.id, &self.egress_rate, &self.generation_rate, &self.capacity, &self.queue.size())
             } else {
                 write!(
                     f,
-                    "Node {{ capacity : {}, egress_rate : {}, generation_rate : {}, plugin : {}, id : {}, queue : {} }}",
-                    &self.capacity,
+                    "Node {{ id : {}, egress_rate : {}, generation_rate : {}, plugin : {}, capacity : {}, queue : {} }}",
+                    &self.id,
                     &self.egress_rate,
                     &self.generation_rate,
                     self.plugin.as_ref().unwrap(),
-                    &self.id,
+                    &self.capacity,
                     &self.queue.size()
                 )
             }

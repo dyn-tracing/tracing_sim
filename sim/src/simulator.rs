@@ -111,7 +111,9 @@ impl Simulator {
         // tick all elements to generate Rpcs
         for (i, element) in self.elements.iter_mut() {
             let rpcs = element.tick(tick);
-            self.rpc_buffer.insert(i.to_string(), rpcs);
+            for (rpc, dst) in rpcs {
+                self.rpc_buffer.get_mut(i).unwrap().push((rpc, dst));
+            }
             println!(
                 "After tick {:5}, {:45} \n\toutputs {:?}\n",
                 tick, element, self.rpc_buffer[i]
@@ -131,7 +133,8 @@ impl Simulator {
         }
         for i in 0..self.elements.keys().count() {
             let src = &indices_to_sim_el[&i];
-            for (rpc, dst) in &self.rpc_buffer[src] {
+            while !&self.rpc_buffer[src].is_empty() {
+                let (rpc, dst) = &self.rpc_buffer.get_mut(src).unwrap().pop().unwrap();
                 if dst.is_some() {
                     // Before we send this rpc on, we should update its path to include the most recently traversed node if applicable
                     // TODO: is cloning the best way to do this?
@@ -139,7 +142,6 @@ impl Simulator {
                     if self.elements[src].whoami().0 {
                         new_rpc.add_to_path(src);
                     }
-
                     self.elements
                         .get_mut(dst.as_ref().clone().unwrap())
                         .unwrap()

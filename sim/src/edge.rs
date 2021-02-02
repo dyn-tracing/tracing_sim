@@ -78,7 +78,7 @@ impl Edge {
             })
             .unwrap();
     }
-    pub fn dequeue(&mut self, now: u64) -> Vec<(Rpc, Option<String>, String)> {
+    pub fn dequeue(&mut self, now: u64) -> Vec<(Rpc, Option<String>)> {
         if self.queue.size() == 0 {
             return vec![];
         } else if self.queue.peek().unwrap().start_time + self.delay <= now {
@@ -95,7 +95,7 @@ impl Edge {
                 if dest == queue_element_to_remove.sender {
                     dest = self.neighbors[1].clone();
                 }
-                ret.push((queue_element_to_remove.rpc, None, dest));
+                ret.push((queue_element_to_remove.rpc, Some(dest)));
             }
             // Either the queue has emptied or no other RPCs are ready.
             assert!(

@@ -70,10 +70,10 @@ pub fn generate_trace_graph_from_headers(
     properties_header: String,
 ) -> Graph<(String, HashMap<String, String>), String> {
     let mut graph = Graph::new();
-    let mut nodes_iterator = paths_header.split_whitespace();
+    let mut nodes_iterator = paths_header.split(",");
     let mut node_str_to_node_handle = HashMap::new();
     let first_node = nodes_iterator.next();
-    if first_node.is_none() {
+    if first_node.is_none() || first_node.unwrap().trim().is_empty() {
         return graph; // clearly we don't have anything, so return an empty graph
     }
     let first_node_str = first_node.unwrap();
@@ -114,8 +114,7 @@ pub fn generate_trace_graph_from_headers(
                 let mut values_iterator = statement.split("==");
                 let property_with_node = values_iterator.next().unwrap().clone().to_string();
                 let mut period_iterator = property_with_node.split(".");
-                let mut node = period_iterator.next().unwrap().to_string();
-                node.retain(|c| !c.is_whitespace());
+                let node = period_iterator.next().unwrap().to_string();
                 let mut property = String::new();
                 for quality in period_iterator {
                     property.push_str(&quality);
@@ -188,7 +187,7 @@ mod tests {
     use super::*;
 
     fn make_small_trace_graph() -> Graph<(String, HashMap<String, String>), String> {
-        let graph_string = String::from("0 1 2");
+        let graph_string = String::from("0,1,2");
         let graph = generate_trace_graph_from_headers(graph_string, String::new());
         graph
     }
@@ -240,7 +239,7 @@ mod tests {
 
     #[test]
     fn test_correctly_parse_branching_graphs() {
-        let graph = generate_trace_graph_from_headers("0 1 3 1 2".to_string(), String::new());
+        let graph = generate_trace_graph_from_headers("0,1,3,1,2".to_string(), String::new());
         assert!(graph.node_count() == 4);
         for node in graph.node_indices() {
             if graph.node_weight(node).unwrap().1["node.metadata.WORKLOAD_NAME"] == "0" {
@@ -260,20 +259,20 @@ mod tests {
 
     #[test]
     fn test_get_tree_height() {
-        let graph = generate_trace_graph_from_headers("0 1 3 1 2".to_string(), String::new());
+        let graph = generate_trace_graph_from_headers("0,1,3,1,2".to_string(), String::new());
         assert!(get_tree_height(&graph, None) == 2);
     }
 
     #[test]
     fn test_get_out_degree() {
         let straight_graph =
-            generate_trace_graph_from_headers("0 1 2 3 4 5 6".to_string(), String::new());
+            generate_trace_graph_from_headers("0,1,2,3,4,5,6".to_string(), String::new());
         assert!(get_out_degree(&straight_graph, None) == 1);
     }
 
     #[test]
     fn test_get_node_with_id() {
-        let graph = generate_trace_graph_from_headers(" 0 1 2 3 ".to_string(), String::new());
+        let graph = generate_trace_graph_from_headers("0,1,2,3".to_string(), String::new());
         let ret = get_node_with_id(&graph, "0".to_string());
         assert!(!ret.is_none());
     }
@@ -281,7 +280,7 @@ mod tests {
     #[test]
     fn test_parsing_of_properties_in_trace_graph_creation() {
         let graph = generate_trace_graph_from_headers(
-            " 0 1 2 3 ".to_string(),
+            "0,1,2,3".to_string(),
             "0.property==thing,".to_string(),
         );
         let ret = get_node_with_id(&graph, "0".to_string()).unwrap();
