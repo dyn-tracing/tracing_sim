@@ -55,26 +55,26 @@ impl fmt::Display for Node {
 }
 
 impl SimElement for Node {
-    fn tick(&mut self, tick: u64) -> Vec<(Rpc, Option<String>)> {
+    fn tick(&mut self, tick: u64) -> Vec<(Rpc, String)> {
         let mut ret = vec![];
         for _ in 0..min(
             self.queue.size() + (self.generation_rate as usize),
             self.egress_rate as usize,
         ) {
             // send the rpc to a random neighbor, if there are any
-            let mut which_neighbor = None;
+            let rpc: Rpc;
+            if self.queue.size() > 0 {
+                let deq = self.dequeue(tick);
+                rpc = deq.unwrap();
+            } else {
+                rpc = Rpc::new_rpc(tick as u32);
+            }
             let neigh_len = self.neighbors.len();
             if neigh_len > 0 {
                 let mut rng: StdRng = SeedableRng::seed_from_u64(self.seed);
                 let idx = rng.gen_range(0, neigh_len);
-                which_neighbor = Some(self.neighbors[idx].clone());
-            }
-            if self.queue.size() > 0 {
-                let deq = self.dequeue(tick);
-                assert!(deq.is_some());
-                ret.push((deq.unwrap(), which_neighbor));
-            } else {
-                ret.push((Rpc::new_rpc(tick as u32), which_neighbor));
+                let which_neighbor = self.neighbors[idx].clone();
+                ret.push((rpc, which_neighbor));
             }
         }
         ret
@@ -96,14 +96,14 @@ impl SimElement for Node {
     fn add_connection(&mut self, neighbor: String) {
         self.neighbors.push(neighbor);
     }
-    fn whoami(&self) -> (bool, &str, &Vec<String>) {
-        return (true, &self.id, &self.neighbors);
+    fn whoami(&self) -> (&str, &Vec<String>) {
+        return (&self.id, &self.neighbors);
     }
 }
 
 impl Node {
     pub fn enqueue(&mut self, x: Rpc, _now: u64) {
-        self.queue.add(x).unwrap();
+        let _res = self.queue.add(x);
     }
     pub fn dequeue(&mut self, _now: u64) -> Option<Rpc> {
         if self.queue.size() == 0 {

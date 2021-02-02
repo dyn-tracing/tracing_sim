@@ -48,7 +48,7 @@ impl fmt::Display for Edge {
 }
 
 impl SimElement for Edge {
-    fn tick(&mut self, tick: u64) -> Vec<(Rpc, Option<String>)> {
+    fn tick(&mut self, tick: u64) -> Vec<(Rpc, String)> {
         let ret = self.dequeue(tick);
         let mut to_return = Vec::new();
         for element in ret {
@@ -63,8 +63,8 @@ impl SimElement for Edge {
         assert!(self.neighbors.len() < 2);
         self.neighbors.push(neighbor);
     }
-    fn whoami(&self) -> (bool, &str, &Vec<String>) {
-        return (false, &self.id, &self.neighbors);
+    fn whoami(&self) -> (&str, &Vec<String>) {
+        return (&self.id, &self.neighbors);
     }
 }
 
@@ -78,11 +78,12 @@ impl Edge {
             })
             .unwrap();
     }
-    pub fn dequeue(&mut self, now: u64) -> Vec<(Rpc, Option<String>)> {
+    pub fn dequeue(&mut self, now: u64) -> Vec<(Rpc, String)> {
         if self.queue.size() == 0 {
             return vec![];
         } else if self.queue.peek().unwrap().start_time + self.delay <= now {
             let mut ret = vec![];
+            // TODO: Clean this up
             while self.queue.size() > 0 && self.queue.peek().unwrap().start_time + self.delay <= now
             {
                 // Check that the inequality is an equality, i.e., we didn't skip any ticks.
@@ -90,12 +91,14 @@ impl Edge {
 
                 // Remove RPC from the head of the queue.
                 let queue_element_to_remove = self.queue.remove().unwrap();
-                let mut dest = self.neighbors[0].clone();
+                let dest: String;
                 // send the RPC to the other end of the edge
-                if dest == queue_element_to_remove.sender {
+                if self.neighbors[0] == queue_element_to_remove.sender {
                     dest = self.neighbors[1].clone();
+                } else {
+                    dest = self.neighbors[0].clone();
                 }
-                ret.push((queue_element_to_remove.rpc, Some(dest)));
+                ret.push((queue_element_to_remove.rpc, dest));
             }
             // Either the queue has emptied or no other RPCs are ready.
             assert!(

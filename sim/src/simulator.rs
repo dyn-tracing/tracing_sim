@@ -6,7 +6,6 @@ use crate::node::Node;
 use crate::sim_element::SimElement;
 use petgraph::dot::{Config, Dot};
 use petgraph::graph::{Graph, NodeIndex};
-use rpc_lib::rpc::Rpc;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::fs;
@@ -21,7 +20,6 @@ impl<T: SimElement + Display> PrintableElement for T {}
 #[derive(Default)]
 pub struct Simulator {
     elements: HashMap<String, Box<dyn PrintableElement>>,
-    rpc_buffer: HashMap<String, Vec<(Rpc, Option<String>)>>,
     graph: Graph<String, String>,
     node_index_to_node: HashMap<String, NodeIndex>,
     seed: u64,
@@ -31,7 +29,6 @@ impl Simulator {
     pub fn new(seed: u64) -> Self {
         Simulator {
             elements: HashMap::new(),
-            rpc_buffer: HashMap::new(),
             graph: Graph::new(),
             node_index_to_node: HashMap::new(),
             seed,
@@ -82,7 +79,6 @@ impl Simulator {
 
     pub fn add_element<T: 'static + PrintableElement>(&mut self, id: &str, element: T) -> usize {
         self.elements.insert(id.to_string(), Box::new(element));
-        self.rpc_buffer.insert(id.to_string(), vec![]);
         return self.elements.len() - 1;
     }
 
@@ -108,48 +104,33 @@ impl Simulator {
     }
 
     pub fn tick(&mut self, tick: u64) {
-        // TODO: clean this up
+        let mut rpc_buffer = HashMap::new();
         // tick all elements to generate Rpcs
-        for (i, element) in self.elements.iter_mut() {
-            let rpcs = element.tick(tick);
+        // this is the send phase. collect all the rpcs
+        for (elem_name, element_obj) in self.elements.iter_mut() {
+            let rpcs = element_obj.tick(tick);
+            let mut input_rpcs = vec![];
             for (rpc, dst) in rpcs {
-                self.rpc_buffer.get_mut(i).unwrap().push((rpc, dst));
+                input_rpcs.push((rpc, dst));
             }
+            rpc_buffer.insert(elem_name.clone(), input_rpcs);
             println!(
                 "After tick {:5}, {:45} \n\toutputs {:?}\n",
-                tick, element, self.rpc_buffer[i]
+                tick, element_obj, rpc_buffer[elem_name]
             );
         }
         print!("\n\n");
 
-        // Send these elements to the next hops
-
-        // We have to make this hashmap because if we don't, then we're iterating over and modifying the same hashmap self.elements
-        // and Rust, understandably, does not like that at all for memory reasons
-        let mut indices_to_sim_el = HashMap::new();
-        let mut j = 0;
-        for i in self.elements.keys() {
-            indices_to_sim_el.insert(j, i.clone());
-            j = j + 1;
-        }
-        for i in 0..self.elements.keys().count() {
-            let src = &indices_to_sim_el[&i];
-            while !&self.rpc_buffer[src].is_empty() {
-                let (rpc, dst) = &self.rpc_buffer.get_mut(src).unwrap().pop().unwrap();
-                if dst.is_some() {
-                    // Before we send this rpc on, we should update its path to include the most recently traversed node if applicable
-                    // TODO: is cloning the best way to do this?
-                    let mut new_rpc = rpc.clone();
-                    if self.elements[src].whoami().0 {
-                        new_rpc.add_to_path(src);
-                    }
-                    self.elements
-                        .get_mut(dst.as_ref().clone().unwrap())
-                        .unwrap()
-                        .recv(new_rpc, tick, src);
-                }
+        // now start the receive phase
+        for (elem_name, rpc_tuples) in rpc_buffer {
+            for (rpc, dst) in rpc_tuples {
+                let elem = self.elements.get_mut(&dst).unwrap();
+                elem.recv(rpc, tick, &elem_name);
             }
         }
+
+        // Send these elements to the next hops
+
         println!("");
     }
 }
