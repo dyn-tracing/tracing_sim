@@ -108,6 +108,7 @@ impl Simulator {
     }
 
     pub fn tick(&mut self, tick: u64) {
+        // TODO: clean this up
         // tick all elements to generate Rpcs
         for (i, element) in self.elements.iter_mut() {
             let rpcs = element.tick(tick);
