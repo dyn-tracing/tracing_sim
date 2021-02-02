@@ -56,7 +56,7 @@ impl SimElement for Edge {
         }
         return to_return;
     }
-    fn recv(&mut self, rpc: Rpc, tick: u64, sender: &str) {
+    fn recv(&mut self, rpc: &Rpc, tick: u64, sender: &str) {
         self.enqueue(rpc, tick, sender);
     }
     fn add_connection(&mut self, neighbor: String) {
@@ -69,11 +69,11 @@ impl SimElement for Edge {
 }
 
 impl Edge {
-    pub fn enqueue(&mut self, x: Rpc, now: u64, sender: &str) {
+    pub fn enqueue(&mut self, x: &Rpc, now: u64, sender: &str) {
         self.queue
             .add(TimestampedRpc {
                 start_time: now,
-                rpc: x,
+                rpc: x.clone(),
                 sender: sender.to_string(),
             })
             .unwrap();
@@ -138,7 +138,7 @@ mod tests {
         let mut edge = Edge::new("0", 0);
         b.iter(|| {
             for i in 1..100 {
-                edge.enqueue(Rpc::new_rpc(0), i, "0")
+                edge.enqueue(&Rpc::new_rpc(0), i, "0")
             }
         });
     }
@@ -148,7 +148,7 @@ mod tests {
         let mut edge = Edge::new("0", 0);
         b.iter(|| {
             for i in 1..100 {
-                edge.enqueue(Rpc::new_rpc(0), i, "0");
+                edge.enqueue(&Rpc::new_rpc(0), i, "0");
             }
             edge.dequeue(0);
         });

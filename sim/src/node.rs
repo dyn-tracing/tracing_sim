@@ -79,7 +79,7 @@ impl SimElement for Node {
         }
         ret
     }
-    fn recv(&mut self, rpc: Rpc, tick: u64, _sender: &str) {
+    fn recv(&mut self, rpc: &Rpc, tick: u64, _sender: &str) {
         if (self.queue.size() as u32) < self.capacity {
             // drop packets you cannot accept
             if self.plugin.is_none() {
@@ -88,7 +88,7 @@ impl SimElement for Node {
                 self.plugin.as_mut().unwrap().recv(rpc, tick, &self.id);
                 let ret = self.plugin.as_mut().unwrap().tick(tick);
                 for filtered_rpc in ret {
-                    self.enqueue(filtered_rpc.0, tick);
+                    self.enqueue(&filtered_rpc.0, tick);
                 }
             }
         }
@@ -102,8 +102,8 @@ impl SimElement for Node {
 }
 
 impl Node {
-    pub fn enqueue(&mut self, x: Rpc, _now: u64) {
-        self.queue.add(x).unwrap();
+    pub fn enqueue(&mut self, x: &Rpc, _now: u64) {
+        self.queue.add(x.clone());
     }
     pub fn dequeue(&mut self, _now: u64) -> Option<Rpc> {
         if self.queue.size() == 0 {
@@ -155,10 +155,10 @@ mod tests {
         let mut node = Node::new("0", 2, 1, 0, None, 1);
         assert!(node.capacity == 2);
         assert!(node.egress_rate == 1);
-        node.recv(Rpc::new_rpc(0), 0, "0");
-        node.recv(Rpc::new_rpc(0), 0, "0");
+        node.recv(&Rpc::new_rpc(0), 0, "0");
+        node.recv(&Rpc::new_rpc(0), 0, "0");
         assert!(node.queue.size() == 2);
-        node.recv(Rpc::new_rpc(0), 0, "0");
+        node.recv(&Rpc::new_rpc(0), 0, "0");
         assert!(node.queue.size() == 2);
         node.tick(0);
         assert!(node.queue.size() == 1);
