@@ -33,7 +33,7 @@ jobs:
     - name: Run tests
       run: cargo test --verbose
     - name: Benchmark
-      run: cargo bench --verbose
+      run: cargo bench --workspace  --exclude petgraph --verbose
     - name: Run main
       run: cargo run
 
