@@ -4,7 +4,6 @@ use petgraph::algo::{dijkstra, toposort};
 use petgraph::graph::{Graph, NodeIndex};
 use std::collections::HashMap;
 
-
 /* This function creates a petgraph graph representing the query given by the user.
  * For example, if the cql query were MATCH n -> m, e WHERE ... the input to this function
  * would be vertices = [n, m], edges = [(n,m)].
