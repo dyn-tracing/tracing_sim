@@ -66,8 +66,8 @@ impl SimElement for PluginWrapper {
             self.neighbor.push(neighbor);
         }
     }
-    fn whoami(&self) -> (bool, &str, &Vec<String>) {
-        return (false, &self.id, &self.neighbor);
+    fn whoami(&self) -> (&str, &Vec<String>) {
+        return (&self.id, &self.neighbor);
     }
 }
 

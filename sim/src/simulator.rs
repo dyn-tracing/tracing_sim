@@ -139,10 +139,7 @@ impl Simulator {
                 if dst.is_some() {
                     // Before we send this rpc on, we should update its path to include the most recently traversed node if applicable
                     // TODO: is cloning the best way to do this?
-                    let mut new_rpc = rpc.clone();
-                    if self.elements[src].whoami().0 {
-                        new_rpc.add_to_path(src);
-                    }
+                    let new_rpc = rpc.clone();
                     self.elements
                         .get_mut(dst.as_ref().clone().unwrap())
                         .unwrap()
