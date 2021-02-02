@@ -111,7 +111,7 @@ impl Simulator {
             let rpcs = element_obj.tick(tick);
             let mut input_rpcs = vec![];
             for (rpc, dst) in rpcs {
-                input_rpcs.push((rpc, dst.clone()));
+                input_rpcs.push((rpc, dst));
             }
             rpc_buffer.insert(elem_name.clone(), input_rpcs);
             println!(

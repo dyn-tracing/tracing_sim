@@ -62,23 +62,19 @@ impl SimElement for Node {
             self.egress_rate as usize,
         ) {
             // send the rpc to a random neighbor, if there are any
-            let mut which_neighbor = None;
-            let neigh_len = self.neighbors.len();
-            if neigh_len > 0 {
-                let mut rng: StdRng = SeedableRng::seed_from_u64(self.seed);
-                let idx = rng.gen_range(0, neigh_len);
-                which_neighbor = Some(self.neighbors[idx].clone());
-            }
             let rpc: Rpc;
             if self.queue.size() > 0 {
                 let deq = self.dequeue(tick);
-                assert!(deq.is_some());
                 rpc = deq.unwrap();
             } else {
                 rpc = Rpc::new_rpc(tick as u32);
             }
-            if which_neighbor.is_some() {
-                ret.push((rpc, which_neighbor.unwrap()));
+            let neigh_len = self.neighbors.len();
+            if neigh_len > 0 {
+                let mut rng: StdRng = SeedableRng::seed_from_u64(self.seed);
+                let idx = rng.gen_range(0, neigh_len);
+                let which_neighbor = self.neighbors[idx].clone();
+                ret.push((rpc, which_neighbor));
             }
         }
         ret
