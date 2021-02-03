@@ -59,6 +59,7 @@ fn main() {
     simulator.add_node("node-3", 10, 1, 0, plugin_str);
     simulator.add_node("node-4", 1, 1, 0, plugin_str); // in setting egress rate to 0, we are making a sink
     simulator.add_node("node-5", 1, 1, 0, plugin_str); // in setting egress rate to 0, we are making a sink
+    simulator.add_storage("storage");
 
     // edge arguments go:  delay, endpoint1, endpoint2, unidirectional
     simulator.add_edge(1, "traffic-gen", "node-1", true);
@@ -67,6 +68,14 @@ fn main() {
     //one way rpc sinks
     simulator.add_edge(1, "node-1", "node-4", true);
     simulator.add_edge(1, "node-2", "node-5", true);
+
+    // all edges to storage
+    simulator.add_edge(1, "node-1", "storage", true);
+    simulator.add_edge(1, "node-2", "storage", true);
+    simulator.add_edge(1, "node-3", "storage", true);
+    simulator.add_edge(1, "node-4", "storage", true);
+    simulator.add_edge(1, "node-5", "storage", true);
+
 
     // Print the graph
     if let Some(_argument) = matches.value_of("print_graph") {
@@ -77,5 +86,5 @@ fn main() {
     for tick in 0..20 {
         simulator.tick(tick);
     }
-    print!("Filter outputs:\n {0}", simulator.query_storage());
+    print!("Filter outputs:\n {0}", simulator.query_storage("storage"));
 }

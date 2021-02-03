@@ -12,8 +12,6 @@ use std::fmt::Display;
 use std::fs;
 use std::process::Command;
 
-const STORAGE_ID: &str = "storage";
-
 // Need to combine SimElement for simulation
 // and Debug for printing.
 // Uses this suggestion: https://stackoverflow.com/a/28898575
@@ -30,25 +28,16 @@ pub struct Simulator {
 
 impl Simulator {
     pub fn new(seed: u64) -> Self {
-        let mut sim = Simulator {
+        Simulator {
             elements: HashMap::new(),
             graph: Graph::new(),
             node_index_to_node: HashMap::new(),
             seed,
-        };
-
-        // set up storage
-        let storage = Storage::new(STORAGE_ID);
-        sim.add_element(STORAGE_ID, storage);
-        sim.node_index_to_node.insert(
-            STORAGE_ID.to_string(),
-            sim.graph.add_node(STORAGE_ID.to_string()),
-        );
-        return sim;
+        }
     }
 
-    pub fn query_storage(&mut self) -> &str {
-        self.elements[STORAGE_ID].whoami().2.unwrap()
+    pub fn query_storage(&mut self, storage_id: &str) -> &str {
+        self.elements[storage_id].whoami().2.unwrap()
     }
 
     pub fn add_node(
@@ -70,7 +59,6 @@ impl Simulator {
         self.add_element(id, node);
         self.node_index_to_node
             .insert(id.to_string(), self.graph.add_node(id.to_string()));
-        self.add_edge(1, id, STORAGE_ID, true);
     }
 
     pub fn add_edge(&mut self, delay: u32, element1: &str, element2: &str, unidirectional: bool) {
@@ -92,6 +80,16 @@ impl Simulator {
             self.add_connection(&id, element1);
             self.add_connection(element2, &id);
         }
+    }
+
+    pub fn add_storage(&mut self, id: &str) {
+        let storage = Storage::new(id);
+        self.add_element(id, storage);
+        self.node_index_to_node.insert(
+            id.to_string(),
+            self.graph.add_node(id.to_string()),
+        );
+
     }
 
     pub fn add_element<T: 'static + PrintableElement>(&mut self, id: &str, element: T) -> usize {
