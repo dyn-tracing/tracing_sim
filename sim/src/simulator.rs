@@ -4,6 +4,7 @@
 use crate::edge::Edge;
 use crate::node::Node;
 use crate::sim_element::SimElement;
+use crate::storage::Storage;
 use petgraph::dot::{Config, Dot};
 use petgraph::graph::{Graph, NodeIndex};
 use std::collections::HashMap;
@@ -33,6 +34,10 @@ impl Simulator {
             node_index_to_node: HashMap::new(),
             seed,
         }
+    }
+
+    pub fn query_storage(&mut self, storage_id: &str) -> &str {
+        self.elements[storage_id].type_specific_info().unwrap()
     }
 
     pub fn add_node(
@@ -77,6 +82,13 @@ impl Simulator {
         }
     }
 
+    pub fn add_storage(&mut self, id: &str) {
+        let storage = Storage::new(id);
+        self.add_element(id, storage);
+        self.node_index_to_node
+            .insert(id.to_string(), self.graph.add_node(id.to_string()));
+    }
+
     pub fn add_element<T: 'static + PrintableElement>(&mut self, id: &str, element: T) -> usize {
         self.elements.insert(id.to_string(), Box::new(element));
         return self.elements.len() - 1;
@@ -114,10 +126,10 @@ impl Simulator {
                 input_rpcs.push((rpc, dst));
             }
             rpc_buffer.insert(elem_name.clone(), input_rpcs);
-            println!(
-                "After tick {:5}, {:45} \n\toutputs {:?}\n",
-                tick, element_obj, rpc_buffer[elem_name]
-            );
+            //println!(
+            //    "After tick {:5}, {:45} \n\toutputs {:?}\n",
+            //    tick, element_obj, rpc_buffer[elem_name]
+            //);
         }
         print!("\n\n");
 

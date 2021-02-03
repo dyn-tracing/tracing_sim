@@ -4,7 +4,7 @@
 use rpc_lib::rpc::Rpc;
 use std::collections::HashMap;
 
-pub type CodeletType = fn(*mut Filter, &Rpc) -> Option<Rpc>;
+pub type CodeletType = fn(*mut Filter, &Rpc) -> Vec<Rpc>;
 
 // This represents a piece of state of the filter
 // it either contains a user defined function, or some sort of

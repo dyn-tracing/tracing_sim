@@ -3,7 +3,6 @@ use petgraph::algo::isomorphic_subgraph_matching;
 use petgraph::graph::NodeIndex;
 use rpc_lib::rpc::Rpc;
 use std::collections::HashMap;
-use std::fs;
 
 pub type CodeletType = fn(&Filter, &Rpc) -> Option<Rpc>;
 
@@ -57,20 +56,22 @@ impl Filter {
     }
 
     #[no_mangle]
-    pub fn execute(&mut self, x: &Rpc) -> Option<Rpc> {
-        let mut to_return = Rpc {
-            data: x.data,
+    pub fn execute(&mut self, x: &Rpc) -> Vec<Rpc> {
+        let rpc_to_return = Rpc {
+            data: x.data.clone(),
             uid: x.uid,
             path: x.path.clone(),
             headers: x.headers.clone(),
         };
+        let mut to_return = vec![rpc_to_return];
+        let mod_rpc = &mut to_return[0];
         // 0. Who am I?
         let my_node_wrapped = self.filter_state.get("node.metadata.WORKLOAD_NAME");
         if my_node_wrapped.is_none() {
             print!(
                 "WARNING: filter was initialized without envoy properties and thus cannot function"
             );
-            return Some(to_return);
+            return to_return;
         }
         let my_node = my_node_wrapped.unwrap().string_data.clone().unwrap();
 
@@ -101,14 +102,14 @@ impl Filter {
         me.push_str(&data_to_append);
         me.push_str(",");
 
-        if to_return.headers.contains_key(&"properties".to_string()) {
-            to_return
+        if mod_rpc.headers.contains_key(&"properties".to_string()) {
+            mod_rpc
                 .headers
                 .get_mut(&"properties".to_string())
                 .unwrap()
                 .push_str(&me);
         } else {
-            to_return.headers.insert("properties".to_string(), me);
+            mod_rpc.headers.insert("properties".to_string(), me);
         }
 
         me = my_node.clone();
@@ -126,14 +127,14 @@ impl Filter {
         me.push_str(&data_to_append);
         me.push_str(",");
 
-        if to_return.headers.contains_key(&"properties".to_string()) {
-            to_return
+        if mod_rpc.headers.contains_key(&"properties".to_string()) {
+            mod_rpc
                 .headers
                 .get_mut(&"properties".to_string())
                 .unwrap()
                 .push_str(&me);
         } else {
-            to_return.headers.insert("properties".to_string(), me);
+            mod_rpc.headers.insert("properties".to_string(), me);
         }
 
         // 3.  Make a subgraph representing the query, check isomorphism compared to the
@@ -211,7 +212,7 @@ impl Filter {
             if x.headers.contains_key(&"properties".to_string()) {
                 trace_graph = graph_utils::generate_trace_graph_from_headers(
                     x.path.clone(),
-                    to_return
+                    mod_rpc
                         .headers
                         .get_mut(&"properties".to_string())
                         .unwrap()
@@ -243,19 +244,22 @@ impl Filter {
                 let node_ptr = graph_utils::get_node_with_id(&target_graph, "a".to_string());
                 if node_ptr.is_none() {
                     print!("WARNING Node a not found");
-                    return Some(to_return);
+                    return to_return;
                 }
                 let trace_node_index = NodeIndex::new(m[node_ptr.unwrap().index()]);
                 let a_response_total_size_str =
                     &trace_graph.node_weight(trace_node_index).unwrap().1
                         [&vec!["response", "total_size"].join(".")];
 
-                fs::write("result.txt", a_response_total_size_str).expect("Unable to write file");
+                let mut result_rpc = Rpc::new_rpc(a_response_total_size_str);
+                result_rpc
+                    .headers
+                    .insert("dest".to_string(), "storage".to_string());
+                to_return.push(result_rpc);
             }
         }
-        // 4.  Allow udfs to execute
 
-        // 5.  Pass the rpc on
-        Some(to_return)
+        // 4.  Pass the rpc on
+        to_return
     }
 }

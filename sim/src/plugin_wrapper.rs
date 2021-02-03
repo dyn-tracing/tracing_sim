@@ -37,21 +37,19 @@ impl fmt::Display for PluginWrapper {
 
 impl SimElement for PluginWrapper {
     fn tick(&mut self, _tick: u64) -> Vec<(Rpc, String)> {
+        let mut to_return = vec![];
         if self.stored_rpc.is_some() {
             let ret = self.execute(self.stored_rpc.as_ref().unwrap());
             self.stored_rpc = None;
-            if ret.is_none() {
-                vec![]
-            } else {
-                if self.neighbor.len() > 0 {
-                    vec![(ret.unwrap(), self.neighbor[0].clone())]
-                } else {
-                    vec![]
+            if ret.len() > 0 {
+                for rpc in ret {
+                    if self.neighbor.len() > 0 {
+                        to_return.push((rpc, self.neighbor[0].clone()));
+                    }
                 }
             }
-        } else {
-            vec![]
         }
+        return to_return;
     }
     fn recv(&mut self, rpc: Rpc, _tick: u64, _sender: &str) {
         assert!(self.stored_rpc.is_none(), "Overwriting previous RPC");
@@ -66,8 +64,14 @@ impl SimElement for PluginWrapper {
             self.neighbor.push(neighbor);
         }
     }
-    fn whoami(&self) -> (&str, &Vec<String>) {
-        return (&self.id, &self.neighbor);
+    fn whoami(&self) -> &str {
+        &self.id
+    }
+    fn neighbors(&self) -> &Vec<String> {
+        &self.neighbor
+    }
+    fn type_specific_info(&self) -> Option<&str> {
+        None
     }
 }
 
@@ -128,7 +132,7 @@ impl PluginWrapper {
         }
     }
 
-    pub fn execute(&self, input: &Rpc) -> Option<Rpc> {
+    pub fn execute(&self, input: &Rpc) -> Vec<Rpc> {
         (self.loaded_function)(self.filter, input)
     }
 }
@@ -142,9 +146,9 @@ mod tests {
         cargo_dir.push("../target/debug/libfilter_example");
         let library_str = cargo_dir.to_str().unwrap();
         let plugin = PluginWrapper::new("0", library_str);
-        let rpc = &Rpc::new_rpc(55);
-        let rpc_data = plugin.execute(rpc).unwrap().data;
-        assert!(rpc_data == 55);
+        let rpc = &Rpc::new_rpc("55");
+        let rpc_data = &plugin.execute(rpc)[0].data;
+        assert!(rpc_data == &"55".to_string());
     }
 
     #[test]
@@ -156,19 +160,26 @@ mod tests {
         let plugin2 = PluginWrapper::new("1", library_str);
         let plugin3 = PluginWrapper::new("2", library_str);
         let plugin4 = PluginWrapper::new("3", library_str);
+        let ret1: &Rpc = &plugin1.execute(&Rpc::new_rpc("5"))[0];
+        let ret2: &Rpc = &plugin2.execute(&ret1)[0];
+        let ret3: &Rpc = &plugin3.execute(&ret2)[0];
+        let ret4: &Rpc = &plugin4.execute(&ret3)[0];
+        assert!("5".to_string() == ret4.data);
+        //assert!("5".to_string() == plugin4.execute(&plugin3.execute(&plugin2.execute(&plugin1.execute(&Rpc::new_rpc("5"))[0])[0])[0].data));
+        /*
         assert!(
-            5 == plugin4
+            "5".to_string() == plugin4
                 .execute(
                     &plugin3
                         .execute(
                             &plugin2
-                                .execute(&plugin1.execute(&Rpc::new_rpc(5)).unwrap())
-                                .unwrap()
+                                .execute(&plugin1.execute(&Rpc::new_rpc("5"))[0]
                         )
-                        .unwrap()
+                        [0]
                 )
-                .unwrap()
+                [0]
                 .data
         );
+        */
     }
 }

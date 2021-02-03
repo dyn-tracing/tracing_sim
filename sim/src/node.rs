@@ -61,16 +61,29 @@ impl SimElement for Node {
             self.queue.size() + (self.generation_rate as usize),
             self.egress_rate as usize,
         ) {
-            // send the rpc to a random neighbor, if there are any
+            // send the rpc to a random neighbor, if no neighbor specified
             let rpc: Rpc;
             if self.queue.size() > 0 {
                 let deq = self.dequeue(tick);
                 rpc = deq.unwrap();
             } else {
-                rpc = Rpc::new_rpc(tick as u32);
+                rpc = Rpc::new_rpc(&tick.to_string());
             }
             let neigh_len = self.neighbors.len();
-            if neigh_len > 0 {
+            if rpc.headers.contains_key("dest") {
+                let mut have_dest = false;
+                let dest = rpc.headers["dest"].clone();
+                for n in &self.neighbors {
+                    if n == &dest {
+                        have_dest = true;
+                        ret.push((rpc, dest));
+                        break;
+                    }
+                }
+                if !have_dest {
+                    print!("WARNING:  RPC given with invalid destination\n");
+                }
+            } else if neigh_len > 0 {
                 let mut rng: StdRng = SeedableRng::seed_from_u64(self.seed);
                 let idx = rng.gen_range(0, neigh_len);
                 let which_neighbor = self.neighbors[idx].clone();
@@ -96,8 +109,15 @@ impl SimElement for Node {
     fn add_connection(&mut self, neighbor: String) {
         self.neighbors.push(neighbor);
     }
-    fn whoami(&self) -> (&str, &Vec<String>) {
-        return (&self.id, &self.neighbors);
+
+    fn whoami(&self) -> &str {
+        return &self.id;
+    }
+    fn neighbors(&self) -> &Vec<String> {
+        return &self.neighbors;
+    }
+    fn type_specific_info(&self) -> Option<&str> {
+        return None;
     }
 }
 
@@ -155,10 +175,10 @@ mod tests {
         let mut node = Node::new("0", 2, 1, 0, None, 1);
         assert!(node.capacity == 2);
         assert!(node.egress_rate == 1);
-        node.recv(Rpc::new_rpc(0), 0, "0");
-        node.recv(Rpc::new_rpc(0), 0, "0");
+        node.recv(Rpc::new_rpc("0"), 0, "0");
+        node.recv(Rpc::new_rpc("0"), 0, "0");
         assert!(node.queue.size() == 2);
-        node.recv(Rpc::new_rpc(0), 0, "0");
+        node.recv(Rpc::new_rpc("0"), 0, "0");
         assert!(node.queue.size() == 2);
         node.tick(0);
         assert!(node.queue.size() == 1);
