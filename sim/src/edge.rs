@@ -63,8 +63,8 @@ impl SimElement for Edge {
         assert!(self.neighbors.len() < 2);
         self.neighbors.push(neighbor);
     }
-    fn whoami(&self) -> (&str, &Vec<String>) {
-        return (&self.id, &self.neighbors);
+    fn whoami(&self) -> (&str, &Vec<String>, Option<&str>) {
+        return (&self.id, &self.neighbors, None);
     }
 }
 
@@ -141,7 +141,7 @@ mod tests {
         let mut edge = Edge::new("0", 0);
         b.iter(|| {
             for i in 1..100 {
-                edge.enqueue(Rpc::new_rpc(0), i, "0")
+                edge.enqueue(Rpc::new_rpc("0"), i, "0")
             }
         });
     }
@@ -151,7 +151,7 @@ mod tests {
         let mut edge = Edge::new("0", 0);
         b.iter(|| {
             for i in 1..100 {
-                edge.enqueue(Rpc::new_rpc(0), i, "0");
+                edge.enqueue(Rpc::new_rpc("0"), i, "0");
             }
             edge.dequeue(0);
         });

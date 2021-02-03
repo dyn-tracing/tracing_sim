@@ -13,7 +13,8 @@ pub trait SimElement {
     // This returns the following information about a simulator element
     // 1. what its ID is
     // 2. who its neighbors are
-    fn whoami(&self) -> (&str, &Vec<String>);
+    // 3. a placeholder for any relevant element-specific information
+    fn whoami(&self) -> (&str, &Vec<String>, Option<&str>);
 }
 
 pub trait Node {}

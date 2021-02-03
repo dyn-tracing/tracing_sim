@@ -6,6 +6,7 @@ mod node;
 mod plugin_wrapper;
 mod sim_element;
 mod simulator;
+mod storage;
 
 use clap::{App, Arg};
 use rand::Rng;
@@ -76,4 +77,5 @@ fn main() {
     for tick in 0..20 {
         simulator.tick(tick);
     }
+    print!("Filter outputs:\n {0}", simulator.query_storage());
 }

@@ -4,12 +4,15 @@
 use crate::edge::Edge;
 use crate::node::Node;
 use crate::sim_element::SimElement;
+use crate::storage::Storage;
 use petgraph::dot::{Config, Dot};
 use petgraph::graph::{Graph, NodeIndex};
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::fs;
 use std::process::Command;
+
+const STORAGE_ID: &str = "storage";
 
 // Need to combine SimElement for simulation
 // and Debug for printing.
@@ -27,12 +30,25 @@ pub struct Simulator {
 
 impl Simulator {
     pub fn new(seed: u64) -> Self {
-        Simulator {
+        let mut sim = Simulator {
             elements: HashMap::new(),
             graph: Graph::new(),
             node_index_to_node: HashMap::new(),
             seed,
-        }
+        };
+
+        // set up storage
+        let storage = Storage::new(STORAGE_ID);
+        sim.add_element(STORAGE_ID, storage);
+        sim.node_index_to_node.insert(
+            STORAGE_ID.to_string(),
+            sim.graph.add_node(STORAGE_ID.to_string()),
+        );
+        return sim;
+    }
+
+    pub fn query_storage(&mut self) -> &str {
+        self.elements[STORAGE_ID].whoami().2.unwrap()
     }
 
     pub fn add_node(
@@ -54,6 +70,7 @@ impl Simulator {
         self.add_element(id, node);
         self.node_index_to_node
             .insert(id.to_string(), self.graph.add_node(id.to_string()));
+        self.add_edge(1, id, STORAGE_ID, true);
     }
 
     pub fn add_edge(&mut self, delay: u32, element1: &str, element2: &str, unidirectional: bool) {
