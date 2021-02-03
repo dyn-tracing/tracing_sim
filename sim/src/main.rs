@@ -76,7 +76,6 @@ fn main() {
     simulator.add_edge(1, "node-4", "storage", true);
     simulator.add_edge(1, "node-5", "storage", true);
 
-
     // Print the graph
     if let Some(_argument) = matches.value_of("print_graph") {
         simulator.print_graph();

@@ -109,8 +109,15 @@ impl SimElement for Node {
     fn add_connection(&mut self, neighbor: String) {
         self.neighbors.push(neighbor);
     }
-    fn whoami(&self) -> (&str, &Vec<String>, Option<&str>) {
-        return (&self.id, &self.neighbors, None);
+
+    fn whoami(&self) -> &str {
+        return &self.id;
+    }
+    fn neighbors(&self) -> &Vec<String> {
+        return &self.neighbors;
+    }
+    fn type_specific_info(&self) -> Option<&str> {
+        return None;
     }
 }
 

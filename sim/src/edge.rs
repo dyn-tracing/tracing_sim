@@ -63,8 +63,14 @@ impl SimElement for Edge {
         assert!(self.neighbors.len() < 2);
         self.neighbors.push(neighbor);
     }
-    fn whoami(&self) -> (&str, &Vec<String>, Option<&str>) {
-        return (&self.id, &self.neighbors, None);
+    fn whoami(&self) -> &str {
+        &self.id
+    }
+    fn neighbors(&self) -> &Vec<String> {
+        &self.neighbors
+    }
+    fn type_specific_info(&self) -> Option<&str> {
+        None
     }
 }
 

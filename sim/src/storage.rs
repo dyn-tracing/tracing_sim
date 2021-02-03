@@ -34,13 +34,20 @@ impl SimElement for Storage {
     }
 
     fn recv(&mut self, rpc: Rpc, tick: u64, _sender: &str) {
+        print!("receving");
         self.store(rpc, tick);
     }
     fn add_connection(&mut self, neighbor: String) {
         self.neighbors.push(neighbor);
     }
-    fn whoami(&self) -> (&str, &Vec<String>, Option<&str>) {
-        return (&self.id, &self.neighbors, Some(&self.data));
+    fn whoami(&self) -> &str {
+        &self.id
+    }
+    fn neighbors(&self) -> &Vec<String> {
+        &self.neighbors
+    }
+    fn type_specific_info(&self) -> Option<&str> {
+        Some(&self.data)
     }
 }
 
@@ -71,7 +78,7 @@ mod tests {
     fn test_query_storage() {
         let mut storage = Storage::new("0");
         storage.recv(Rpc::new_rpc("0"), 0, "node");
-        let ret = storage.whoami().2.unwrap();
+        let ret = storage.type_specific_info().unwrap();
         assert!(ret == "0\n".to_string());
     }
 }
