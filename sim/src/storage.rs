@@ -84,7 +84,7 @@ mod tests {
     fn test_query_storage() {
         let mut storage = Storage::new("0");
         storage.recv(Rpc::new_rpc("0"), 0, "node");
-        let ret = storage.query().unwrap();
+        let ret = storage.query();
         assert!(ret == "0\n".to_string());
     }
 }
