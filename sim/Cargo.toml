@@ -5,6 +5,14 @@ authors = ["Anirudh Sivaraman <sk.anirudh@gmail.com>", "Jessica Berg <jb7399@nyu
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "sim"
+crate-type = ["lib"]
+path = "src/lib.rs"
+
+[[bin]]
+name = "main"
+path = "src/main.rs"
 
 [dependencies]
 libc = "*"
@@ -14,3 +22,4 @@ rand="0.7.0"
 clap = "~2.27.0"
 rpc_lib = { path = "../libs/rpc_lib" }
 petgraph = { path = "../libs/petgraph" }
+
