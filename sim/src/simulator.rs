@@ -37,7 +37,9 @@ impl Simulator {
     }
 
     pub fn query_storage(&mut self, storage_id: &str) -> &str {
-        self.elements[storage_id].type_specific_info().unwrap()
+        let storage_box = &self.elements[storage_id];
+        let storage = storage_box.as_any().downcast_ref::<Storage>().unwrap();
+        return storage.query();
     }
 
     pub fn add_node(

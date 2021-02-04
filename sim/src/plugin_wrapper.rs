@@ -4,6 +4,7 @@
 
 use crate::filter_types::{CodeletType, Filter, NewWithEnvoyProperties};
 use crate::sim_element::SimElement;
+use core::any::Any;
 use rpc_lib::rpc::Rpc;
 use std::collections::HashMap;
 use std::env;
@@ -69,8 +70,8 @@ impl SimElement for PluginWrapper {
     fn neighbors(&self) -> &Vec<String> {
         &self.neighbor
     }
-    fn type_specific_info(&self) -> Option<&str> {
-        None
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
