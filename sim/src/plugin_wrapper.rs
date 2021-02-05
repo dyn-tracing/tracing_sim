@@ -16,7 +16,7 @@ pub struct PluginWrapper {
     filter: *mut Filter,
     loaded_function: libloading::os::unix::Symbol<CodeletType>,
     id: String,
-    stored_rpc: Option<Rpc>,
+    stored_rpc: Vec<Rpc>,
     neighbor: Vec<String>,
 }
 
@@ -38,9 +38,9 @@ impl fmt::Display for PluginWrapper {
 impl SimElement for PluginWrapper {
     fn tick(&mut self, _tick: u64) -> Vec<(Rpc, String)> {
         let mut to_return = vec![];
-        if self.stored_rpc.is_some() {
-            let ret = self.execute(self.stored_rpc.as_ref().unwrap());
-            self.stored_rpc = None;
+        while !self.stored_rpc.is_empty() {
+            let input_rpc = self.stored_rpc.pop();
+            let ret = self.execute(input_rpc.as_ref().unwrap());
             if ret.len() > 0 {
                 for rpc in ret {
                     if self.neighbor.len() > 0 {
@@ -52,8 +52,7 @@ impl SimElement for PluginWrapper {
         return to_return;
     }
     fn recv(&mut self, rpc: Rpc, _tick: u64, _sender: &str) {
-        assert!(self.stored_rpc.is_none(), "Overwriting previous RPC");
-        self.stored_rpc = Some(rpc);
+        self.stored_rpc.push(rpc);
     }
     fn add_connection(&mut self, neighbor: String) {
         // override the connection if there is already an element in it
@@ -127,7 +126,7 @@ impl PluginWrapper {
             filter: new_filter,
             loaded_function,
             id: id.to_string(),
-            stored_rpc: None,
+            stored_rpc: Vec::new(),
             neighbor: vec![],
         }
     }

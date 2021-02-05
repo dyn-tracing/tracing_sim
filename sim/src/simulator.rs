@@ -132,6 +132,12 @@ impl Simulator {
                 input_rpcs.push((rpc, dst));
             }
             rpc_buffer.insert(elem_name.clone(), input_rpcs);
+            if !elem_name.contains("_") {
+                println!(
+                    "After tick {:5}, {:45} \n\toutputs {:?}\n",
+                    tick, element_obj, rpc_buffer[elem_name]
+                );
+            }
         }
         print!("\n\n");
 
