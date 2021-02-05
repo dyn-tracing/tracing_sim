@@ -83,7 +83,7 @@ impl SimElement for Node {
                 if !have_dest {
                     print!(
                         "WARNING:  RPC given with invalid destination {0}\n",
-                        dest.clone()
+                        dest
                     );
                 }
             } else if neigh_len > 0 {
