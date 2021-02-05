@@ -52,7 +52,7 @@ impl SimElement for Storage {
 
 impl Storage {
     pub fn store(&mut self, x: Rpc, _now: u64) {
-        // we don't want to store everything, just the stuff that was sent to us 
+        // we don't want to store everything, just the stuff that was sent to us
         if x.headers.contains_key("dest") && x.headers["dest"].contains(&self.id) {
             self.data.push_str(&x.data);
             self.data.push_str("\n");
