@@ -78,9 +78,12 @@ mod tests {
 
     #[test]
     fn test_query_storage() {
-        let mut storage = Storage::new("0");
-        storage.recv(Rpc::new_rpc("0"), 0, "node");
+        let mut storage = Storage::new("storage");
+        let mut rpc = Rpc::new_rpc("0");
+        rpc.headers.insert("dest".to_string(), "storage".to_string());
+        storage.recv(rpc, 0, "node");
         let ret = storage.type_specific_info().unwrap();
+        print!("ret: {0}\n", ret);
         assert!(ret == "0\n".to_string());
     }
 }
