@@ -81,10 +81,7 @@ impl SimElement for Node {
                     }
                 }
                 if !have_dest {
-                    print!(
-                        "WARNING:  RPC given with invalid destination {0}\n",
-                        dest
-                    );
+                    print!("WARNING:  RPC given with invalid destination {0}\n", dest);
                 }
             } else if neigh_len > 0 {
                 let mut rng: StdRng = SeedableRng::seed_from_u64(self.seed);
