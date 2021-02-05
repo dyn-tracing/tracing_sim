@@ -34,7 +34,6 @@ impl SimElement for Storage {
     }
 
     fn recv(&mut self, rpc: Rpc, tick: u64, _sender: &str) {
-        print!("receving");
         self.store(rpc, tick);
     }
     fn add_connection(&mut self, neighbor: String) {

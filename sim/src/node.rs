@@ -76,12 +76,12 @@ impl SimElement for Node {
                 for n in &self.neighbors {
                     if n == &dest {
                         have_dest = true;
-                        ret.push((rpc, dest));
+                        ret.push((rpc, dest.clone()));
                         break;
                     }
                 }
                 if !have_dest {
-                    print!("WARNING:  RPC given with invalid destination\n");
+                    print!("WARNING:  RPC given with invalid destination {0}\n", dest.clone());
                 }
             } else if neigh_len > 0 {
                 let mut rng: StdRng = SeedableRng::seed_from_u64(self.seed);
@@ -145,7 +145,9 @@ impl Node {
         if !plugin.is_none() {
             let mut plugin_id = id.to_string();
             plugin_id.push_str("_plugin");
-            created_plugin = Some(PluginWrapper::new(&plugin_id, plugin.unwrap()));
+            let mut unwrapped_plugin = PluginWrapper::new(&plugin_id, plugin.unwrap());
+            unwrapped_plugin.add_connection(id.to_string());
+            created_plugin = Some(unwrapped_plugin);
         }
         Node {
             queue: queue![],

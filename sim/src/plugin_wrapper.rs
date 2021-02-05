@@ -166,20 +166,5 @@ mod tests {
         let ret4: &Rpc = &plugin4.execute(&ret3)[0];
         assert!("5".to_string() == ret4.data);
         //assert!("5".to_string() == plugin4.execute(&plugin3.execute(&plugin2.execute(&plugin1.execute(&Rpc::new_rpc("5"))[0])[0])[0].data));
-        /*
-        assert!(
-            "5".to_string() == plugin4
-                .execute(
-                    &plugin3
-                        .execute(
-                            &plugin2
-                                .execute(&plugin1.execute(&Rpc::new_rpc("5"))[0]
-                        )
-                        [0]
-                )
-                [0]
-                .data
-        );
-        */
     }
 }
