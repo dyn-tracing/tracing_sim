@@ -106,7 +106,14 @@ impl PluginWrapper {
         // Dynamically load one function to initialize hash table in filter.
         let init: libloading::Symbol<NewWithEnvoyProperties>;
         let mut envoy_properties = HashMap::new();
-        envoy_properties.insert(String::from("node.metadata.WORKLOAD_NAME"), id.to_string());
+        let mut id_without_plugin = id.to_string();
+        if id_without_plugin.contains("_plugin") {
+            id_without_plugin.truncate(id_without_plugin.len() - "_plugin".to_string().len());
+        }
+        envoy_properties.insert(
+            String::from("node.metadata.WORKLOAD_NAME"),
+            id_without_plugin,
+        );
         envoy_properties.insert(String::from("response.total_size"), "1".to_string());
         envoy_properties.insert(String::from("response.code"), "200".to_string());
         let new_filter = unsafe {
