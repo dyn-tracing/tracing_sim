@@ -51,7 +51,7 @@ fn main() {
 
     // Create simulator object.
     let storage_name = "storage";
-    let mut simulator = sim::simulator::Simulator::new(1); // always run with the seed 0 while we are checking tests
+    let mut simulator = sim::simulator::Simulator::new(seed); // always run with the seed 0 while we are checking tests
 
     let regular_nodes = [
         "productpage-v1",
@@ -76,6 +76,8 @@ fn main() {
         simulator.add_edge(1, node, "sink", true);
     }
 
+    // src: traffic generator
+    simulator.add_edge(1, "loadgenerator-v1", "productpage-v1", true);
     // src: product page
     simulator.add_edge(1, "productpage-v1", "reviews-v1", false);
     simulator.add_edge(1, "productpage-v1", "reviews-v2", false);
