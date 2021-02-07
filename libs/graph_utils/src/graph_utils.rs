@@ -28,15 +28,17 @@ pub fn generate_target_graph(
 
     let mut nodes_to_node_handles: HashMap<String, NodeIndex> = HashMap::new();
     for node in vertices {
-        assert!(
-            ids_to_properties.contains_key(&node),
-            "{0} is a node that wasn't in ids_to_properties\n",
-            node
-        );
-        nodes_to_node_handles.insert(
-            node.clone(),
-            graph.add_node((node.clone(), ids_to_properties[&node].clone())),
-        );
+        if ids_to_properties.contains_key(&node) {
+            nodes_to_node_handles.insert(
+                node.clone(),
+                graph.add_node((node.clone(), ids_to_properties[&node].clone())),
+            );
+        }
+        else {
+            nodes_to_node_handles.insert(
+                node.clone(),
+                graph.add_node((node.clone(), HashMap::new())));
+        }
     }
 
     // Make edges with handles instead of the vertex names

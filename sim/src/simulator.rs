@@ -12,6 +12,7 @@ use std::fmt::Display;
 use std::fs;
 use std::process::Command;
 
+const SINK_NAME: &str = "sink";
 // Need to combine SimElement for simulation
 // and Debug for printing.
 // Uses this suggestion: https://stackoverflow.com/a/28898575
@@ -28,12 +29,14 @@ pub struct Simulator {
 
 impl Simulator {
     pub fn new(seed: u64) -> Self {
-        Simulator {
+        let mut sim = Simulator {
             elements: HashMap::new(),
             graph: Graph::new(),
             node_index_to_node: HashMap::new(),
             seed,
-        }
+        };
+        sim.add_node(SINK_NAME, 1, 0, 0, None);
+        return sim;
     }
 
     pub fn query_storage(&mut self, storage_id: &str) -> &str {
@@ -59,6 +62,9 @@ impl Simulator {
         self.add_element(id, node);
         self.node_index_to_node
             .insert(id.to_string(), self.graph.add_node(id.to_string()));
+        if id != SINK_NAME {
+            self.add_edge(1, id, SINK_NAME, true);
+        }
     }
 
     pub fn add_edge(&mut self, delay: u32, element1: &str, element2: &str, unidirectional: bool) {
