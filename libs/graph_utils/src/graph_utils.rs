@@ -33,11 +33,9 @@ pub fn generate_target_graph(
                 node.clone(),
                 graph.add_node((node.clone(), ids_to_properties[&node].clone())),
             );
-        }
-        else {
-            nodes_to_node_handles.insert(
-                node.clone(),
-                graph.add_node((node.clone(), HashMap::new())));
+        } else {
+            nodes_to_node_handles
+                .insert(node.clone(), graph.add_node((node.clone(), HashMap::new())));
         }
     }
 
