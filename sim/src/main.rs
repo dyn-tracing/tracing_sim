@@ -62,10 +62,14 @@ fn main() {
         "details-v1",
     ]
     .to_vec();
-    for node in &regular_nodes {
-        // node: ID, capacity, egress rate, generation rate, plugin
-        simulator.add_node(node, 10, 5, 0, plugin_str);
-    }
+    simulator.add_node("productpage-v1", 10, 5, 0, plugin_str);
+    simulator.add_node("reviews-v1", 10, 5, 0, plugin_str);
+    simulator.add_node("reviews-v2", 10, 5, 0, plugin_str);
+    simulator.add_node("reviews-v3", 10, 5, 0, plugin_str);
+
+    // ratings and details are dead ends
+    simulator.add_node("ratings-v1", 10, 0, 0, plugin_str);
+    simulator.add_node("details-v1", 10, 0, 0, plugin_str);
     simulator.add_node("loadgenerator-v1", 10, 1, 1, None);
     simulator.add_storage(storage_name);
 
