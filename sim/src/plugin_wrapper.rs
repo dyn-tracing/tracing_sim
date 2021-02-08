@@ -16,7 +16,7 @@ pub struct PluginWrapper {
     filter: *mut Filter,
     loaded_function: libloading::os::unix::Symbol<CodeletType>,
     id: String,
-    stored_rpc: Option<Rpc>,
+    stored_rpc: Vec<Rpc>,
     neighbor: Vec<String>,
 }
 
@@ -38,9 +38,9 @@ impl fmt::Display for PluginWrapper {
 impl SimElement for PluginWrapper {
     fn tick(&mut self, _tick: u64) -> Vec<(Rpc, String)> {
         let mut to_return = vec![];
-        if self.stored_rpc.is_some() {
-            let ret = self.execute(self.stored_rpc.as_ref().unwrap());
-            self.stored_rpc = None;
+        while !self.stored_rpc.is_empty() {
+            let input_rpc = self.stored_rpc.pop();
+            let ret = self.execute(input_rpc.as_ref().unwrap());
             if ret.len() > 0 {
                 for rpc in ret {
                     if self.neighbor.len() > 0 {
@@ -52,8 +52,7 @@ impl SimElement for PluginWrapper {
         return to_return;
     }
     fn recv(&mut self, rpc: Rpc, _tick: u64, _sender: &str) {
-        assert!(self.stored_rpc.is_none(), "Overwriting previous RPC");
-        self.stored_rpc = Some(rpc);
+        self.stored_rpc.push(rpc);
     }
     fn add_connection(&mut self, neighbor: String) {
         // override the connection if there is already an element in it
@@ -107,7 +106,14 @@ impl PluginWrapper {
         // Dynamically load one function to initialize hash table in filter.
         let init: libloading::Symbol<NewWithEnvoyProperties>;
         let mut envoy_properties = HashMap::new();
-        envoy_properties.insert(String::from("node.metadata.WORKLOAD_NAME"), id.to_string());
+        let mut id_without_plugin = id.to_string();
+        if id_without_plugin.contains("_plugin") {
+            id_without_plugin.truncate(id_without_plugin.len() - "_plugin".to_string().len());
+        }
+        envoy_properties.insert(
+            String::from("node.metadata.WORKLOAD_NAME"),
+            id_without_plugin,
+        );
         envoy_properties.insert(String::from("response.total_size"), "1".to_string());
         envoy_properties.insert(String::from("response.code"), "200".to_string());
         let new_filter = unsafe {
@@ -127,7 +133,7 @@ impl PluginWrapper {
             filter: new_filter,
             loaded_function,
             id: id.to_string(),
-            stored_rpc: None,
+            stored_rpc: Vec::new(),
             neighbor: vec![],
         }
     }
@@ -166,20 +172,5 @@ mod tests {
         let ret4: &Rpc = &plugin4.execute(&ret3)[0];
         assert!("5".to_string() == ret4.data);
         //assert!("5".to_string() == plugin4.execute(&plugin3.execute(&plugin2.execute(&plugin1.execute(&Rpc::new_rpc("5"))[0])[0])[0].data));
-        /*
-        assert!(
-            "5".to_string() == plugin4
-                .execute(
-                    &plugin3
-                        .execute(
-                            &plugin2
-                                .execute(&plugin1.execute(&Rpc::new_rpc("5"))[0]
-                        )
-                        [0]
-                )
-                [0]
-                .data
-        );
-        */
     }
 }

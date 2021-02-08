@@ -34,7 +34,6 @@ impl SimElement for Storage {
     }
 
     fn recv(&mut self, rpc: Rpc, tick: u64, _sender: &str) {
-        print!("receving");
         self.store(rpc, tick);
     }
     fn add_connection(&mut self, neighbor: String) {
@@ -53,8 +52,11 @@ impl SimElement for Storage {
 
 impl Storage {
     pub fn store(&mut self, x: Rpc, _now: u64) {
-        self.data.push_str(&x.data);
-        self.data.push_str("\n");
+        // we don't want to store everything, just the stuff that was sent to us
+        if x.headers.contains_key("dest") && x.headers["dest"].contains(&self.id) {
+            self.data.push_str(&x.data);
+            self.data.push_str("\n");
+        }
     }
     pub fn new(id: &str) -> Storage {
         Storage {
@@ -76,9 +78,13 @@ mod tests {
 
     #[test]
     fn test_query_storage() {
-        let mut storage = Storage::new("0");
-        storage.recv(Rpc::new_rpc("0"), 0, "node");
+        let mut storage = Storage::new("storage");
+        let mut rpc = Rpc::new_rpc("0");
+        rpc.headers
+            .insert("dest".to_string(), "storage".to_string());
+        storage.recv(rpc, 0, "node");
         let ret = storage.type_specific_info().unwrap();
+        print!("ret: {0}\n", ret);
         assert!(ret == "0\n".to_string());
     }
 }

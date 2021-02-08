@@ -50,31 +50,45 @@ fn main() {
     }
 
     // Create simulator object.
-    let mut simulator: Simulator = Simulator::new(seed);
+    let storage_name = "storage";
+    let mut simulator = sim::simulator::Simulator::new(seed); // always run with the seed 0 while we are checking tests
 
-    // node arguments go:  id, capacity, egress_rate, generation_rate, plugin
-    simulator.add_node("traffic-gen", 1, 1, 1, plugin_str);
-    simulator.add_node("node-1", 10, 1, 0, plugin_str);
-    simulator.add_node("node-2", 10, 1, 0, plugin_str);
-    simulator.add_node("node-3", 10, 1, 0, plugin_str);
-    simulator.add_node("node-4", 1, 1, 0, plugin_str); // in setting egress rate to 0, we are making a sink
-    simulator.add_node("node-5", 1, 1, 0, plugin_str); // in setting egress rate to 0, we are making a sink
-    simulator.add_storage("storage");
+    let regular_nodes = [
+        "productpage-v1",
+        "ratings-v1",
+        "reviews-v1",
+        "reviews-v2",
+        "reviews-v3",
+        "details-v1",
+    ]
+    .to_vec();
+    simulator.add_node("productpage-v1", 10, 5, 0, plugin_str);
+    simulator.add_node("reviews-v1", 10, 5, 0, plugin_str);
+    simulator.add_node("reviews-v2", 10, 5, 0, plugin_str);
+    simulator.add_node("reviews-v3", 10, 5, 0, plugin_str);
 
-    // edge arguments go:  delay, endpoint1, endpoint2, unidirectional
-    simulator.add_edge(1, "traffic-gen", "node-1", true);
-    simulator.add_edge(1, "node-1", "node-2", false);
-    simulator.add_edge(1, "node-1", "node-3", false);
-    //one way rpc sinks
-    simulator.add_edge(1, "node-1", "node-4", true);
-    simulator.add_edge(1, "node-2", "node-5", true);
+    // ratings and details are dead ends
+    simulator.add_node("ratings-v1", 10, 0, 0, plugin_str);
+    simulator.add_node("details-v1", 10, 0, 0, plugin_str);
+    simulator.add_node("loadgenerator-v1", 10, 1, 1, None);
+    simulator.add_storage(storage_name);
 
-    // all edges to storage
-    simulator.add_edge(1, "node-1", "storage", true);
-    simulator.add_edge(1, "node-2", "storage", true);
-    simulator.add_edge(1, "node-3", "storage", true);
-    simulator.add_edge(1, "node-4", "storage", true);
-    simulator.add_edge(1, "node-5", "storage", true);
+    // add all connections to storage
+    for node in &regular_nodes {
+        simulator.add_edge(1, node, storage_name, true);
+    }
+
+    // src: traffic generator
+    simulator.add_edge(1, "loadgenerator-v1", "productpage-v1", true);
+    // src: product page
+    simulator.add_edge(1, "productpage-v1", "reviews-v1", false);
+    simulator.add_edge(1, "productpage-v1", "reviews-v2", false);
+    simulator.add_edge(1, "productpage-v1", "reviews-v3", false);
+    simulator.add_edge(1, "productpage-v1", "details-v1", true);
+    // src: reviews
+    simulator.add_edge(1, "reviews-v1", "ratings-v1", false);
+    simulator.add_edge(1, "reviews-v2", "ratings-v1", false);
+    simulator.add_edge(1, "reviews-v3", "ratings-v1", false);
 
     // Print the graph
     if let Some(_argument) = matches.value_of("print_graph") {
@@ -82,8 +96,12 @@ fn main() {
     }
 
     // Execute the simulator
-    for tick in 0..20 {
+    for tick in 0..10 {
         simulator.tick(tick);
+        print!(
+            "Filter outputs:\n {0}\n\n\n\n",
+            simulator.query_storage("storage")
+        );
     }
     print!("Filter outputs:\n {0}", simulator.query_storage("storage"));
 }

@@ -62,6 +62,18 @@ impl Simulator {
     }
 
     pub fn add_edge(&mut self, delay: u32, element1: &str, element2: &str, unidirectional: bool) {
+        if !self.elements.contains_key(element1) {
+            panic!(
+                "Tried to add an edge using {0};  that is not a valid node",
+                element1
+            );
+        }
+        if !self.elements.contains_key(element2) {
+            panic!(
+                "Tried to add an edge using {0};  that is not a valid node",
+                element2
+            );
+        }
         // 1. create the id, which will be the two nodes' ids put together with a _
         let id = element1.to_string() + "_" + element2;
 
@@ -126,10 +138,12 @@ impl Simulator {
                 input_rpcs.push((rpc, dst));
             }
             rpc_buffer.insert(elem_name.clone(), input_rpcs);
-            //println!(
-            //    "After tick {:5}, {:45} \n\toutputs {:?}\n",
-            //    tick, element_obj, rpc_buffer[elem_name]
-            //);
+            if !elem_name.contains("_") {
+                println!(
+                    "After tick {:5}, {:45} \n\toutputs {:?}\n",
+                    tick, element_obj, rpc_buffer[elem_name]
+                );
+            }
         }
         print!("\n\n");
 
@@ -142,7 +156,5 @@ impl Simulator {
         }
 
         // Send these elements to the next hops
-
-        println!("");
     }
 }
