@@ -72,9 +72,9 @@ impl SimElement for Node {
             let neigh_len = self.neighbors.len();
             if rpc.headers.contains_key("dest") {
                 let mut have_dest = false;
-                let dest = rpc.headers["dest"].clone();
+                let dest = &rpc.headers["dest"].clone();
                 for n in &self.neighbors {
-                    if n == &dest {
+                    if n == dest {
                         have_dest = true;
                         ret.push((rpc, dest.clone()));
                         break;
