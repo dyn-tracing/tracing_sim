@@ -1,6 +1,7 @@
 //! A sim_element is something that takes in RPCs and give them to other sim_elements.
 //! Right now the only sim_elements are nodes, edges, and plugin_wrappers.
 
+use core::any::Any;
 use rpc_lib::rpc::Rpc;
 
 pub trait SimElement {
@@ -14,7 +15,7 @@ pub trait SimElement {
 
     fn neighbors(&self) -> &Vec<String>;
 
-    fn type_specific_info(&self) -> Option<&str>;
+    fn as_any(&self) -> &dyn Any;
 }
 
 pub trait Node {}

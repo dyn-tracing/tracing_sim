@@ -37,7 +37,11 @@ impl Simulator {
     }
 
     pub fn query_storage(&mut self, storage_id: &str) -> &str {
-        self.elements[storage_id].type_specific_info().unwrap()
+        let storage_box = &self.elements[storage_id];
+        return match storage_box.as_any().downcast_ref::<Storage>() {
+            Some(storage) => storage.query(),
+            None => panic!("Expected storage element but got {0}", storage_box),
+        };
     }
 
     pub fn add_node(

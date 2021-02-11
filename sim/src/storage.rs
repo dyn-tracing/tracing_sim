@@ -2,6 +2,7 @@
 //! A node is a sim_element.
 
 use crate::sim_element::SimElement;
+use core::any::Any;
 use rpc_lib::rpc::Rpc;
 use std::fmt;
 
@@ -45,8 +46,8 @@ impl SimElement for Storage {
     fn neighbors(&self) -> &Vec<String> {
         &self.neighbors
     }
-    fn type_specific_info(&self) -> Option<&str> {
-        Some(&self.data)
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
@@ -57,6 +58,9 @@ impl Storage {
             self.data.push_str(&x.data);
             self.data.push_str("\n");
         }
+    }
+    pub fn query(&self) -> &str {
+        &self.data
     }
     pub fn new(id: &str) -> Storage {
         Storage {
@@ -83,8 +87,7 @@ mod tests {
         rpc.headers
             .insert("dest".to_string(), "storage".to_string());
         storage.recv(rpc, 0, "node");
-        let ret = storage.type_specific_info().unwrap();
-        print!("ret: {0}\n", ret);
+        let ret = storage.query();
         assert!(ret == "0\n".to_string());
     }
 }

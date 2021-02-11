@@ -3,6 +3,7 @@
 
 use crate::plugin_wrapper::PluginWrapper;
 use crate::sim_element::SimElement;
+use core::any::Any;
 use queues::*;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use rpc_lib::rpc::Rpc;
@@ -116,8 +117,8 @@ impl SimElement for Node {
     fn neighbors(&self) -> &Vec<String> {
         return &self.neighbors;
     }
-    fn type_specific_info(&self) -> Option<&str> {
-        return None;
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 

@@ -3,6 +3,7 @@
 extern crate test;
 
 use crate::sim_element::SimElement;
+use core::any::Any;
 use queues::*;
 use rpc_lib::rpc::Rpc;
 use std::fmt;
@@ -69,8 +70,9 @@ impl SimElement for Edge {
     fn neighbors(&self) -> &Vec<String> {
         &self.neighbors
     }
-    fn type_specific_info(&self) -> Option<&str> {
-        None
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
