@@ -44,7 +44,13 @@ impl Simulator {
         };
     }
 
-    pub fn add_node(
+    pub fn add_node<T: 'static + PrintableElement>(&mut self, id: &str, node: T) {
+        self.add_element(id, node);
+        self.node_index_to_node
+            .insert(id.to_string(), self.graph.add_node(id.to_string()));
+    }
+
+    pub fn add_random_node(
         &mut self,
         id: &str,
         capacity: u32,
@@ -60,9 +66,7 @@ impl Simulator {
             plugin,
             self.seed,
         );
-        self.add_element(id, node);
-        self.node_index_to_node
-            .insert(id.to_string(), self.graph.add_node(id.to_string()));
+        self.add_node(id, node);
     }
 
     pub fn add_edge(&mut self, delay: u32, element1: &str, element2: &str, unidirectional: bool) {
@@ -105,7 +109,7 @@ impl Simulator {
             .insert(id.to_string(), self.graph.add_node(id.to_string()));
     }
 
-    pub fn add_element<T: 'static + PrintableElement>(&mut self, id: &str, element: T) -> usize {
+    fn add_element<T: 'static + PrintableElement>(&mut self, id: &str, element: T) -> usize {
         self.elements.insert(id.to_string(), Box::new(element));
         return self.elements.len() - 1;
     }
@@ -154,8 +158,10 @@ impl Simulator {
         // now start the receive phase
         for (elem_name, rpc_tuples) in rpc_buffer {
             for (rpc, dst) in rpc_tuples {
-                let elem = self.elements.get_mut(&dst).unwrap();
-                elem.recv(rpc, tick, &elem_name);
+                match self.elements.get_mut(&dst) {
+                    Some(elem) => elem.recv(rpc, tick, &elem_name),
+                    None => panic!("expected {0} to be in elements, but it was not", &dst),
+                }
             }
         }
 
