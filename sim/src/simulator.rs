@@ -1,11 +1,11 @@
 //! This defines the simulator and coordinates all of the sim_elements.  It is a tick-based simulator, so at every tick,
 //! each sim_element will produce some RPCs and where they should go, and receive any in its own buffer.
 
-use crate::details::Details;
+use crate::bookinfo::productpage::ProductPage;
+use crate::bookinfo::details::Details;
+use crate::bookinfo::reviews::Reviews;
 use crate::edge::Edge;
 use crate::node::Node;
-use crate::productpage::ProductPage;
-use crate::reviews::Reviews;
 use crate::sim_element::SimElement;
 use crate::storage::Storage;
 use petgraph::dot::{Config, Dot};
@@ -37,72 +37,6 @@ impl Simulator {
             node_index_to_node: HashMap::new(),
             seed,
         }
-    }
-    pub fn new_bookinfo(seed: u64, plugin: Option<&str>) -> Self {
-        let mut sim = Simulator {
-            elements: HashMap::new(),
-            graph: Graph::new(),
-            node_index_to_node: HashMap::new(),
-            seed,
-        };
-
-        let traffic_generator = Node::new("trafficgenerator-v1", 5, 1, 1, plugin, sim.seed);
-        let productpage = ProductPage::new("productpage-v1", 5, 1, 0, plugin, sim.seed);
-        let reviews1 = Reviews::new("reviews-v1", 5, 1, 0, plugin);
-        let reviews2 = Reviews::new("reviews-v2", 5, 1, 0, plugin);
-        let reviews3 = Reviews::new("reviews-v3", 5, 1, 0, plugin);
-        let details = Details::new("details-v1", 5, 1, 0, plugin);
-        sim.add_storage("storage");
-
-        sim.add_element("trafficgenerator-v1", traffic_generator);
-        sim.add_element("productpage-v1", productpage);
-        sim.add_element("reviews-v1", reviews1);
-        sim.add_element("reviews-v2", reviews2);
-        sim.add_element("reviews-v3", reviews3);
-        sim.add_element("details-v1", details);
-
-        sim.node_index_to_node.insert(
-            "trafficgenerator-v1".to_string(),
-            sim.graph.add_node("trafficgenerator-v1".to_string()),
-        );
-        sim.node_index_to_node.insert(
-            "productpage-v1".to_string(),
-            sim.graph.add_node("productpage-v1".to_string()),
-        );
-        sim.node_index_to_node.insert(
-            "reviews-v1".to_string(),
-            sim.graph.add_node("reviews-v1".to_string()),
-        );
-        sim.node_index_to_node.insert(
-            "reviews-v2".to_string(),
-            sim.graph.add_node("reviews-v2".to_string()),
-        );
-        sim.node_index_to_node.insert(
-            "reviews-v3".to_string(),
-            sim.graph.add_node("reviews-v3".to_string()),
-        );
-        sim.node_index_to_node.insert(
-            "details-v1".to_string(),
-            sim.graph.add_node("details-v1".to_string()),
-        );
-        sim.add_edge(1, "trafficgenerator-v1", "productpage-v1", true);
-        sim.add_edge(1, "productpage-v1", "reviews-v1", false);
-        sim.add_edge(1, "productpage-v1", "reviews-v2", false);
-        sim.add_edge(1, "productpage-v1", "reviews-v3", false);
-        sim.add_edge(1, "reviews-v1", "details-v1", false);
-        sim.add_edge(1, "reviews-v2", "details-v1", false);
-        sim.add_edge(1, "reviews-v3", "details-v1", false);
-        let regular_nodes = [
-            "productpage-v1",
-            "reviews-v1",
-            "reviews-v2",
-            "reviews-v3",
-            "details-v1",
-        ];
-        for node in &regular_nodes {
-            sim.add_edge(1, node, "storage", true);
-        }
-        return sim;
     }
 
     pub fn query_storage(&mut self, storage_id: &str) -> &str {

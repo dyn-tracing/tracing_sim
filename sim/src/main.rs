@@ -1,19 +1,57 @@
 #![feature(test)]
 #![feature(extern_types)]
-mod details;
+mod bookinfo;
 mod edge;
 mod filter_types;
 mod node;
 mod plugin_wrapper;
-mod productpage;
-mod reviews;
 mod sim_element;
 mod simulator;
 mod storage;
 
+use crate::bookinfo::details::Details;
+use crate::bookinfo::productpage::ProductPage;
+use crate::bookinfo::reviews::Reviews;
 use clap::{App, Arg};
 use rand::Rng;
 use simulator::Simulator;
+
+pub fn new_bookinfo(seed: u64, plugin: Option<&str>) -> Simulator {
+    let mut sim = Simulator::new(seed);
+
+    sim.add_node("trafficgen-v1", 5, 1, 1, plugin);
+    let productpage = ProductPage::new("productpage-v1", 5, 1, 0, plugin, seed);
+    let reviews1 = Reviews::new("reviews-v1", 5, 1, 0, plugin);
+    let reviews2 = Reviews::new("reviews-v2", 5, 1, 0, plugin);
+    let reviews3 = Reviews::new("reviews-v3", 5, 1, 0, plugin);
+    let details = Details::new("details-v1", 5, 1, 0, plugin);
+    sim.add_storage("storage");
+
+    sim.add_element("productpage-v1", productpage);
+    sim.add_element("reviews-v1", reviews1);
+    sim.add_element("reviews-v2", reviews2);
+    sim.add_element("reviews-v3", reviews3);
+    sim.add_element("details-v1", details);
+
+    sim.add_edge(1, "trafficgen-v1", "productpage-v1", true);
+    sim.add_edge(1, "productpage-v1", "reviews-v1", false);
+    sim.add_edge(1, "productpage-v1", "reviews-v2", false);
+    sim.add_edge(1, "productpage-v1", "reviews-v3", false);
+    sim.add_edge(1, "reviews-v1", "details-v1", false);
+    sim.add_edge(1, "reviews-v2", "details-v1", false);
+    sim.add_edge(1, "reviews-v3", "details-v1", false);
+    let regular_nodes = [
+        "productpage-v1",
+        "reviews-v1",
+        "reviews-v2",
+        "reviews-v3",
+        "details-v1",
+    ];
+    for node in &regular_nodes {
+        sim.add_edge(1, node, "storage", true);
+    }
+    return sim;
+}
 
 fn main() {
     let matches = App::new("Tracing Simulator")
@@ -53,7 +91,7 @@ fn main() {
     }
 
     // Create simulator object.
-    let mut simulator = Simulator::new_bookinfo(seed, plugin_str);
+    let mut simulator = new_bookinfo(seed, plugin_str);
 
     // Print the graph
     if let Some(_argument) = matches.value_of("print_graph") {
