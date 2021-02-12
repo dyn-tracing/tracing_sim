@@ -95,8 +95,14 @@ impl SimElement for ProductPage {
                         break;
                     }
                 }
+            } else if neigh_len > 0 && rpc.headers["direction"] == "response".to_string() {
+                for neighbor in &self.neighbors {
+                    if neighbor.contains("gateway") {
+                        ret.push((rpc, neighbor.to_string()));
+                        break;
+                    }
+                }
             }
-            // we would normally send client the responses, so the trace stops here;  don't do anything with responses
         }
         ret
     }
