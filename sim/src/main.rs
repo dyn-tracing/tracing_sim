@@ -1,9 +1,12 @@
 #![feature(test)]
 #![feature(extern_types)]
+mod details;
 mod edge;
 mod filter_types;
 mod node;
 mod plugin_wrapper;
+mod productpage;
+mod reviews;
 mod sim_element;
 mod simulator;
 mod storage;
@@ -50,45 +53,7 @@ fn main() {
     }
 
     // Create simulator object.
-    let storage_name = "storage";
-    let mut simulator = sim::simulator::Simulator::new(seed); // always run with the seed 0 while we are checking tests
-
-    let regular_nodes = [
-        "productpage-v1",
-        "ratings-v1",
-        "reviews-v1",
-        "reviews-v2",
-        "reviews-v3",
-        "details-v1",
-    ]
-    .to_vec();
-    simulator.add_node("productpage-v1", 10, 5, 0, plugin_str);
-    simulator.add_node("reviews-v1", 10, 5, 0, plugin_str);
-    simulator.add_node("reviews-v2", 10, 5, 0, plugin_str);
-    simulator.add_node("reviews-v3", 10, 5, 0, plugin_str);
-
-    // ratings and details are dead ends
-    simulator.add_node("ratings-v1", 10, 0, 0, plugin_str);
-    simulator.add_node("details-v1", 10, 0, 0, plugin_str);
-    simulator.add_node("loadgenerator-v1", 10, 1, 1, None);
-    simulator.add_storage(storage_name);
-
-    // add all connections to storage
-    for node in &regular_nodes {
-        simulator.add_edge(1, node, storage_name, true);
-    }
-
-    // src: traffic generator
-    simulator.add_edge(1, "loadgenerator-v1", "productpage-v1", true);
-    // src: product page
-    simulator.add_edge(1, "productpage-v1", "reviews-v1", false);
-    simulator.add_edge(1, "productpage-v1", "reviews-v2", false);
-    simulator.add_edge(1, "productpage-v1", "reviews-v3", false);
-    simulator.add_edge(1, "productpage-v1", "details-v1", true);
-    // src: reviews
-    simulator.add_edge(1, "reviews-v1", "ratings-v1", false);
-    simulator.add_edge(1, "reviews-v2", "ratings-v1", false);
-    simulator.add_edge(1, "reviews-v3", "ratings-v1", false);
+    let mut simulator = Simulator::new_bookinfo(seed, plugin_str);
 
     // Print the graph
     if let Some(_argument) = matches.value_of("print_graph") {

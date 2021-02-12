@@ -10,7 +10,7 @@ use rpc_lib::rpc::Rpc;
 use std::cmp::min;
 use std::fmt;
 
-pub struct Node {
+pub struct ProductPage {
     queue: Queue<Rpc>,             // queue of rpcs
     id: String,                    // id of the node
     capacity: u32,                 // capacity of the node;  how much it can hold at once
@@ -21,28 +21,28 @@ pub struct Node {
     seed: u64,
 }
 
-impl fmt::Display for Node {
+impl fmt::Display for ProductPage {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(width) = f.width() {
             if self.plugin.is_none() {
                 write!(f, "{:width$}",
-                       &format!("Node {{ id : {}, capacity : {}, egress_rate : {}, generation_rate : {}, queue: {}, plugin : None}}",
+                       &format!("ProductPage {{ id : {}, capacity : {}, egress_rate : {}, generation_rate : {}, queue: {}, plugin : None}}",
                        &self.id, &self.capacity, &self.egress_rate, &self.generation_rate, &self.queue.size()),
                        width = width)
             } else {
                 write!(f, "{:width$}",
-                       &format!("Node {{ id : {}, capacity : {}, egress_rate : {}, generation_rate : {}, queue : {}, \n\tplugin : {} }}",
+                       &format!("ProductPage {{ id : {}, capacity : {}, egress_rate : {}, generation_rate : {}, queue : {}, \n\tplugin : {} }}",
                        &self.id, &self.capacity, &self.egress_rate, &self.generation_rate, &self.queue.size(), self.plugin.as_ref().unwrap()),
                        width = width)
             }
         } else {
             if self.plugin.is_none() {
-                write!(f, "Node {{ id : {}, egress_rate : {}, generation_rate : {}, plugin : None, capacity : {}, queue : {} }}",
+                write!(f, "ProductPage {{ id : {}, egress_rate : {}, generation_rate : {}, plugin : None, capacity : {}, queue : {} }}",
                        &self.id, &self.egress_rate, &self.generation_rate, &self.capacity, &self.queue.size())
             } else {
                 write!(
                     f,
-                    "Node {{ id : {}, egress_rate : {}, generation_rate : {}, plugin : {}, capacity : {}, queue : {} }}",
+                    "ProductPage {{ id : {}, egress_rate : {}, generation_rate : {}, plugin : {}, capacity : {}, queue : {} }}",
                     &self.id,
                     &self.egress_rate,
                     &self.generation_rate,
@@ -55,22 +55,19 @@ impl fmt::Display for Node {
     }
 }
 
-impl SimElement for Node {
+impl SimElement for ProductPage {
     fn tick(&mut self, tick: u64) -> Vec<(Rpc, String)> {
         let mut ret = vec![];
         for _ in 0..min(
             self.queue.size() + (self.generation_rate as usize),
             self.egress_rate as usize,
         ) {
-            // send the rpc to a random neighbor, if no neighbor specified
-            let mut rpc: Rpc;
+            let rpc: Rpc;
             if self.queue.size() > 0 {
                 let deq = self.dequeue(tick);
                 rpc = deq.unwrap();
             } else {
                 rpc = Rpc::new_rpc(&tick.to_string());
-                rpc.headers
-                    .insert("direction".to_string(), "request".to_string());
             }
             let neigh_len = self.neighbors.len();
             if rpc.headers.contains_key("dest") {
@@ -86,12 +83,20 @@ impl SimElement for Node {
                 if !have_dest {
                     print!("WARNING:  RPC given with invalid destination {0}\n", dest);
                 }
-            } else if neigh_len > 0 {
+            } else if neigh_len > 0 && rpc.headers["direction"] == "request".to_string() {
                 let mut rng: StdRng = SeedableRng::seed_from_u64(self.seed);
-                let idx = rng.gen_range(0, neigh_len);
-                let which_neighbor = self.neighbors[idx].clone();
-                ret.push((rpc, which_neighbor));
+                let idx = rng.gen_range(0, 3);
+                let reviews_neighbors = ["reviews-v1", "reviews-v2", "reviews-v3"];
+                let which_neighbor = reviews_neighbors[idx].clone();
+                // the purpose of this for loop is to find the edge with the correct reviews name
+                for neighbor in &self.neighbors {
+                    if neighbor.contains(which_neighbor) {
+                        ret.push((rpc, neighbor.to_string()));
+                        break;
+                    }
+                }
             }
+            // we would normally send client the responses, so the trace stops here;  don't do anything with responses
         }
         ret
     }
@@ -124,7 +129,7 @@ impl SimElement for Node {
     }
 }
 
-impl Node {
+impl ProductPage {
     pub fn enqueue(&mut self, x: Rpc, _now: u64) {
         let _res = self.queue.add(x);
     }
@@ -142,7 +147,7 @@ impl Node {
         generation_rate: u32,
         plugin: Option<&str>,
         seed: u64,
-    ) -> Node {
+    ) -> ProductPage {
         assert!(capacity >= 1);
         let mut created_plugin = None;
         if !plugin.is_none() {
@@ -152,7 +157,7 @@ impl Node {
             unwrapped_plugin.add_connection(id.to_string());
             created_plugin = Some(unwrapped_plugin);
         }
-        Node {
+        ProductPage {
             queue: queue![],
             id: id.to_string(),
             capacity,
@@ -172,12 +177,12 @@ mod tests {
 
     #[test]
     fn test_node_creation() {
-        let _node = Node::new("0", 2, 2, 1, None, 1);
+        let _node = ProductPage::new("0", 2, 2, 1, None, 1);
     }
 
     #[test]
     fn test_node_capacity_and_egress_rate() {
-        let mut node = Node::new("0", 2, 1, 0, None, 1);
+        let mut node = ProductPage::new("0", 2, 1, 0, None, 1);
         assert!(node.capacity == 2);
         assert!(node.egress_rate == 1);
         node.recv(Rpc::new_rpc("0"), 0, "0");
@@ -194,7 +199,7 @@ mod tests {
         let mut cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         cargo_dir.push("../target/debug/libfilter_example");
         let library_str = cargo_dir.to_str().unwrap();
-        let node = Node::new("0", 2, 1, 0, Some(library_str), 1);
+        let node = ProductPage::new("0", 2, 1, 0, Some(library_str), 1);
         assert!(!node.plugin.is_none());
     }
 }
