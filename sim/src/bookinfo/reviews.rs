@@ -9,8 +9,14 @@ use rpc_lib::rpc::Rpc;
 use std::cmp::min;
 use std::fmt;
 
+#[derive(Clone)]
+pub struct RpcWithSender {
+    pub rpc: Rpc,
+    pub sender: String,
+}
+
 pub struct Reviews {
-    queue: Queue<Rpc>,             // queue of rpcs
+    queue: Queue<RpcWithSender>,   // queue of rpcs
     id: String,                    // id of the node
     capacity: u32,                 // capacity of the node;  how much it can hold at once
     egress_rate: u32,              // rate at which the node can send out rpcs
@@ -60,38 +66,42 @@ impl SimElement for Reviews {
             self.queue.size() + (self.generation_rate as usize),
             self.egress_rate as usize,
         ) {
-            let rpc: Rpc;
+            let rpc_with_sender: RpcWithSender;
             if self.queue.size() > 0 {
                 let deq = self.dequeue(tick);
-                rpc = deq.unwrap();
+                rpc_with_sender = deq.unwrap();
             } else {
-                rpc = Rpc::new_rpc(&tick.to_string());
+                let rpc = Rpc::new_rpc(&tick.to_string());
+                rpc_with_sender = RpcWithSender {
+                    rpc: rpc,
+                    sender: self.id.to_string(),
+                };
             }
             let neigh_len = self.neighbors.len();
-            if rpc.headers.contains_key("dest") {
+            if rpc_with_sender.rpc.headers.contains_key("dest") {
                 let mut have_dest = false;
-                let dest = &rpc.headers["dest"].clone();
+                let dest = &rpc_with_sender.rpc.headers["dest"].clone();
                 for n in &self.neighbors {
                     if n == dest {
                         have_dest = true;
-                        ret.push((rpc, dest.clone()));
+                        ret.push((rpc_with_sender.rpc, dest.clone()));
                         break;
                     }
                 }
                 if !have_dest {
                     print!("WARNING:  RPC given with invalid destination {0}\n", dest);
                 }
-            } else if neigh_len > 0 && rpc.headers["direction"] == "request" {
+            } else if neigh_len > 0 && rpc_with_sender.rpc.headers["direction"] == "request" {
                 for neighbor in &self.neighbors {
-                    if neighbor.contains("ratings-v1") {
-                        ret.push((rpc, neighbor.to_string()));
+                    if neighbor != &rpc_with_sender.sender {
+                        ret.push((rpc_with_sender.rpc, neighbor.to_string()));
                         break;
                     }
                 }
             } else if neigh_len > 0 {
                 for neighbor in &self.neighbors {
-                    if neighbor.contains("productpage-v1") {
-                        ret.push((rpc, neighbor.to_string()));
+                    if neighbor != &rpc_with_sender.sender {
+                        ret.push((rpc_with_sender.rpc, neighbor.to_string()));
                         break;
                     }
                 }
@@ -99,16 +109,28 @@ impl SimElement for Reviews {
         }
         ret
     }
-    fn recv(&mut self, rpc: Rpc, tick: u64, _sender: &str) {
+    fn recv(&mut self, rpc: Rpc, tick: u64, sender: &str) {
         if (self.queue.size() as u32) < self.capacity {
             // drop packets you cannot accept
             if self.plugin.is_none() {
-                self.enqueue(rpc, tick);
+                self.enqueue(
+                    RpcWithSender {
+                        rpc: rpc,
+                        sender: sender.to_string(),
+                    },
+                    tick,
+                );
             } else {
                 self.plugin.as_mut().unwrap().recv(rpc, tick, &self.id);
                 let ret = self.plugin.as_mut().unwrap().tick(tick);
                 for filtered_rpc in ret {
-                    self.enqueue(filtered_rpc.0, tick);
+                    self.enqueue(
+                        RpcWithSender {
+                            rpc: filtered_rpc.0,
+                            sender: sender.to_string(),
+                        },
+                        tick,
+                    );
                 }
             }
         }
@@ -129,10 +151,10 @@ impl SimElement for Reviews {
 }
 
 impl Reviews {
-    pub fn enqueue(&mut self, x: Rpc, _now: u64) {
+    pub fn enqueue(&mut self, x: RpcWithSender, _now: u64) {
         let _res = self.queue.add(x);
     }
-    pub fn dequeue(&mut self, _now: u64) -> Option<Rpc> {
+    pub fn dequeue(&mut self, _now: u64) -> Option<RpcWithSender> {
         if self.queue.size() == 0 {
             return None;
         } else {
