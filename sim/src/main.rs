@@ -19,7 +19,7 @@ use simulator::Simulator;
 pub fn new_bookinfo(seed: u64, plugin: Option<&str>) -> Simulator {
     let mut sim = Simulator::new(seed);
 
-    sim.add_node("trafficgen-v1", 5, 1, 1, plugin);
+    sim.add_random_node("trafficgen-v1", 5, 1, 1, plugin);
     let productpage = ProductPage::new("productpage-v1", 5, 1, 0, plugin, seed);
     let reviews1 = Reviews::new("reviews-v1", 5, 1, 0, plugin);
     let reviews2 = Reviews::new("reviews-v2", 5, 1, 0, plugin);
@@ -27,11 +27,11 @@ pub fn new_bookinfo(seed: u64, plugin: Option<&str>) -> Simulator {
     let details = Details::new("details-v1", 5, 1, 0, plugin);
     sim.add_storage("storage");
 
-    sim.add_element("productpage-v1", productpage);
-    sim.add_element("reviews-v1", reviews1);
-    sim.add_element("reviews-v2", reviews2);
-    sim.add_element("reviews-v3", reviews3);
-    sim.add_element("details-v1", details);
+    sim.add_node("productpage-v1", productpage);
+    sim.add_node("reviews-v1", reviews1);
+    sim.add_node("reviews-v2", reviews2);
+    sim.add_node("reviews-v3", reviews3);
+    sim.add_node("details-v1", details);
 
     sim.add_edge(1, "trafficgen-v1", "productpage-v1", true);
     sim.add_edge(1, "productpage-v1", "reviews-v1", false);
