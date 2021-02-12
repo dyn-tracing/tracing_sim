@@ -83,7 +83,7 @@ impl SimElement for Reviews {
                 }
             } else if neigh_len > 0 && rpc.headers["direction"] == "request" {
                 for neighbor in &self.neighbors {
-                    if neighbor.contains("details-v1") {
+                    if neighbor.contains("ratings-v1") {
                         ret.push((rpc, neighbor.to_string()));
                         break;
                     }

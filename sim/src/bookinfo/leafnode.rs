@@ -14,7 +14,7 @@ pub struct RpcWithSender {
     pub rpc: Rpc,
     pub sender: String,
 }
-pub struct Details {
+pub struct LeafNode {
     queue: Queue<RpcWithSender>,   // queue of rpcs
     id: String,                    // id of the node
     capacity: u32,                 // capacity of the node;  how much it can hold at once
@@ -24,28 +24,28 @@ pub struct Details {
     neighbors: Vec<String>, // who is the node connected to
 }
 
-impl fmt::Display for Details {
+impl fmt::Display for LeafNode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(width) = f.width() {
             if self.plugin.is_none() {
                 write!(f, "{:width$}",
-                       &format!("Details {{ id : {}, capacity : {}, egress_rate : {}, generation_rate : {}, queue: {}, plugin : None}}",
+                       &format!("LeafNode {{ id : {}, capacity : {}, egress_rate : {}, generation_rate : {}, queue: {}, plugin : None}}",
                        &self.id, &self.capacity, &self.egress_rate, &self.generation_rate, &self.queue.size()),
                        width = width)
             } else {
                 write!(f, "{:width$}",
-                       &format!("Details {{ id : {}, capacity : {}, egress_rate : {}, generation_rate : {}, queue : {}, \n\tplugin : {} }}",
+                       &format!("LeafNode {{ id : {}, capacity : {}, egress_rate : {}, generation_rate : {}, queue : {}, \n\tplugin : {} }}",
                        &self.id, &self.capacity, &self.egress_rate, &self.generation_rate, &self.queue.size(), self.plugin.as_ref().unwrap()),
                        width = width)
             }
         } else {
             if self.plugin.is_none() {
-                write!(f, "Details {{ id : {}, egress_rate : {}, generation_rate : {}, plugin : None, capacity : {}, queue : {} }}",
+                write!(f, "LeafNode {{ id : {}, egress_rate : {}, generation_rate : {}, plugin : None, capacity : {}, queue : {} }}",
                        &self.id, &self.egress_rate, &self.generation_rate, &self.capacity, &self.queue.size())
             } else {
                 write!(
                     f,
-                    "Details {{ id : {}, egress_rate : {}, generation_rate : {}, plugin : {}, capacity : {}, queue : {} }}",
+                    "LeafNode {{ id : {}, egress_rate : {}, generation_rate : {}, plugin : {}, capacity : {}, queue : {} }}",
                     &self.id,
                     &self.egress_rate,
                     &self.generation_rate,
@@ -58,7 +58,7 @@ impl fmt::Display for Details {
     }
 }
 
-impl SimElement for Details {
+impl SimElement for LeafNode {
     fn tick(&mut self, tick: u64) -> Vec<(Rpc, String)> {
         let mut ret = vec![];
         for _ in 0..min(
@@ -145,7 +145,7 @@ impl SimElement for Details {
     }
 }
 
-impl Details {
+impl LeafNode {
     pub fn enqueue(&mut self, x: RpcWithSender, _now: u64) {
         let _res = self.queue.add(x);
     }
@@ -162,7 +162,7 @@ impl Details {
         egress_rate: u32,
         generation_rate: u32,
         plugin: Option<&str>,
-    ) -> Details {
+    ) -> LeafNode {
         assert!(capacity >= 1);
         let mut created_plugin = None;
         if !plugin.is_none() {
@@ -172,7 +172,7 @@ impl Details {
             unwrapped_plugin.add_connection(id.to_string());
             created_plugin = Some(unwrapped_plugin);
         }
-        Details {
+        LeafNode {
             queue: queue![],
             id: id.to_string(),
             capacity,
@@ -191,12 +191,12 @@ mod tests {
 
     #[test]
     fn test_node_creation() {
-        let _node = Details::new("0", 2, 2, 1, None);
+        let _node = LeafNode::new("0", 2, 2, 1, None);
     }
 
     #[test]
     fn test_node_capacity_and_egress_rate() {
-        let mut node = Details::new("0", 2, 1, 0, None);
+        let mut node = LeafNode::new("0", 2, 1, 0, None);
         assert!(node.capacity == 2);
         assert!(node.egress_rate == 1);
         node.recv(Rpc::new_rpc("0"), 0, "0");
@@ -213,7 +213,7 @@ mod tests {
         let mut cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         cargo_dir.push("../target/debug/libfilter_example");
         let library_str = cargo_dir.to_str().unwrap();
-        let node = Details::new("0", 2, 1, 0, Some(library_str));
+        let node = LeafNode::new("0", 2, 1, 0, Some(library_str));
         assert!(!node.plugin.is_none());
     }
 }
