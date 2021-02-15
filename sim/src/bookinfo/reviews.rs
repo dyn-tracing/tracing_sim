@@ -1,7 +1,8 @@
 //! An abstraction of a review node from bookinfo.  The node can have a plugin, which is meant to reprsent a WebAssembly filter
 //! A node is a sim_element.
 
-use crate::plugin_wrapper::PluginWrapper;
+use crate::node::node_fmt_with_name;
+use crate::node::Node;
 use crate::sim_element::SimElement;
 use core::any::Any;
 use queues::*;
@@ -9,53 +10,13 @@ use rpc_lib::rpc::Rpc;
 use std::cmp::min;
 use std::fmt;
 
-#[derive(Clone)]
-pub struct RpcWithSender {
-    pub rpc: Rpc,
-    pub sender: String,
-}
-
 pub struct Reviews {
-    queue: Queue<RpcWithSender>,   // queue of rpcs
-    id: String,                    // id of the node
-    capacity: u32,                 // capacity of the node;  how much it can hold at once
-    egress_rate: u32,              // rate at which the node can send out rpcs
-    generation_rate: u32, // rate at which the node can generate rpcs, which are generated regardless of input to the node
-    plugin: Option<PluginWrapper>, // filter to the node
-    neighbors: Vec<String>, // who is the node connected to
+    core_node: Node,
 }
 
 impl fmt::Display for Reviews {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(width) = f.width() {
-            if self.plugin.is_none() {
-                write!(f, "{:width$}",
-                       &format!("Reviews {{ id : {}, capacity : {}, egress_rate : {}, generation_rate : {}, queue: {}, plugin : None}}",
-                       &self.id, &self.capacity, &self.egress_rate, &self.generation_rate, &self.queue.size()),
-                       width = width)
-            } else {
-                write!(f, "{:width$}",
-                       &format!("Reviews {{ id : {}, capacity : {}, egress_rate : {}, generation_rate : {}, queue : {}, \n\tplugin : {} }}",
-                       &self.id, &self.capacity, &self.egress_rate, &self.generation_rate, &self.queue.size(), self.plugin.as_ref().unwrap()),
-                       width = width)
-            }
-        } else {
-            if self.plugin.is_none() {
-                write!(f, "Reviews {{ id : {}, egress_rate : {}, generation_rate : {}, plugin : None, capacity : {}, queue : {} }}",
-                       &self.id, &self.egress_rate, &self.generation_rate, &self.capacity, &self.queue.size())
-            } else {
-                write!(
-                    f,
-                    "Reviews {{ id : {}, egress_rate : {}, generation_rate : {}, plugin : {}, capacity : {}, queue : {} }}",
-                    &self.id,
-                    &self.egress_rate,
-                    &self.generation_rate,
-                    self.plugin.as_ref().unwrap(),
-                    &self.capacity,
-                    &self.queue.size()
-                )
-            }
-        }
+        node_fmt_with_name(&self.core_node, f, "Reviews")
     }
 }
 
@@ -63,87 +24,49 @@ impl SimElement for Reviews {
     fn tick(&mut self, tick: u64) -> Vec<(Rpc, String)> {
         let mut ret = vec![];
         for _ in 0..min(
-            self.queue.size() + (self.generation_rate as usize),
-            self.egress_rate as usize,
+            self.core_node.queue.size(),
+            self.core_node.egress_rate as usize,
         ) {
-            let rpc_with_sender: RpcWithSender;
-            if self.queue.size() > 0 {
-                let deq = self.dequeue(tick);
-                rpc_with_sender = deq.unwrap();
+            let mut rpc: Rpc;
+            if self.core_node.queue.size() > 0 {
+                let deq = self.core_node.dequeue(tick);
+                rpc = deq.unwrap();
             } else {
-                let rpc = Rpc::new_rpc(&tick.to_string());
-                rpc_with_sender = RpcWithSender {
-                    rpc: rpc,
-                    sender: self.id.to_string(),
-                };
+                // no rpc in the queue, we only forward so nothing to do
+                continue;
             }
-            let neigh_len = self.neighbors.len();
-            if rpc_with_sender.rpc.headers.contains_key("dest") {
-                let mut have_dest = false;
-                let dest = &rpc_with_sender.rpc.headers["dest"].clone();
-                for n in &self.neighbors {
-                    if n == dest {
-                        have_dest = true;
-                        ret.push((rpc_with_sender.rpc, dest.clone()));
-                        break;
-                    }
+            // forward requests/responses from productpage or reviews
+            if rpc.headers.contains_key("src") {
+                let source = &rpc.headers["src"];
+                let dest: &str;
+                if source == "ratings-v1" {
+                    dest = "productpage-v1";
+                } else if source == "productpage-v1" {
+                    dest = "ratings-v1";
+                } else {
+                    panic!("Unexpected RPC source {:?}", source);
                 }
-                if !have_dest {
-                    print!("WARNING:  RPC given with invalid destination {0}\n", dest);
-                }
-            } else if neigh_len > 0 && rpc_with_sender.rpc.headers["direction"] == "request" {
-                for neighbor in &self.neighbors {
-                    if neighbor != &rpc_with_sender.sender {
-                        ret.push((rpc_with_sender.rpc, neighbor.to_string()));
-                        break;
-                    }
-                }
-            } else if neigh_len > 0 {
-                for neighbor in &self.neighbors {
-                    if neighbor != &rpc_with_sender.sender {
-                        ret.push((rpc_with_sender.rpc, neighbor.to_string()));
-                        break;
-                    }
-                }
+                rpc.headers
+                    .insert("src".to_string(), self.core_node.id.to_string());
+                ret.push((rpc, dest.to_string()));
+            } else {
+                panic!("Reviews node is missing source header for forwarding! Invalid RPC.");
             }
         }
         ret
     }
     fn recv(&mut self, rpc: Rpc, tick: u64, sender: &str) {
-        if (self.queue.size() as u32) < self.capacity {
-            // drop packets you cannot accept
-            if self.plugin.is_none() {
-                self.enqueue(
-                    RpcWithSender {
-                        rpc: rpc,
-                        sender: sender.to_string(),
-                    },
-                    tick,
-                );
-            } else {
-                self.plugin.as_mut().unwrap().recv(rpc, tick, &self.id);
-                let ret = self.plugin.as_mut().unwrap().tick(tick);
-                for filtered_rpc in ret {
-                    self.enqueue(
-                        RpcWithSender {
-                            rpc: filtered_rpc.0,
-                            sender: sender.to_string(),
-                        },
-                        tick,
-                    );
-                }
-            }
-        }
+        self.core_node.recv(rpc, tick, sender)
     }
     fn add_connection(&mut self, neighbor: String) {
-        self.neighbors.push(neighbor);
+        self.core_node.add_connection(neighbor)
     }
 
     fn whoami(&self) -> &str {
-        return &self.id;
+        return &self.core_node.whoami();
     }
     fn neighbors(&self) -> &Vec<String> {
-        return &self.neighbors;
+        return &self.core_node.neighbors();
     }
     fn as_any(&self) -> &dyn Any {
         self
@@ -151,41 +74,10 @@ impl SimElement for Reviews {
 }
 
 impl Reviews {
-    pub fn enqueue(&mut self, x: RpcWithSender, _now: u64) {
-        let _res = self.queue.add(x);
-    }
-    pub fn dequeue(&mut self, _now: u64) -> Option<RpcWithSender> {
-        if self.queue.size() == 0 {
-            return None;
-        } else {
-            return Some(self.queue.remove().unwrap());
-        }
-    }
-    pub fn new(
-        id: &str,
-        capacity: u32,
-        egress_rate: u32,
-        generation_rate: u32,
-        plugin: Option<&str>,
-    ) -> Reviews {
+    pub fn new(id: &str, capacity: u32, egress_rate: u32, plugin: Option<&str>) -> Reviews {
         assert!(capacity >= 1);
-        let mut created_plugin = None;
-        if !plugin.is_none() {
-            let mut plugin_id = id.to_string();
-            plugin_id.push_str("_plugin");
-            let mut unwrapped_plugin = PluginWrapper::new(&plugin_id, plugin.unwrap());
-            unwrapped_plugin.add_connection(id.to_string());
-            created_plugin = Some(unwrapped_plugin);
-        }
-        Reviews {
-            queue: queue![],
-            id: id.to_string(),
-            capacity,
-            egress_rate,
-            generation_rate,
-            plugin: created_plugin,
-            neighbors: Vec::new(),
-        }
+        let core_node = Node::new(id, capacity, egress_rate, 0, plugin, 0);
+        Reviews { core_node }
     }
 }
 
@@ -196,21 +88,21 @@ mod tests {
 
     #[test]
     fn test_node_creation() {
-        let _node = Reviews::new("0", 2, 2, 1, None);
+        let _node = Reviews::new("0", 2, 2, None);
     }
 
     #[test]
     fn test_node_capacity_and_egress_rate() {
-        let mut node = Reviews::new("0", 2, 1, 0, None);
-        assert!(node.capacity == 2);
-        assert!(node.egress_rate == 1);
-        node.recv(Rpc::new_rpc("0"), 0, "0");
-        node.recv(Rpc::new_rpc("0"), 0, "0");
-        assert!(node.queue.size() == 2);
-        node.recv(Rpc::new_rpc("0"), 0, "0");
-        assert!(node.queue.size() == 2);
-        node.tick(0);
-        assert!(node.queue.size() == 1);
+        let mut node = Reviews::new("0", 2, 1, None);
+        assert!(node.core_node.capacity == 2);
+        assert!(node.core_node.egress_rate == 1);
+        node.core_node.recv(Rpc::new_rpc("0"), 0, "0");
+        node.core_node.recv(Rpc::new_rpc("0"), 0, "0");
+        assert!(node.core_node.queue.size() == 2);
+        node.core_node.recv(Rpc::new_rpc("0"), 0, "0");
+        assert!(node.core_node.queue.size() == 2);
+        node.core_node.tick(0);
+        assert!(node.core_node.queue.size() == 1);
     }
 
     #[test]
@@ -218,7 +110,7 @@ mod tests {
         let mut cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         cargo_dir.push("../target/debug/libfilter_example");
         let library_str = cargo_dir.to_str().unwrap();
-        let node = Reviews::new("0", 2, 1, 0, Some(library_str));
-        assert!(!node.plugin.is_none());
+        let node = Reviews::new("0", 2, 1, Some(library_str));
+        assert!(!node.core_node.plugin.is_none());
     }
 }
