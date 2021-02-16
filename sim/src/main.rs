@@ -20,16 +20,16 @@ use simulator::Simulator;
 pub fn new_bookinfo(seed: u64, plugin: Option<&str>) -> Simulator {
     let mut sim = Simulator::new(seed);
 
-    let gateway = Gateway::new("gateway-v1", 5, 5, 1, seed); // no plugins on a gateway
-    let productpage = ProductPage::new("productpage-v1", 5, 5, 0, plugin, seed);
-    let reviews1 = Reviews::new("reviews-v1", 5, 5, 0, plugin);
-    let reviews2 = Reviews::new("reviews-v2", 5, 5, 0, plugin);
-    let reviews3 = Reviews::new("reviews-v3", 5, 5, 0, plugin);
-    let details = LeafNode::new("details-v1", 5, 5, 0, plugin);
-    let ratings = LeafNode::new("ratings-v1", 5, 5, 0, plugin);
+    let gateway = Gateway::new("gateway", 5, 5, 1, seed); // no plugins on a gateway
+    let productpage = ProductPage::new("productpage-v1", 5, 5, plugin, seed);
+    let reviews1 = Reviews::new("reviews-v1", 5, 5, plugin);
+    let reviews2 = Reviews::new("reviews-v2", 5, 5, plugin);
+    let reviews3 = Reviews::new("reviews-v3", 5, 5, plugin);
+    let details = LeafNode::new("details-v1", 5, 5, plugin);
+    let ratings = LeafNode::new("ratings-v1", 5, 5, plugin);
     sim.add_storage("storage");
 
-    sim.add_node("gateway-v1", gateway);
+    sim.add_node("gateway", gateway);
     sim.add_node("productpage-v1", productpage);
     sim.add_node("reviews-v1", reviews1);
     sim.add_node("reviews-v2", reviews2);
@@ -37,7 +37,7 @@ pub fn new_bookinfo(seed: u64, plugin: Option<&str>) -> Simulator {
     sim.add_node("details-v1", details);
     sim.add_node("ratings-v1", ratings);
 
-    sim.add_edge(1, "gateway-v1", "productpage-v1", false);
+    sim.add_edge(1, "gateway", "productpage-v1", false);
     sim.add_edge(1, "productpage-v1", "details-v1", false);
     sim.add_edge(1, "productpage-v1", "reviews-v1", false);
     sim.add_edge(1, "productpage-v1", "reviews-v2", false);

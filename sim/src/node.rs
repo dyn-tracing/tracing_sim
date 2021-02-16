@@ -11,53 +11,58 @@ use std::cmp::min;
 use std::fmt;
 
 pub struct Node {
-    queue: Queue<Rpc>,             // queue of rpcs
-    id: String,                    // id of the node
-    capacity: u32,                 // capacity of the node;  how much it can hold at once
-    egress_rate: u32,              // rate at which the node can send out rpcs
-    generation_rate: u32, // rate at which the node can generate rpcs, which are generated regardless of input to the node
-    plugin: Option<PluginWrapper>, // filter to the node
-    neighbors: Vec<String>, // who is the node connected to
-    seed: u64,
+    pub queue: Queue<Rpc>,             // queue of rpcs
+    pub id: String,                    // id of the node
+    pub capacity: u32,                 // capacity of the node;  how much it can hold at once
+    pub egress_rate: u32,              // rate at which the node can send out rpcs
+    pub generation_rate: u32, // rate at which the node can generate rpcs, which are generated regardless of input to the node
+    pub plugin: Option<PluginWrapper>, // filter to the node
+    pub neighbors: Vec<String>, // who is the node connected to
+    pub seed: u64,
+}
+
+pub fn node_fmt_with_name(node: &Node, f: &mut fmt::Formatter<'_>, name: &str) -> fmt::Result {
+    if let Some(width) = f.width() {
+        if node.plugin.is_none() {
+            write!(f, "{:width$}",
+                       &format!("{} {{ id : {}, capacity : {}, egress_rate : {}, generation_rate : {}, queue: {}, plugin : None}}", name,
+                       &node.id, &node.capacity, &node.egress_rate, &node.generation_rate, &node.queue.size()),
+                       width = width)
+        } else {
+            write!(f, "{:width$}",
+                       &format!("{} {{ id : {}, capacity : {}, egress_rate : {}, generation_rate : {}, queue : {}, \n\tplugin : {} }}", name,
+                       &node.id, &node.capacity, &node.egress_rate, &node.generation_rate, &node.queue.size(), node.plugin.as_ref().unwrap()),
+                       width = width)
+        }
+    } else {
+        if node.plugin.is_none() {
+            write!(f, "{} {{ id : {}, egress_rate : {}, generation_rate : {}, plugin : None, capacity : {}, queue : {} }}",
+                        name,&node.id, &node.egress_rate, &node.generation_rate, &node.capacity, &node.queue.size())
+        } else {
+            write!(
+                    f,
+                    "{} {{ id : {}, egress_rate : {}, generation_rate : {}, plugin : {}, capacity : {}, queue : {} }}",
+                     name,&node.id,
+                    &node.egress_rate,
+                    &node.generation_rate,
+                    node.plugin.as_ref().unwrap(),
+                    &node.capacity,
+                    &node.queue.size()
+                )
+        }
+    }
 }
 
 impl fmt::Display for Node {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(width) = f.width() {
-            if self.plugin.is_none() {
-                write!(f, "{:width$}",
-                       &format!("Node {{ id : {}, capacity : {}, egress_rate : {}, generation_rate : {}, queue: {}, plugin : None}}",
-                       &self.id, &self.capacity, &self.egress_rate, &self.generation_rate, &self.queue.size()),
-                       width = width)
-            } else {
-                write!(f, "{:width$}",
-                       &format!("Node {{ id : {}, capacity : {}, egress_rate : {}, generation_rate : {}, queue : {}, \n\tplugin : {} }}",
-                       &self.id, &self.capacity, &self.egress_rate, &self.generation_rate, &self.queue.size(), self.plugin.as_ref().unwrap()),
-                       width = width)
-            }
-        } else {
-            if self.plugin.is_none() {
-                write!(f, "Node {{ id : {}, egress_rate : {}, generation_rate : {}, plugin : None, capacity : {}, queue : {} }}",
-                       &self.id, &self.egress_rate, &self.generation_rate, &self.capacity, &self.queue.size())
-            } else {
-                write!(
-                    f,
-                    "Node {{ id : {}, egress_rate : {}, generation_rate : {}, plugin : {}, capacity : {}, queue : {} }}",
-                    &self.id,
-                    &self.egress_rate,
-                    &self.generation_rate,
-                    self.plugin.as_ref().unwrap(),
-                    &self.capacity,
-                    &self.queue.size()
-                )
-            }
-        }
+        node_fmt_with_name(self, f, "Node")
     }
 }
 
 impl SimElement for Node {
     fn tick(&mut self, tick: u64) -> Vec<(Rpc, String)> {
         let mut ret = vec![];
+        let mut rng: StdRng = SeedableRng::seed_from_u64(self.seed);
         for _ in 0..min(
             self.queue.size() + (self.generation_rate as usize),
             self.egress_rate as usize,
@@ -87,7 +92,6 @@ impl SimElement for Node {
                     print!("WARNING:  RPC given with invalid destination {0}\n", dest);
                 }
             } else if neigh_len > 0 {
-                let mut rng: StdRng = SeedableRng::seed_from_u64(self.seed);
                 let idx = rng.gen_range(0, neigh_len);
                 let which_neighbor = self.neighbors[idx].clone();
                 ret.push((rpc, which_neighbor));

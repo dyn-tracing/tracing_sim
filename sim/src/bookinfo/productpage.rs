@@ -1,7 +1,8 @@
 //! An abstraction of a node.  The node can have a plugin, which is meant to reprsent a WebAssembly filter
 //! A node is a sim_element.
 
-use crate::plugin_wrapper::PluginWrapper;
+use crate::node::node_fmt_with_name;
+use crate::node::Node;
 use crate::sim_element::SimElement;
 use core::any::Any;
 use queues::*;
@@ -11,124 +12,75 @@ use std::cmp::min;
 use std::fmt;
 
 pub struct ProductPage {
-    queue: Queue<Rpc>,             // queue of rpcs
-    id: String,                    // id of the node
-    capacity: u32,                 // capacity of the node;  how much it can hold at once
-    egress_rate: u32,              // rate at which the node can send out rpcs
-    generation_rate: u32, // rate at which the node can generate rpcs, which are generated regardless of input to the node
-    plugin: Option<PluginWrapper>, // filter to the node
-    neighbors: Vec<String>, // who is the node connected to
-    seed: u64,
+    core_node: Node,
 }
 
 impl fmt::Display for ProductPage {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(width) = f.width() {
-            if self.plugin.is_none() {
-                write!(f, "{:width$}",
-                       &format!("ProductPage {{ id : {}, capacity : {}, egress_rate : {}, generation_rate : {}, queue: {}, plugin : None}}",
-                       &self.id, &self.capacity, &self.egress_rate, &self.generation_rate, &self.queue.size()),
-                       width = width)
-            } else {
-                write!(f, "{:width$}",
-                       &format!("ProductPage {{ id : {}, capacity : {}, egress_rate : {}, generation_rate : {}, queue : {}, \n\tplugin : {} }}",
-                       &self.id, &self.capacity, &self.egress_rate, &self.generation_rate, &self.queue.size(), self.plugin.as_ref().unwrap()),
-                       width = width)
-            }
-        } else {
-            if self.plugin.is_none() {
-                write!(f, "ProductPage {{ id : {}, egress_rate : {}, generation_rate : {}, plugin : None, capacity : {}, queue : {} }}",
-                       &self.id, &self.egress_rate, &self.generation_rate, &self.capacity, &self.queue.size())
-            } else {
-                write!(
-                    f,
-                    "ProductPage {{ id : {}, egress_rate : {}, generation_rate : {}, plugin : {}, capacity : {}, queue : {} }}",
-                    &self.id,
-                    &self.egress_rate,
-                    &self.generation_rate,
-                    self.plugin.as_ref().unwrap(),
-                    &self.capacity,
-                    &self.queue.size()
-                )
-            }
-        }
+        node_fmt_with_name(&self.core_node, f, "ProductPage")
     }
 }
 
 impl SimElement for ProductPage {
     fn tick(&mut self, tick: u64) -> Vec<(Rpc, String)> {
         let mut ret = vec![];
+        let review_nodes = vec!["reviews-v1", "reviews-v2", "reviews-v3"];
+        let mut rng: StdRng = SeedableRng::seed_from_u64(self.core_node.seed);
+
         for _ in 0..min(
-            self.queue.size() + (self.generation_rate as usize),
-            self.egress_rate as usize,
+            self.core_node.queue.size(),
+            self.core_node.egress_rate as usize,
         ) {
-            let rpc: Rpc;
-            if self.queue.size() > 0 {
-                let deq = self.dequeue(tick);
+            let mut rpc: Rpc;
+            if self.core_node.queue.size() > 0 {
+                let deq = self.core_node.dequeue(tick);
                 rpc = deq.unwrap();
             } else {
-                rpc = Rpc::new_rpc(&tick.to_string());
+                // No RPC in the queue and we only forward. So nothing to do
+                continue;
             }
-            let neigh_len = self.neighbors.len();
-            if rpc.headers.contains_key("dest") {
-                let mut have_dest = false;
-                let dest = &rpc.headers["dest"].clone();
-                for n in &self.neighbors {
-                    if n == dest {
-                        have_dest = true;
-                        ret.push((rpc, dest.clone()));
-                        break;
-                    }
+            // Forward requests/responses from the gateway to one of reviews
+            // Also send a request to details-v1
+            // If we get a reply from one of reviews or details,
+            // send it back to the gateway
+            if rpc.headers.contains_key("src") {
+                let source: &str = &rpc.headers["src"];
+                if review_nodes.contains(&source) || source == "details-v1" {
+                    rpc.headers
+                        .insert("src".to_string(), self.core_node.id.to_string());
+                    ret.push((rpc, "gateway".to_string()));
+                } else if source == "gateway" {
+                    let idx = rng.gen_range(0, review_nodes.len());
+                    let dest = review_nodes[idx];
+                    rpc.headers
+                        .insert("src".to_string(), self.core_node.id.to_string());
+                    ret.push((rpc.clone(), dest.to_string()));
+                    // also send a request to details-v1
+                    ret.push((rpc, "details-v1".to_string()));
+                } else if source == &self.core_node.id {
+                    // if we are creating a new RPC, eg, we are sending to storage
+                    let dest: &str = &rpc.headers["dest"];
+                    ret.push((rpc.clone(), dest.to_string()));
+                } else {
+                    panic!("ProductPage node does not have a valid source!");
                 }
-                if !have_dest {
-                    print!("WARNING:  RPC given with invalid destination {0}\n", dest);
-                }
-            } else if neigh_len > 0 && rpc.headers["direction"] == "request".to_string() {
-                let mut rng: StdRng = SeedableRng::seed_from_u64(self.seed);
-                let idx = rng.gen_range(0, 3);
-                let reviews_neighbors = ["reviews-v1", "reviews-v2", "reviews-v3"];
-                let which_neighbor = reviews_neighbors[idx].clone();
-                // the purpose of this for loop is to find the edge with the correct reviews name
-                for neighbor in &self.neighbors {
-                    if neighbor.contains(which_neighbor) {
-                        ret.push((rpc, neighbor.to_string()));
-                        break;
-                    }
-                }
-            } else if neigh_len > 0 && rpc.headers["direction"] == "response".to_string() {
-                for neighbor in &self.neighbors {
-                    if neighbor.contains("gateway") {
-                        ret.push((rpc, neighbor.to_string()));
-                        break;
-                    }
-                }
+            } else {
+                panic!("ProductPage node is missing source header for forwarding! Invalid RPC.");
             }
         }
         ret
     }
-    fn recv(&mut self, rpc: Rpc, tick: u64, _sender: &str) {
-        if (self.queue.size() as u32) < self.capacity {
-            // drop packets you cannot accept
-            if self.plugin.is_none() {
-                self.enqueue(rpc, tick);
-            } else {
-                self.plugin.as_mut().unwrap().recv(rpc, tick, &self.id);
-                let ret = self.plugin.as_mut().unwrap().tick(tick);
-                for filtered_rpc in ret {
-                    self.enqueue(filtered_rpc.0, tick);
-                }
-            }
-        }
+    fn recv(&mut self, rpc: Rpc, tick: u64, sender: &str) {
+        self.core_node.recv(rpc, tick, sender)
     }
     fn add_connection(&mut self, neighbor: String) {
-        self.neighbors.push(neighbor);
+        self.core_node.add_connection(neighbor)
     }
-
     fn whoami(&self) -> &str {
-        return &self.id;
+        return &self.core_node.whoami();
     }
     fn neighbors(&self) -> &Vec<String> {
-        return &self.neighbors;
+        return &self.core_node.neighbors();
     }
     fn as_any(&self) -> &dyn Any {
         self
@@ -136,43 +88,16 @@ impl SimElement for ProductPage {
 }
 
 impl ProductPage {
-    pub fn enqueue(&mut self, x: Rpc, _now: u64) {
-        let _res = self.queue.add(x);
-    }
-    pub fn dequeue(&mut self, _now: u64) -> Option<Rpc> {
-        if self.queue.size() == 0 {
-            return None;
-        } else {
-            return Some(self.queue.remove().unwrap());
-        }
-    }
     pub fn new(
         id: &str,
         capacity: u32,
         egress_rate: u32,
-        generation_rate: u32,
         plugin: Option<&str>,
         seed: u64,
     ) -> ProductPage {
         assert!(capacity >= 1);
-        let mut created_plugin = None;
-        if !plugin.is_none() {
-            let mut plugin_id = id.to_string();
-            plugin_id.push_str("_plugin");
-            let mut unwrapped_plugin = PluginWrapper::new(&plugin_id, plugin.unwrap());
-            unwrapped_plugin.add_connection(id.to_string());
-            created_plugin = Some(unwrapped_plugin);
-        }
-        ProductPage {
-            queue: queue![],
-            id: id.to_string(),
-            capacity,
-            egress_rate,
-            generation_rate,
-            plugin: created_plugin,
-            neighbors: Vec::new(),
-            seed,
-        }
+        let core_node = Node::new(id, capacity, egress_rate, 0, plugin, seed);
+        ProductPage { core_node }
     }
 }
 
@@ -183,21 +108,21 @@ mod tests {
 
     #[test]
     fn test_node_creation() {
-        let _node = ProductPage::new("0", 2, 2, 1, None, 1);
+        let _node = ProductPage::new("0", 2, 2, None, 0);
     }
 
     #[test]
     fn test_node_capacity_and_egress_rate() {
-        let mut node = ProductPage::new("0", 2, 1, 0, None, 1);
-        assert!(node.capacity == 2);
-        assert!(node.egress_rate == 1);
-        node.recv(Rpc::new_rpc("0"), 0, "0");
-        node.recv(Rpc::new_rpc("0"), 0, "0");
-        assert!(node.queue.size() == 2);
-        node.recv(Rpc::new_rpc("0"), 0, "0");
-        assert!(node.queue.size() == 2);
-        node.tick(0);
-        assert!(node.queue.size() == 1);
+        let mut node = ProductPage::new("0", 2, 1, None, 0);
+        assert!(node.core_node.capacity == 2);
+        assert!(node.core_node.egress_rate == 1);
+        node.core_node.recv(Rpc::new_rpc("0"), 0, "0");
+        node.core_node.recv(Rpc::new_rpc("0"), 0, "0");
+        assert!(node.core_node.queue.size() == 2);
+        node.core_node.recv(Rpc::new_rpc("0"), 0, "0");
+        assert!(node.core_node.queue.size() == 2);
+        node.core_node.tick(0);
+        assert!(node.core_node.queue.size() == 1);
     }
 
     #[test]
@@ -205,7 +130,7 @@ mod tests {
         let mut cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         cargo_dir.push("../target/debug/libfilter_example");
         let library_str = cargo_dir.to_str().unwrap();
-        let node = ProductPage::new("0", 2, 1, 0, Some(library_str), 1);
-        assert!(!node.plugin.is_none());
+        let node = ProductPage::new("0", 2, 1, Some(library_str), 0);
+        assert!(!node.core_node.plugin.is_none());
     }
 }
