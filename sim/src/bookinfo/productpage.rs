@@ -57,8 +57,7 @@ impl SimElement for ProductPage {
                     ret.push((rpc.clone(), dest.to_string()));
                     // also send a request to details-v1
                     ret.push((rpc, "details-v1".to_string()));
-                } 
-                else if source == &self.core_node.id {
+                } else if source == &self.core_node.id {
                     let dest: &str = &rpc.headers["dest"];
                     ret.push((rpc.clone(), dest.to_string()));
                 }
