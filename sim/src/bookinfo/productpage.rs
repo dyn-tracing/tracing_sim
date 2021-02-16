@@ -58,8 +58,11 @@ impl SimElement for ProductPage {
                     // also send a request to details-v1
                     ret.push((rpc, "details-v1".to_string()));
                 } else if source == &self.core_node.id {
+                    // if we are creating a new RPC, eg, we are sending to storage
                     let dest: &str = &rpc.headers["dest"];
                     ret.push((rpc.clone(), dest.to_string()));
+                } else {
+                    panic!("ProductPage node does not have a valid source!");
                 }
             } else {
                 panic!("ProductPage node is missing source header for forwarding! Invalid RPC.");
