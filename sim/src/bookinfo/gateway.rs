@@ -5,7 +5,6 @@ use crate::node::node_fmt_with_name;
 use crate::node::Node;
 use crate::sim_element::SimElement;
 use core::any::Any;
-use queues::*;
 use rpc_lib::rpc::Rpc;
 use std::cmp::min;
 use std::fmt;
@@ -71,6 +70,7 @@ impl Gateway {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use queues::*;
 
     #[test]
     fn test_node_creation() {

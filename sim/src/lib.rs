@@ -1,6 +1,6 @@
 #![feature(test)]
 #![feature(extern_types)]
-mod bookinfo;
+pub mod bookinfo;
 mod edge;
 mod filter_types;
 mod node;
