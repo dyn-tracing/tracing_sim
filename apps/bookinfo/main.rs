@@ -1,21 +1,18 @@
 #![feature(test)]
 #![feature(extern_types)]
-mod bookinfo;
-mod edge;
-mod filter_types;
-mod node;
-mod plugin_wrapper;
-mod sim_element;
-mod simulator;
-mod storage;
 
-use crate::bookinfo::gateway::Gateway;
-use crate::bookinfo::leafnode::LeafNode;
-use crate::bookinfo::productpage::ProductPage;
-use crate::bookinfo::reviews::Reviews;
+mod gateway;
+mod leafnode;
+mod productpage;
+mod reviews;
+
+use crate::gateway::Gateway;
+use crate::leafnode::LeafNode;
+use crate::productpage::ProductPage;
+use crate::reviews::Reviews;
 use clap::{App, Arg};
 use rand::Rng;
-use simulator::Simulator;
+use sim::simulator::Simulator;
 
 pub fn new_bookinfo(seed: u64, plugin: Option<&str>) -> Simulator {
     let mut sim = Simulator::new(seed);

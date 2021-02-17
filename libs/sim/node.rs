@@ -196,7 +196,7 @@ mod tests {
     #[test]
     fn test_plugin_initialization() {
         let mut cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        cargo_dir.push("../target/debug/libfilter_example");
+        cargo_dir.push("../../target/debug/libfilter_example");
         let library_str = cargo_dir.to_str().unwrap();
         let node = Node::new("0", 2, 1, 0, Some(library_str), 1);
         assert!(!node.plugin.is_none());

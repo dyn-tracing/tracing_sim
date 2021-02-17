@@ -1,11 +1,11 @@
 //! An abstraction of the envoy gateway
 //! A gateway is a sim_element.
 
-use crate::node::node_fmt_with_name;
-use crate::node::Node;
-use crate::sim_element::SimElement;
 use core::any::Any;
 use rpc_lib::rpc::Rpc;
+use sim::node::node_fmt_with_name;
+use sim::node::Node;
+use sim::sim_element::SimElement;
 use std::cmp::min;
 use std::fmt;
 

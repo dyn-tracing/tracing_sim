@@ -150,7 +150,7 @@ mod tests {
     #[test]
     fn test_plugin_creation() {
         let mut cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        cargo_dir.push("../target/debug/libfilter_example");
+        cargo_dir.push("../../target/debug/libfilter_example");
         let library_str = cargo_dir.to_str().unwrap();
         let plugin = PluginWrapper::new("0", library_str);
         let rpc = &Rpc::new_rpc("55");
@@ -161,7 +161,7 @@ mod tests {
     #[test]
     fn test_chained_plugins() {
         let mut cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        cargo_dir.push("../target/debug/libfilter_example");
+        cargo_dir.push("../../target/debug/libfilter_example");
         let library_str = cargo_dir.to_str().unwrap();
         let plugin1 = PluginWrapper::new("0", library_str);
         let plugin2 = PluginWrapper::new("1", library_str);

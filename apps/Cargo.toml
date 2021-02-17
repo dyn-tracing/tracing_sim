@@ -1,0 +1,18 @@
+[package]
+name = "apps"
+version = "0.1.0"
+authors = ["Anirudh Sivaraman <sk.anirudh@gmail.com>", "Jessica Berg <jb7399@nyu.edu>", "Fabian Ruffy <fruffy@nyu.edu>"]
+edition = "2018"
+
+
+[dependencies]
+sim = { path = "../libs/sim" }
+rpc_lib = { path = "../libs/rpc_lib" }
+queues = "1.0.2"
+rand="0.7.0"
+clap = "~2.27.0"
+
+# list of binaries, each "[[bin]]"" is a different app
+[[bin]]
+name = "bookinfo"
+path = "bookinfo/main.rs"
