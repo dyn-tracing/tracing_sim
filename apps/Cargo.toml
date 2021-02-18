@@ -12,6 +12,10 @@ queues = "1.0.2"
 rand="0.7.0"
 clap = "~2.27.0"
 
+[lib]
+crate-type = ["lib"]
+path = "bookinfo/lib.rs"
+
 # list of binaries, each "[[bin]]"" is a different app
 [[bin]]
 name = "bookinfo"
