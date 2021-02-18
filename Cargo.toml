@@ -5,6 +5,6 @@ members = [
     "libs/petgraph",
     "libs/graph_utils",
     "libs/sim",
-    "apps",
+    "example_envs",
 ]
 
