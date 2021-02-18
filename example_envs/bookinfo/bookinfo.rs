@@ -1,5 +1,3 @@
-
-
 use crate::gateway::Gateway;
 use crate::leafnode::LeafNode;
 use crate::productpage::ProductPage;
