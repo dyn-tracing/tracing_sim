@@ -1,12 +1,12 @@
 //! An abstraction of a node.  The node can have a plugin, which is meant to reprsent a WebAssembly filter
 //! A node is a sim_element.
 
-use crate::node::node_fmt_with_name;
-use crate::node::Node;
-use crate::sim_element::SimElement;
 use core::any::Any;
 use queues::*;
 use rpc_lib::rpc::Rpc;
+use sim::node::node_fmt_with_name;
+use sim::node::Node;
+use sim::sim_element::SimElement;
 use std::cmp::min;
 use std::fmt;
 
