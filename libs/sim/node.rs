@@ -87,8 +87,6 @@ impl SimElement for Node {
                     ret.push((rpc_dst.rpc, rpc_dst.destination));
                 }
             }
-
-            // 2. send it off
         }
 
         ret
