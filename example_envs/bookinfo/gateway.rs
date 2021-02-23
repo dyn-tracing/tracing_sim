@@ -32,6 +32,8 @@ impl SimElement for Gateway {
                 .insert("direction".to_string(), "request".to_string());
             rpc.headers
                 .insert("src".to_string(), self.core_node.id.to_string());
+            rpc.headers
+                .insert("dest".to_string(), "productpage-v1".to_string());
             ret.push((rpc, "productpage-v1".to_string()));
         }
         ret
@@ -80,6 +82,7 @@ mod tests {
     #[test]
     fn test_node_capacity_and_egress_rate() {
         let mut node = Gateway::new("0", 2, 1, 0, 1);
+        node.add_connection("foo".to_string()); // without at least one neighbor, it will just drop rpcs
         assert!(node.core_node.capacity == 2);
         assert!(node.core_node.egress_rate == 1);
         node.core_node.recv(Rpc::new_rpc("0"), 0, "0");

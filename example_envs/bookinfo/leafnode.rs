@@ -6,6 +6,7 @@ use queues::*;
 use rpc_lib::rpc::Rpc;
 use sim::node::node_fmt_with_name;
 use sim::node::Node;
+use sim::node::RpcWithDst;
 use sim::sim_element::SimElement;
 use std::cmp::min;
 use std::fmt;
@@ -27,30 +28,55 @@ impl SimElement for LeafNode {
             self.core_node.queue.size(),
             self.core_node.egress_rate as usize,
         ) {
-            let mut rpc: Rpc;
             if self.core_node.queue.size() > 0 {
                 let deq = self.core_node.dequeue(tick);
-                rpc = deq.unwrap();
-            } else {
-                // no rpc in the queue, we only react so nothing to do
-                continue;
-            }
-            // "respond to every node that has sent a request"
-            if rpc.headers.contains_key("src") {
-                let target = rpc.headers["src"].to_string();
-                rpc.headers
-                    .insert("direction".to_string(), "response".to_string());
-                rpc.headers
-                    .insert("src".to_string(), self.core_node.id.to_string());
-                ret.push((rpc, target));
-            } else {
-                panic!("Leaf node is missing source header for response! Invalid request.");
+                let rpc_dst: RpcWithDst;
+                rpc_dst = deq.unwrap();
+                ret.push((rpc_dst.rpc.clone(), rpc_dst.destination.clone()));
             }
         }
         ret
     }
-    fn recv(&mut self, rpc: Rpc, tick: u64, sender: &str) {
-        self.core_node.recv(rpc, tick, sender)
+    fn recv(&mut self, rpc: Rpc, tick: u64, _sender: &str) {
+        if (self.core_node.queue.size() as u32) < self.core_node.capacity {
+            // drop packets you cannot accept
+            if self.core_node.plugin.is_none() {
+                let routed_rpc = self.route_rpc(rpc);
+                for rpc in routed_rpc {
+                    self.core_node.enqueue(rpc, tick);
+                }
+            } else {
+                // inbound filter check
+                self.core_node
+                    .plugin
+                    .as_mut()
+                    .unwrap()
+                    .recv(rpc, tick, &self.core_node.id);
+                let ret = self.core_node.plugin.as_mut().unwrap().tick(tick);
+                for inbound_rpc in ret {
+                    // route packet
+                    let routed_rpcs = self.route_rpc(inbound_rpc.0);
+                    // outbound filter check
+                    for routed_rpc in routed_rpcs {
+                        self.core_node.plugin.as_mut().unwrap().recv(
+                            routed_rpc.rpc,
+                            tick,
+                            &self.core_node.id,
+                        );
+                        let outbound_rpcs = self.core_node.plugin.as_mut().unwrap().tick(tick);
+                        for outbound_rpc in outbound_rpcs {
+                            self.core_node.enqueue(
+                                RpcWithDst {
+                                    rpc: outbound_rpc.0,
+                                    destination: outbound_rpc.1,
+                                },
+                                tick,
+                            );
+                        }
+                    }
+                }
+            }
+        }
     }
     fn add_connection(&mut self, neighbor: String) {
         self.core_node.add_connection(neighbor)
@@ -73,7 +99,25 @@ impl LeafNode {
         let core_node = Node::new(id, capacity, egress_rate, 0, plugin, 0);
         LeafNode { core_node }
     }
+
+    pub fn route_rpc(&self, mut rpc: Rpc) -> Vec<RpcWithDst> {
+        // "respond to every node that has sent a request"
+        if rpc.headers.contains_key("src") {
+            let target = rpc.headers["src"].to_string();
+            rpc.headers
+                .insert("direction".to_string(), "response".to_string());
+            rpc.headers
+                .insert("src".to_string(), self.core_node.id.to_string());
+            rpc.headers.insert("dest".to_string(), target.clone());
+            return vec![RpcWithDst {
+                rpc,
+                destination: target,
+            }];
+        }
+        panic!("Leaf node is missing source header for response! Invalid request.");
+    }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -87,6 +131,7 @@ mod tests {
     #[test]
     fn test_node_capacity_and_egress_rate() {
         let mut node = LeafNode::new("0", 2, 1, None);
+        node.add_connection("foo".to_string()); // without at least one neighbor, it will just drop rpcs
         assert!(node.core_node.capacity == 2);
         assert!(node.core_node.egress_rate == 1);
         node.core_node.recv(Rpc::new_rpc("0"), 0, "0");

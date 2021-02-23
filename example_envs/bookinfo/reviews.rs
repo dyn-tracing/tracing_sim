@@ -6,6 +6,7 @@ use queues::*;
 use rpc_lib::rpc::Rpc;
 use sim::node::node_fmt_with_name;
 use sim::node::Node;
+use sim::node::RpcWithDst;
 use sim::sim_element::SimElement;
 use std::cmp::min;
 use std::fmt;
@@ -27,36 +28,59 @@ impl SimElement for Reviews {
             self.core_node.queue.size(),
             self.core_node.egress_rate as usize,
         ) {
-            let mut rpc: Rpc;
+            let rpc_dst: RpcWithDst;
             if self.core_node.queue.size() > 0 {
                 let deq = self.core_node.dequeue(tick);
-                rpc = deq.unwrap();
+                rpc_dst = deq.unwrap();
             } else {
                 // no rpc in the queue, we only forward so nothing to do
                 continue;
             }
             // forward requests/responses from productpage or reviews
-            if rpc.headers.contains_key("src") {
-                let source = &rpc.headers["src"];
-                let dest: &str;
-                if source == "ratings-v1" {
-                    dest = "productpage-v1";
-                } else if source == "productpage-v1" {
-                    dest = "ratings-v1";
-                } else {
-                    panic!("Unexpected RPC source {:?}", source);
-                }
-                rpc.headers
-                    .insert("src".to_string(), self.core_node.id.to_string());
-                ret.push((rpc, dest.to_string()));
-            } else {
-                panic!("Reviews node is missing source header for forwarding! Invalid RPC.");
-            }
+            ret.push((rpc_dst.rpc, rpc_dst.destination));
         }
         ret
     }
-    fn recv(&mut self, rpc: Rpc, tick: u64, sender: &str) {
-        self.core_node.recv(rpc, tick, sender)
+    fn recv(&mut self, rpc: Rpc, tick: u64, _sender: &str) {
+        if (self.core_node.queue.size() as u32) < self.core_node.capacity {
+            // drop packets you cannot accept
+            if self.core_node.plugin.is_none() {
+                let routed_rpc = self.route_rpc(rpc);
+                for rpc in routed_rpc {
+                    self.core_node.enqueue(rpc, tick);
+                }
+            } else {
+                // inbound filter check
+                self.core_node
+                    .plugin
+                    .as_mut()
+                    .unwrap()
+                    .recv(rpc, tick, &self.core_node.id);
+                let ret = self.core_node.plugin.as_mut().unwrap().tick(tick);
+                for inbound_rpc in ret {
+                    // route packet
+                    let routed_rpcs = self.route_rpc(inbound_rpc.0);
+                    // outbound filter check
+                    for routed_rpc in routed_rpcs {
+                        self.core_node.plugin.as_mut().unwrap().recv(
+                            routed_rpc.rpc,
+                            tick,
+                            &self.core_node.id,
+                        );
+                        let outbound_rpcs = self.core_node.plugin.as_mut().unwrap().tick(tick);
+                        for outbound_rpc in outbound_rpcs {
+                            self.core_node.enqueue(
+                                RpcWithDst {
+                                    rpc: outbound_rpc.0,
+                                    destination: outbound_rpc.1,
+                                },
+                                tick,
+                            );
+                        }
+                    }
+                }
+            }
+        }
     }
     fn add_connection(&mut self, neighbor: String) {
         self.core_node.add_connection(neighbor)
@@ -79,6 +103,28 @@ impl Reviews {
         let core_node = Node::new(id, capacity, egress_rate, 0, plugin, 0);
         Reviews { core_node }
     }
+
+    pub fn route_rpc(&self, mut rpc: Rpc) -> Vec<RpcWithDst> {
+        if rpc.headers.contains_key("src") {
+            let source = &rpc.headers["src"];
+            let dest: &str;
+            if source == "ratings-v1" {
+                dest = "productpage-v1";
+            } else if source == "productpage-v1" {
+                dest = "ratings-v1";
+            } else {
+                panic!("Unexpected RPC source {:?}", source);
+            }
+            rpc.headers
+                .insert("src".to_string(), self.core_node.id.to_string());
+            rpc.headers.insert("dest".to_string(), dest.to_string());
+            return vec![RpcWithDst {
+                rpc,
+                destination: dest.to_string(),
+            }];
+        }
+        panic!("Reviews node is missing source header for forwarding! Invalid RPC.");
+    }
 }
 
 #[cfg(test)]
@@ -94,6 +140,7 @@ mod tests {
     #[test]
     fn test_node_capacity_and_egress_rate() {
         let mut node = Reviews::new("0", 2, 1, None);
+        node.add_connection("foo".to_string()); // without at least one neighbor, it will just drop rpcs
         assert!(node.core_node.capacity == 2);
         assert!(node.core_node.egress_rate == 1);
         node.core_node.recv(Rpc::new_rpc("0"), 0, "0");

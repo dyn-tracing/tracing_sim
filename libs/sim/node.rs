@@ -10,8 +10,14 @@ use rpc_lib::rpc::Rpc;
 use std::cmp::min;
 use std::fmt;
 
+#[derive(Clone)]
+pub struct RpcWithDst {
+    pub rpc: Rpc,
+    pub destination: String,
+}
+
 pub struct Node {
-    pub queue: Queue<Rpc>,             // queue of rpcs
+    pub queue: Queue<RpcWithDst>,      // queue of rpcs
     pub id: String,                    // id of the node
     pub capacity: u32,                 // capacity of the node;  how much it can hold at once
     pub egress_rate: u32,              // rate at which the node can send out rpcs
@@ -62,53 +68,67 @@ impl fmt::Display for Node {
 impl SimElement for Node {
     fn tick(&mut self, tick: u64) -> Vec<(Rpc, String)> {
         let mut ret = vec![];
-        let mut rng: StdRng = SeedableRng::seed_from_u64(self.seed);
         for _ in 0..min(
             self.queue.size() + (self.generation_rate as usize),
             self.egress_rate as usize,
         ) {
-            // send the rpc to a random neighbor, if no neighbor specified
-            let mut rpc: Rpc;
             if self.queue.size() > 0 {
                 let deq = self.dequeue(tick);
-                rpc = deq.unwrap();
+                let rpc_dst: RpcWithDst;
+                rpc_dst = deq.unwrap();
+                ret.push((rpc_dst.rpc, rpc_dst.destination));
             } else {
-                rpc = Rpc::new_rpc(&tick.to_string());
-                rpc.headers
-                    .insert("direction".to_string(), "request".to_string());
-            }
-            let neigh_len = self.neighbors.len();
-            if rpc.headers.contains_key("dest") {
-                let mut have_dest = false;
-                let dest = &rpc.headers["dest"].clone();
-                for n in &self.neighbors {
-                    if n == dest {
-                        have_dest = true;
-                        ret.push((rpc, dest.clone()));
-                        break;
-                    }
+                let rpcs_dst = self.route_rpc(Rpc::new_rpc(&tick.to_string()));
+                for mut rpc_dst in rpcs_dst {
+                    rpc_dst
+                        .rpc
+                        .headers
+                        .insert("direction".to_string(), "request".to_string());
+                    ret.push((rpc_dst.rpc, rpc_dst.destination));
                 }
-                if !have_dest {
-                    print!("WARNING:  RPC given with invalid destination {0}\n", dest);
-                }
-            } else if neigh_len > 0 {
-                let idx = rng.gen_range(0, neigh_len);
-                let which_neighbor = self.neighbors[idx].clone();
-                ret.push((rpc, which_neighbor));
             }
+
+            // 2. send it off
         }
+
         ret
     }
+
+    // once the RPC is received, the plugin executes, the rpc gets a new destination,
+    // the RPC once again goes through the plugin, this time as an outbound rpc, and then it is
+    // placed in the outbound queue
     fn recv(&mut self, rpc: Rpc, tick: u64, _sender: &str) {
         if (self.queue.size() as u32) < self.capacity {
             // drop packets you cannot accept
             if self.plugin.is_none() {
-                self.enqueue(rpc, tick);
+                let routed_rpc = self.route_rpc(rpc);
+                for rpc in routed_rpc {
+                    self.enqueue(rpc, tick);
+                }
             } else {
+                // inbound filter check
                 self.plugin.as_mut().unwrap().recv(rpc, tick, &self.id);
                 let ret = self.plugin.as_mut().unwrap().tick(tick);
-                for filtered_rpc in ret {
-                    self.enqueue(filtered_rpc.0, tick);
+                for inbound_rpc in ret {
+                    // route packet
+                    let routed_rpcs = self.route_rpc(inbound_rpc.0);
+                    // outbound filter check
+                    for routed_rpc in routed_rpcs {
+                        self.plugin
+                            .as_mut()
+                            .unwrap()
+                            .recv(routed_rpc.rpc, tick, &self.id);
+                        let outbound_rpcs = self.plugin.as_mut().unwrap().tick(tick);
+                        for outbound_rpc in outbound_rpcs {
+                            self.enqueue(
+                                RpcWithDst {
+                                    rpc: outbound_rpc.0,
+                                    destination: outbound_rpc.1,
+                                },
+                                tick,
+                            );
+                        }
+                    }
                 }
             }
         }
@@ -129,16 +149,48 @@ impl SimElement for Node {
 }
 
 impl Node {
-    pub fn enqueue(&mut self, x: Rpc, _now: u64) {
+    pub fn enqueue(&mut self, x: RpcWithDst, _now: u64) {
         let _res = self.queue.add(x);
     }
-    pub fn dequeue(&mut self, _now: u64) -> Option<Rpc> {
+    pub fn dequeue(&mut self, _now: u64) -> Option<RpcWithDst> {
         if self.queue.size() == 0 {
             return None;
         } else {
             return Some(self.queue.remove().unwrap());
         }
     }
+
+    pub fn route_rpc(&mut self, mut rpc: Rpc) -> Vec<RpcWithDst> {
+        if rpc.headers.contains_key("dest") {
+            let dest = &rpc.headers["dest"].clone();
+            for n in &self.neighbors {
+                if n == dest {
+                    return vec![RpcWithDst {
+                        rpc: rpc,
+                        destination: dest.clone(),
+                    }];
+                }
+            }
+        } else if self.neighbors.len() > 0 {
+            let mut rng: StdRng = SeedableRng::seed_from_u64(self.seed);
+            let idx = rng.gen_range(0, self.neighbors.len());
+            let which_neighbor = self.neighbors[idx].clone();
+            if rpc.headers.contains_key("dest") {
+                if let Some(dst) = rpc.headers.get_mut("dest") {
+                    *dst = which_neighbor.clone();
+                }
+            } else {
+                rpc.headers
+                    .insert("dest".to_string(), which_neighbor.clone());
+            }
+            return vec![RpcWithDst {
+                rpc,
+                destination: which_neighbor.clone(),
+            }];
+        }
+        return vec![];
+    }
+
     pub fn new(
         id: &str,
         capacity: u32,
@@ -182,6 +234,7 @@ mod tests {
     #[test]
     fn test_node_capacity_and_egress_rate() {
         let mut node = Node::new("0", 2, 1, 0, None, 1);
+        node.add_connection("foo".to_string()); // without at least one neighbor, it will just drop rpcs
         assert!(node.capacity == 2);
         assert!(node.egress_rate == 1);
         node.recv(Rpc::new_rpc("0"), 0, "0");
