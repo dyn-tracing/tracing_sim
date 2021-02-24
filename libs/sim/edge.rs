@@ -49,11 +49,11 @@ impl fmt::Display for Edge {
 }
 
 impl SimElement for Edge {
-    fn tick(&mut self, tick: u64) -> Vec<(Rpc, String)> {
+    fn tick(&mut self, tick: u64) -> Vec<Rpc> {
         let ret = self.dequeue(tick);
         let mut to_return = Vec::new();
         for element in ret {
-            to_return.push((element.0, element.1));
+            to_return.push(element);
         }
         return to_return;
     }
@@ -86,7 +86,7 @@ impl Edge {
             })
             .unwrap();
     }
-    pub fn dequeue(&mut self, now: u64) -> Vec<(Rpc, String)> {
+    pub fn dequeue(&mut self, now: u64) -> Vec<Rpc> {
         if self.queue.size() == 0 {
             return vec![];
         } else if self.queue.peek().unwrap().start_time + self.delay <= now {
@@ -98,7 +98,7 @@ impl Edge {
                 assert!(self.queue.peek().unwrap().start_time + self.delay == now);
 
                 // Remove RPC from the head of the queue.
-                let queue_element_to_remove = self.queue.remove().unwrap();
+                let mut queue_element_to_remove = self.queue.remove().unwrap();
                 let dest: String;
                 // send the RPC to the other end of the edge
                 if self.neighbors[0] == queue_element_to_remove.sender {
@@ -106,7 +106,8 @@ impl Edge {
                 } else {
                     dest = self.neighbors[0].clone();
                 }
-                ret.push((queue_element_to_remove.rpc, dest));
+                *(queue_element_to_remove.rpc.headers.get_mut("dest").unwrap()) = dest;
+                ret.push(queue_element_to_remove.rpc);
             }
             // Either the queue has emptied or no other RPCs are ready.
             assert!(

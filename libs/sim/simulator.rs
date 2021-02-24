@@ -142,8 +142,8 @@ impl Simulator {
         for (elem_name, element_obj) in self.elements.iter_mut() {
             let rpcs = element_obj.tick(tick);
             let mut input_rpcs = vec![];
-            for (rpc, dst) in rpcs {
-                input_rpcs.push((rpc, dst));
+            for rpc in rpcs {
+                input_rpcs.push(rpc);
             }
             rpc_buffer.insert(elem_name.clone(), input_rpcs);
             if !elem_name.contains("_") {
@@ -156,11 +156,12 @@ impl Simulator {
         print!("\n\n");
 
         // now start the receive phase
-        for (elem_name, rpc_tuples) in rpc_buffer {
-            for (rpc, dst) in rpc_tuples {
-                match self.elements.get_mut(&dst) {
+        for (elem_name, rpcs) in rpc_buffer {
+            for rpc in rpcs {
+                let dst = &rpc.headers["dest"];
+                match self.elements.get_mut(dst) {
                     Some(elem) => elem.recv(rpc, tick, &elem_name),
-                    None => panic!("expected {0} to be in elements, but it was not", &dst),
+                    None => panic!("expected {0} to be in elements, but it was not", dst),
                 }
             }
         }

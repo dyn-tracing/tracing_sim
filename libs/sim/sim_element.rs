@@ -7,7 +7,7 @@ use rpc_lib::rpc::Rpc;
 pub trait SimElement {
     fn add_connection(&mut self, neighbor: String);
 
-    fn tick(&mut self, tick: u64) -> Vec<(Rpc, String)>;
+    fn tick(&mut self, tick: u64) -> Vec<Rpc>;
 
     fn recv(&mut self, rpc: Rpc, tick: u64, sender: &str);
 
