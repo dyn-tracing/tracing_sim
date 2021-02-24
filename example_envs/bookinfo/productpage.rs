@@ -23,24 +23,31 @@ impl fmt::Display for ProductPage {
 
 impl SimElement for ProductPage {
     fn tick(&mut self, tick: u64) -> Vec<(Rpc, String)> {
-        let mut ret = Vec::new();
+        let mut ret = vec![];
         for _ in 0..min(
             self.core_node.queue.size(),
             self.core_node.egress_rate as usize,
         ) {
+            let rpc: Rpc;
             if self.core_node.queue.size() > 0 {
-                let deq = self.core_node.dequeue(tick).unwrap();
-
-                // 1. change src/dst headers appropriately
-                let new_destinations = self.route_rpc(&deq);
-                for new_dest in new_destinations {
-                    let mut new_rpc = deq.clone();
-                    let dest = new_rpc.headers.get_mut("dest").unwrap();
-                    *dest = new_dest.clone();
-                    let src = new_rpc.headers.get_mut("src").unwrap();
-                    *src = self.core_node.id.clone();
-
-                    // 2. If there's a plugin, run it through the plugin and then put into ret
+                let deq = self.core_node.dequeue(tick);
+                rpc = deq.unwrap();
+            } else {
+                // no rpc in the queue, we only forward so nothing to do
+                continue;
+            }
+            // forward requests/responses from productpage or reviews
+            if rpc.headers.contains_key("src") {
+                let destinations = self.choose_destination(&rpc);
+                for dest in destinations {
+                    let mut new_rpc = rpc.clone();
+                    new_rpc.headers.insert("dest".to_string(), dest.clone());
+                    new_rpc
+                        .headers
+                        .insert("src".to_string(), self.core_node.id.to_string());
+                    new_rpc
+                        .headers
+                        .insert("location".to_string(), "egress".to_string());
                     if self.core_node.plugin.is_some() {
                         self.core_node.plugin.as_mut().unwrap().recv(
                             new_rpc,
@@ -55,34 +62,20 @@ impl SimElement for ProductPage {
                             ));
                         }
                     } else {
-                        ret.push((new_rpc, new_dest.clone()));
+                        ret.push((new_rpc, dest.clone()))
                     }
                 }
             } else {
-                // No RPC in the queue and we only forward. So nothing to do
-                continue;
+                let destinations = self.choose_destination(&rpc);
+                for dest in destinations {
+                    ret.push((rpc.clone(), dest.to_string()));
+                }
             }
         }
         ret
     }
-    fn recv(&mut self, rpc: Rpc, tick: u64, _sender: &str) {
-        // drop packets you cannot accept
-        if (self.core_node.queue.size() as u32) < self.core_node.capacity {
-            if self.core_node.plugin.is_none() {
-                self.core_node.enqueue(rpc, tick);
-            } else {
-                // inbound filter check
-                self.core_node
-                    .plugin
-                    .as_mut()
-                    .unwrap()
-                    .recv(rpc, tick, &self.core_node.id);
-                let ret = self.core_node.plugin.as_mut().unwrap().tick(tick);
-                for inbound_rpc in ret {
-                    self.core_node.enqueue(inbound_rpc.0, tick);
-                }
-            }
-        }
+    fn recv(&mut self, rpc: Rpc, tick: u64, sender: &str) {
+        self.core_node.recv(rpc, tick, sender);
     }
     fn add_connection(&mut self, neighbor: String) {
         self.core_node.add_connection(neighbor)
@@ -111,7 +104,7 @@ impl ProductPage {
         ProductPage { core_node }
     }
 
-    pub fn route_rpc(&self, rpc: &Rpc) -> Vec<String> {
+    pub fn choose_destination(&self, rpc: &Rpc) -> Vec<String> {
         let review_nodes = vec!["reviews-v1", "reviews-v2", "reviews-v3"];
         let mut rng: StdRng = SeedableRng::seed_from_u64(self.core_node.seed);
         if rpc.headers.contains_key("src") {

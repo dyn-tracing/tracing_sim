@@ -27,24 +27,28 @@ impl SimElement for Reviews {
             self.core_node.queue.size(),
             self.core_node.egress_rate as usize,
         ) {
+            let mut rpc: Rpc;
             if self.core_node.queue.size() > 0 {
-                let mut deq = self.core_node.dequeue(tick).unwrap();
-
-                // 1. change src/dst headers appropriately
-                let new_dest = self.route_rpc(&deq);
-
-                let dest = deq.headers.get_mut("dest").unwrap();
-                *dest = new_dest.clone();
-                let src = deq.headers.get_mut("src").unwrap();
-                *src = self.core_node.id.clone();
-
-                // 2. If there's a plugin, run it through the plugin and then put into ret
+                let deq = self.core_node.dequeue(tick);
+                rpc = deq.unwrap();
+            } else {
+                // no rpc in the queue, we only forward so nothing to do
+                continue;
+            }
+            // forward requests/responses from productpage or reviews
+            if rpc.headers.contains_key("src") {
+                let dest = self.choose_destination(&rpc);
+                rpc.headers.insert("dest".to_string(), dest.clone());
+                rpc.headers
+                    .insert("src".to_string(), self.core_node.id.to_string());
+                rpc.headers
+                    .insert("location".to_string(), "egress".to_string());
                 if self.core_node.plugin.is_some() {
                     self.core_node
                         .plugin
                         .as_mut()
                         .unwrap()
-                        .recv(deq, tick, &self.core_node.id);
+                        .recv(rpc, tick, &self.core_node.id);
                     let filtered_rpcs = self.core_node.plugin.as_mut().unwrap().tick(tick);
                     for filtered_rpc in filtered_rpcs {
                         ret.push((
@@ -53,33 +57,16 @@ impl SimElement for Reviews {
                         ));
                     }
                 } else {
-                    ret.push((deq, new_dest.clone()));
+                    ret.push((rpc, dest.clone()));
                 }
             } else {
-                // no rpc in the queue, we only forward so nothing to do
-                continue;
+                panic!("Reviews node is missing source header for forwarding! Invalid RPC.");
             }
         }
         ret
     }
-    fn recv(&mut self, rpc: Rpc, tick: u64, _sender: &str) {
-        if (self.core_node.queue.size() as u32) < self.core_node.capacity {
-            // drop packets you cannot accept
-            if self.core_node.plugin.is_none() {
-                self.core_node.enqueue(rpc, tick);
-            } else {
-                // inbound filter check
-                self.core_node
-                    .plugin
-                    .as_mut()
-                    .unwrap()
-                    .recv(rpc, tick, &self.core_node.id);
-                let ret = self.core_node.plugin.as_mut().unwrap().tick(tick);
-                for inbound_rpc in ret {
-                    self.core_node.enqueue(inbound_rpc.0, tick)
-                }
-            }
-        }
+    fn recv(&mut self, rpc: Rpc, tick: u64, sender: &str) {
+        self.core_node.recv(rpc, tick, sender);
     }
     fn add_connection(&mut self, neighbor: String) {
         self.core_node.add_connection(neighbor)
@@ -103,7 +90,7 @@ impl Reviews {
         Reviews { core_node }
     }
 
-    pub fn route_rpc(&self, rpc: &Rpc) -> String {
+    pub fn choose_destination(&self, rpc: &Rpc) -> String {
         if rpc.headers.contains_key("src") {
             let source = &rpc.headers["src"];
             if source == "ratings-v1" {
