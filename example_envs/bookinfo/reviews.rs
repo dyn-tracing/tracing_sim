@@ -6,7 +6,6 @@ use queues::*;
 use rpc_lib::rpc::Rpc;
 use sim::node::node_fmt_with_name;
 use sim::node::Node;
-use sim::node::RpcWithDst;
 use sim::sim_element::SimElement;
 use std::cmp::min;
 use std::fmt;
@@ -28,16 +27,38 @@ impl SimElement for Reviews {
             self.core_node.queue.size(),
             self.core_node.egress_rate as usize,
         ) {
-            let rpc_dst: RpcWithDst;
             if self.core_node.queue.size() > 0 {
-                let deq = self.core_node.dequeue(tick);
-                rpc_dst = deq.unwrap();
+                let mut deq = self.core_node.dequeue(tick).unwrap();
+
+                // 1. change src/dst headers appropriately
+                let new_dest = self.route_rpc(&deq);
+
+                let dest = deq.headers.get_mut("dest").unwrap();
+                *dest = new_dest.clone();
+                let src = deq.headers.get_mut("src").unwrap();
+                *src = self.core_node.id.clone();
+
+                // 2. If there's a plugin, run it through the plugin and then put into ret
+                if self.core_node.plugin.is_some() {
+                    self.core_node
+                        .plugin
+                        .as_mut()
+                        .unwrap()
+                        .recv(deq, tick, &self.core_node.id);
+                    let filtered_rpcs = self.core_node.plugin.as_mut().unwrap().tick(tick);
+                    for filtered_rpc in filtered_rpcs {
+                        ret.push((
+                            filtered_rpc.0.clone(),
+                            filtered_rpc.0.headers["dest"].clone(),
+                        ));
+                    }
+                } else {
+                    ret.push((deq, new_dest.clone()));
+                }
             } else {
                 // no rpc in the queue, we only forward so nothing to do
                 continue;
             }
-            // forward requests/responses from productpage or reviews
-            ret.push((rpc_dst.rpc, rpc_dst.destination));
         }
         ret
     }
@@ -45,10 +66,7 @@ impl SimElement for Reviews {
         if (self.core_node.queue.size() as u32) < self.core_node.capacity {
             // drop packets you cannot accept
             if self.core_node.plugin.is_none() {
-                let routed_rpc = self.route_rpc(rpc);
-                for rpc in routed_rpc {
-                    self.core_node.enqueue(rpc, tick);
-                }
+                self.core_node.enqueue(rpc, tick);
             } else {
                 // inbound filter check
                 self.core_node
@@ -58,26 +76,7 @@ impl SimElement for Reviews {
                     .recv(rpc, tick, &self.core_node.id);
                 let ret = self.core_node.plugin.as_mut().unwrap().tick(tick);
                 for inbound_rpc in ret {
-                    // route packet
-                    let routed_rpcs = self.route_rpc(inbound_rpc.0);
-                    // outbound filter check
-                    for routed_rpc in routed_rpcs {
-                        self.core_node.plugin.as_mut().unwrap().recv(
-                            routed_rpc.rpc,
-                            tick,
-                            &self.core_node.id,
-                        );
-                        let outbound_rpcs = self.core_node.plugin.as_mut().unwrap().tick(tick);
-                        for outbound_rpc in outbound_rpcs {
-                            self.core_node.enqueue(
-                                RpcWithDst {
-                                    rpc: outbound_rpc.0,
-                                    destination: outbound_rpc.1,
-                                },
-                                tick,
-                            );
-                        }
-                    }
+                    self.core_node.enqueue(inbound_rpc.0, tick)
                 }
             }
         }
@@ -104,24 +103,16 @@ impl Reviews {
         Reviews { core_node }
     }
 
-    pub fn route_rpc(&self, mut rpc: Rpc) -> Vec<RpcWithDst> {
+    pub fn route_rpc(&self, rpc: &Rpc) -> String {
         if rpc.headers.contains_key("src") {
             let source = &rpc.headers["src"];
-            let dest: &str;
             if source == "ratings-v1" {
-                dest = "productpage-v1";
+                return "productpage-v1".to_string();
             } else if source == "productpage-v1" {
-                dest = "ratings-v1";
+                return "ratings-v1".to_string();
             } else {
                 panic!("Unexpected RPC source {:?}", source);
             }
-            rpc.headers
-                .insert("src".to_string(), self.core_node.id.to_string());
-            rpc.headers.insert("dest".to_string(), dest.to_string());
-            return vec![RpcWithDst {
-                rpc,
-                destination: dest.to_string(),
-            }];
         }
         panic!("Reviews node is missing source header for forwarding! Invalid RPC.");
     }

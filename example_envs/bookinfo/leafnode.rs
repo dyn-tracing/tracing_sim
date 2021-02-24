@@ -6,7 +6,6 @@ use queues::*;
 use rpc_lib::rpc::Rpc;
 use sim::node::node_fmt_with_name;
 use sim::node::Node;
-use sim::node::RpcWithDst;
 use sim::sim_element::SimElement;
 use std::cmp::min;
 use std::fmt;
@@ -29,10 +28,38 @@ impl SimElement for LeafNode {
             self.core_node.egress_rate as usize,
         ) {
             if self.core_node.queue.size() > 0 {
-                let deq = self.core_node.dequeue(tick);
-                let rpc_dst: RpcWithDst;
-                rpc_dst = deq.unwrap();
-                ret.push((rpc_dst.rpc.clone(), rpc_dst.destination.clone()));
+                let mut deq = self.core_node.dequeue(tick).unwrap();
+                // 1. change src/dst headers appropriately, as well as request/response stuff
+                let new_dest = self.route_rpc(&deq);
+
+                let dest = deq.headers.get_mut("dest").unwrap();
+                *dest = new_dest.clone();
+                let src = deq.headers.get_mut("src").unwrap();
+                *src = self.core_node.id.clone();
+                let direction = deq.headers.get_mut("direction").unwrap();
+                if direction == "request" {
+                    *direction = "response".to_string();
+                } else {
+                    *direction = "request".to_string();
+                }
+
+                // 2. If there's a plugin, run it through the plugin and then put into ret
+                if self.core_node.plugin.is_some() {
+                    self.core_node
+                        .plugin
+                        .as_mut()
+                        .unwrap()
+                        .recv(deq, tick, &self.core_node.id);
+                    let filtered_rpcs = self.core_node.plugin.as_mut().unwrap().tick(tick);
+                    for filtered_rpc in filtered_rpcs {
+                        ret.push((
+                            filtered_rpc.0.clone(),
+                            filtered_rpc.0.headers["dest"].clone(),
+                        ));
+                    }
+                } else {
+                    ret.push((deq, new_dest.clone()));
+                }
             }
         }
         ret
@@ -41,10 +68,7 @@ impl SimElement for LeafNode {
         if (self.core_node.queue.size() as u32) < self.core_node.capacity {
             // drop packets you cannot accept
             if self.core_node.plugin.is_none() {
-                let routed_rpc = self.route_rpc(rpc);
-                for rpc in routed_rpc {
-                    self.core_node.enqueue(rpc, tick);
-                }
+                self.core_node.enqueue(rpc, tick);
             } else {
                 // inbound filter check
                 self.core_node
@@ -54,26 +78,7 @@ impl SimElement for LeafNode {
                     .recv(rpc, tick, &self.core_node.id);
                 let ret = self.core_node.plugin.as_mut().unwrap().tick(tick);
                 for inbound_rpc in ret {
-                    // route packet
-                    let routed_rpcs = self.route_rpc(inbound_rpc.0);
-                    // outbound filter check
-                    for routed_rpc in routed_rpcs {
-                        self.core_node.plugin.as_mut().unwrap().recv(
-                            routed_rpc.rpc,
-                            tick,
-                            &self.core_node.id,
-                        );
-                        let outbound_rpcs = self.core_node.plugin.as_mut().unwrap().tick(tick);
-                        for outbound_rpc in outbound_rpcs {
-                            self.core_node.enqueue(
-                                RpcWithDst {
-                                    rpc: outbound_rpc.0,
-                                    destination: outbound_rpc.1,
-                                },
-                                tick,
-                            );
-                        }
-                    }
+                    self.core_node.enqueue(inbound_rpc.0, tick);
                 }
             }
         }
@@ -100,19 +105,10 @@ impl LeafNode {
         LeafNode { core_node }
     }
 
-    pub fn route_rpc(&self, mut rpc: Rpc) -> Vec<RpcWithDst> {
+    pub fn route_rpc(&self, rpc: &Rpc) -> String {
         // "respond to every node that has sent a request"
         if rpc.headers.contains_key("src") {
-            let target = rpc.headers["src"].to_string();
-            rpc.headers
-                .insert("direction".to_string(), "response".to_string());
-            rpc.headers
-                .insert("src".to_string(), self.core_node.id.to_string());
-            rpc.headers.insert("dest".to_string(), target.clone());
-            return vec![RpcWithDst {
-                rpc,
-                destination: target,
-            }];
+            return rpc.headers["src"].to_string();
         }
         panic!("Leaf node is missing source header for response! Invalid request.");
     }

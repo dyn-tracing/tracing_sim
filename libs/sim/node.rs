@@ -10,14 +10,8 @@ use rpc_lib::rpc::Rpc;
 use std::cmp::min;
 use std::fmt;
 
-#[derive(Clone)]
-pub struct RpcWithDst {
-    pub rpc: Rpc,
-    pub destination: String,
-}
-
 pub struct Node {
-    pub queue: Queue<RpcWithDst>,      // queue of rpcs
+    pub queue: Queue<Rpc>,             // queue of rpcs
     pub id: String,                    // id of the node
     pub capacity: u32,                 // capacity of the node;  how much it can hold at once
     pub egress_rate: u32,              // rate at which the node can send out rpcs
@@ -73,14 +67,26 @@ impl SimElement for Node {
             self.egress_rate as usize,
         ) {
             if self.queue.size() > 0 {
-                let deq = self.dequeue(tick);
-                let rpc_dst: RpcWithDst;
-                rpc_dst = deq.unwrap();
+                let mut deq = self.dequeue(tick).unwrap();
+
+                // 1. change src/dst headers appropriately
+                let new_dest = self.route_rpc(&deq);
+                if !deq.headers.contains_key("dest") {
+                    deq.headers.insert("dest".to_string(), new_dest.clone());
+                } else {
+                    let dest = deq.headers.get_mut("dest").unwrap();
+                    *dest = new_dest.clone();
+                }
+                if !deq.headers.contains_key("src") {
+                    deq.headers.insert("src".to_string(), self.id.clone());
+                } else {
+                    let src = deq.headers.get_mut("src").unwrap();
+                    *src = self.id.clone();
+                }
+
+                // 2. If there's a plugin, run it through the plugin and then put into ret
                 if self.plugin.is_some() {
-                    self.plugin
-                        .as_mut()
-                        .unwrap()
-                        .recv(rpc_dst.rpc, tick, &self.id);
+                    self.plugin.as_mut().unwrap().recv(deq, tick, &self.id);
                     let filtered_rpcs = self.plugin.as_mut().unwrap().tick(tick);
                     for filtered_rpc in filtered_rpcs {
                         ret.push((
@@ -89,30 +95,28 @@ impl SimElement for Node {
                         ));
                     }
                 } else {
-                    ret.push((rpc_dst.rpc, rpc_dst.destination));
+                    ret.push((deq, new_dest.clone()));
                 }
             } else {
-                let rpcs_dst = self.route_rpc(Rpc::new_rpc(&tick.to_string()));
-                for mut rpc_dst in rpcs_dst {
-                    rpc_dst
-                        .rpc
-                        .headers
-                        .insert("direction".to_string(), "request".to_string());
-                    if self.plugin.is_some() {
-                        self.plugin
-                            .as_mut()
-                            .unwrap()
-                            .recv(rpc_dst.rpc, tick, &self.id);
-                        let filtered_rpcs = self.plugin.as_mut().unwrap().tick(tick);
-                        for filtered_rpc in filtered_rpcs {
-                            ret.push((
-                                filtered_rpc.0.clone(),
-                                filtered_rpc.0.headers["dest"].clone(),
-                            ));
-                        }
-                    } else {
-                        ret.push((rpc_dst.rpc, rpc_dst.destination));
+                let mut new_rpc = Rpc::new_rpc(&tick.to_string());
+                new_rpc
+                    .headers
+                    .insert("direction".to_string(), "request".to_string());
+                new_rpc
+                    .headers
+                    .insert("dest".to_string(), self.route_rpc(&new_rpc));
+                if self.plugin.is_some() {
+                    self.plugin.as_mut().unwrap().recv(new_rpc, tick, &self.id);
+                    let filtered_rpcs = self.plugin.as_mut().unwrap().tick(tick);
+                    for filtered_rpc in filtered_rpcs {
+                        ret.push((
+                            filtered_rpc.0.clone(),
+                            filtered_rpc.0.headers["dest"].clone(),
+                        ));
                     }
+                } else {
+                    let new_dest = self.route_rpc(&new_rpc);
+                    ret.push((new_rpc, new_dest));
                 }
             }
         }
@@ -124,33 +128,21 @@ impl SimElement for Node {
     // the RPC once again goes through the plugin, this time as an outbound rpc, and then it is
     // placed in the outbound queue
     fn recv(&mut self, rpc: Rpc, tick: u64, _sender: &str) {
+        // drop packets you cannot accept
         if (self.queue.size() as u32) < self.capacity {
-            // drop packets you cannot accept
             if self.plugin.is_none() {
-                let routed_rpc = self.route_rpc(rpc);
-                for rpc in routed_rpc {
-                    self.enqueue(rpc, tick);
-                }
+                self.enqueue(rpc, tick);
             } else {
                 // inbound filter check
                 self.plugin.as_mut().unwrap().recv(rpc, tick, &self.id);
                 let ret = self.plugin.as_mut().unwrap().tick(tick);
                 for inbound_rpc in ret {
-                    // route packet
-                    let routed_rpcs = self.route_rpc(inbound_rpc.0);
-                    for routed_rpc in routed_rpcs {
-                        self.enqueue(
-                            RpcWithDst {
-                                rpc: routed_rpc.rpc,
-                                destination: routed_rpc.destination,
-                            },
-                            tick,
-                        );
-                    }
+                    self.enqueue(inbound_rpc.0, tick);
                 }
             }
         }
     }
+
     fn add_connection(&mut self, neighbor: String) {
         self.neighbors.push(neighbor);
     }
@@ -167,10 +159,10 @@ impl SimElement for Node {
 }
 
 impl Node {
-    pub fn enqueue(&mut self, x: RpcWithDst, _now: u64) {
+    pub fn enqueue(&mut self, x: Rpc, _now: u64) {
         let _res = self.queue.add(x);
     }
-    pub fn dequeue(&mut self, _now: u64) -> Option<RpcWithDst> {
+    pub fn dequeue(&mut self, _now: u64) -> Option<Rpc> {
         if self.queue.size() == 0 {
             return None;
         } else {
@@ -178,35 +170,22 @@ impl Node {
         }
     }
 
-    pub fn route_rpc(&mut self, mut rpc: Rpc) -> Vec<RpcWithDst> {
+    // given an RPC, returns the neighbor it should be sent to
+    pub fn route_rpc(&mut self, rpc: &Rpc) -> String {
         if rpc.headers.contains_key("dest") {
             let dest = &rpc.headers["dest"].clone();
             for n in &self.neighbors {
                 if n == dest {
-                    return vec![RpcWithDst {
-                        rpc: rpc,
-                        destination: dest.clone(),
-                    }];
+                    return dest.to_string();
                 }
             }
         } else if self.neighbors.len() > 0 {
             let mut rng: StdRng = SeedableRng::seed_from_u64(self.seed);
             let idx = rng.gen_range(0, self.neighbors.len());
             let which_neighbor = self.neighbors[idx].clone();
-            if rpc.headers.contains_key("dest") {
-                if let Some(dst) = rpc.headers.get_mut("dest") {
-                    *dst = which_neighbor.clone();
-                }
-            } else {
-                rpc.headers
-                    .insert("dest".to_string(), which_neighbor.clone());
-            }
-            return vec![RpcWithDst {
-                rpc,
-                destination: which_neighbor.clone(),
-            }];
+            return which_neighbor;
         }
-        return vec![];
+        panic!("Node has no neighbors and no one to send to");
     }
 
     pub fn new(
