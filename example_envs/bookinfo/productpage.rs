@@ -45,10 +45,11 @@ impl SimElement for ProductPage {
                     new_rpc
                         .headers
                         .insert("src".to_string(), self.core_node.id.to_string());
-                    new_rpc
-                        .headers
-                        .insert("location".to_string(), "egress".to_string());
                     if let Some(plugin) = self.core_node.plugin.as_mut() {
+                        new_rpc
+                            .headers
+                            .insert("location".to_string(), "egress".to_string());
+
                         plugin.recv(new_rpc, tick, &self.core_node.id);
                         let filtered_rpcs = plugin.tick(tick);
                         for filtered_rpc in filtered_rpcs {
