@@ -20,7 +20,7 @@ impl fmt::Display for Gateway {
 }
 
 impl SimElement for Gateway {
-    fn tick(&mut self, tick: u64) -> Vec<(Rpc, String)> {
+    fn tick(&mut self, tick: u64) -> Vec<Rpc> {
         let mut ret = vec![];
         for _ in 0..min(
             self.core_node.generation_rate as usize,
@@ -32,7 +32,9 @@ impl SimElement for Gateway {
                 .insert("direction".to_string(), "request".to_string());
             rpc.headers
                 .insert("src".to_string(), self.core_node.id.to_string());
-            ret.push((rpc, "productpage-v1".to_string()));
+            rpc.headers
+                .insert("dest".to_string(), "productpage-v1".to_string());
+            ret.push(rpc);
         }
         ret
     }

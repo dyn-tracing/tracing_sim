@@ -21,7 +21,7 @@ impl fmt::Display for LeafNode {
 }
 
 impl SimElement for LeafNode {
-    fn tick(&mut self, tick: u64) -> Vec<(Rpc, String)> {
+    fn tick(&mut self, tick: u64) -> Vec<Rpc> {
         let mut ret = vec![];
         for _ in 0..min(
             self.core_node.queue.size(),
@@ -48,13 +48,10 @@ impl SimElement for LeafNode {
                     plugin.recv(rpc, tick, &self.core_node.id);
                     let filtered_rpcs = plugin.tick(tick);
                     for filtered_rpc in filtered_rpcs {
-                        ret.push((
-                            filtered_rpc.0.clone(),
-                            filtered_rpc.0.headers["dest"].clone(),
-                        ));
+                        ret.push(filtered_rpc.clone());
                     }
                 } else {
-                    ret.push((rpc.clone(), dest.to_string()));
+                    ret.push(rpc.clone());
                 }
             } else {
                 panic!("Leaf node is missing source header for forwarding! Invalid RPC.");

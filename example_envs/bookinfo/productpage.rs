@@ -22,7 +22,7 @@ impl fmt::Display for ProductPage {
 }
 
 impl SimElement for ProductPage {
-    fn tick(&mut self, tick: u64) -> Vec<(Rpc, String)> {
+    fn tick(&mut self, tick: u64) -> Vec<Rpc> {
         let mut ret = vec![];
         for _ in 0..min(
             self.core_node.queue.size(),
@@ -30,8 +30,7 @@ impl SimElement for ProductPage {
         ) {
             let rpc: Rpc;
             if self.core_node.queue.size() > 0 {
-                let deq = self.core_node.dequeue(tick);
-                rpc = deq.unwrap();
+                rpc = self.core_node.dequeue(tick).unwrap();
             } else {
                 // no rpc in the queue, we only forward so nothing to do
                 continue;
@@ -53,13 +52,10 @@ impl SimElement for ProductPage {
                         plugin.recv(new_rpc, tick, &self.core_node.id);
                         let filtered_rpcs = plugin.tick(tick);
                         for filtered_rpc in filtered_rpcs {
-                            ret.push((
-                                filtered_rpc.0.clone(),
-                                filtered_rpc.0.headers["dest"].clone(),
-                            ));
+                            ret.push(filtered_rpc);
                         }
                     } else {
-                        ret.push((new_rpc, dest.clone()))
+                        ret.push(new_rpc)
                     }
                 }
             } else {

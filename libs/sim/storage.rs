@@ -30,7 +30,7 @@ impl fmt::Display for Storage {
 
 impl SimElement for Storage {
     // storage never sends messages out, only receives them, so we return an empty vector
-    fn tick(&mut self, _tick: u64) -> Vec<(Rpc, String)> {
+    fn tick(&mut self, _tick: u64) -> Vec<Rpc> {
         return vec![];
     }
 

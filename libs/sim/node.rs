@@ -60,7 +60,7 @@ impl fmt::Display for Node {
 }
 
 impl SimElement for Node {
-    fn tick(&mut self, tick: u64) -> Vec<(Rpc, String)> {
+    fn tick(&mut self, tick: u64) -> Vec<Rpc> {
         let mut ret = vec![];
         for _ in 0..min(
             self.queue.size() + (self.generation_rate as usize),
@@ -91,13 +91,10 @@ impl SimElement for Node {
                     self.plugin.as_mut().unwrap().recv(deq, tick, &self.id);
                     let filtered_rpcs = self.plugin.as_mut().unwrap().tick(tick);
                     for filtered_rpc in filtered_rpcs {
-                        ret.push((
-                            filtered_rpc.0.clone(),
-                            filtered_rpc.0.headers["dest"].clone(),
-                        ));
+                        ret.push(filtered_rpc.clone());
                     }
                 } else {
-                    ret.push((deq, new_dest.clone()));
+                    ret.push(deq);
                 }
             } else {
                 let mut new_rpc = Rpc::new_rpc(&tick.to_string());
@@ -111,18 +108,16 @@ impl SimElement for Node {
                     self.plugin.as_mut().unwrap().recv(new_rpc, tick, &self.id);
                     let filtered_rpcs = self.plugin.as_mut().unwrap().tick(tick);
                     for filtered_rpc in filtered_rpcs {
-                        ret.push((
-                            filtered_rpc.0.clone(),
-                            filtered_rpc.0.headers["dest"].clone(),
-                        ));
+                        ret.push(filtered_rpc.clone());
                     }
                 } else {
                     let new_dest = self.choose_destination(&new_rpc);
-                    ret.push((new_rpc, new_dest));
+                    let dst = new_rpc.headers.get_mut("dest").unwrap();
+                    *dst = new_dest;
+                    ret.push(new_rpc);
                 }
             }
         }
-
         ret
     }
 
@@ -141,7 +136,7 @@ impl SimElement for Node {
                 self.plugin.as_mut().unwrap().recv(rpc, tick, &self.id);
                 let ret = self.plugin.as_mut().unwrap().tick(tick);
                 for inbound_rpc in ret {
-                    self.enqueue(inbound_rpc.0, tick);
+                    self.enqueue(inbound_rpc, tick);
                 }
             }
         }
