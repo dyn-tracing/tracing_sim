@@ -77,16 +77,20 @@ impl SimElement for Node {
                 let rpc_dst: RpcWithDst;
                 rpc_dst = deq.unwrap();
                 if self.plugin.is_some() {
-                    self.plugin.as_mut().unwrap().recv(rpc_dst.rpc, tick, &self.id);
+                    self.plugin
+                        .as_mut()
+                        .unwrap()
+                        .recv(rpc_dst.rpc, tick, &self.id);
                     let filtered_rpcs = self.plugin.as_mut().unwrap().tick(tick);
                     for filtered_rpc in filtered_rpcs {
-                        ret.push((filtered_rpc.0.clone(), filtered_rpc.0.headers["dest"].clone()));
+                        ret.push((
+                            filtered_rpc.0.clone(),
+                            filtered_rpc.0.headers["dest"].clone(),
+                        ));
                     }
-                }
-                else {
+                } else {
                     ret.push((rpc_dst.rpc, rpc_dst.destination));
                 }
-                 
             } else {
                 let rpcs_dst = self.route_rpc(Rpc::new_rpc(&tick.to_string()));
                 for mut rpc_dst in rpcs_dst {
@@ -95,13 +99,18 @@ impl SimElement for Node {
                         .headers
                         .insert("direction".to_string(), "request".to_string());
                     if self.plugin.is_some() {
-                        self.plugin.as_mut().unwrap().recv(rpc_dst.rpc, tick, &self.id);
+                        self.plugin
+                            .as_mut()
+                            .unwrap()
+                            .recv(rpc_dst.rpc, tick, &self.id);
                         let filtered_rpcs = self.plugin.as_mut().unwrap().tick(tick);
                         for filtered_rpc in filtered_rpcs {
-                            ret.push((filtered_rpc.0.clone(), filtered_rpc.0.headers["dest"].clone()));
+                            ret.push((
+                                filtered_rpc.0.clone(),
+                                filtered_rpc.0.headers["dest"].clone(),
+                            ));
                         }
-                    }
-                    else {
+                    } else {
                         ret.push((rpc_dst.rpc, rpc_dst.destination));
                     }
                 }
@@ -131,7 +140,7 @@ impl SimElement for Node {
                     let routed_rpcs = self.route_rpc(inbound_rpc.0);
                     for routed_rpc in routed_rpcs {
                         self.enqueue(
-                        RpcWithDst {
+                            RpcWithDst {
                                 rpc: routed_rpc.rpc,
                                 destination: routed_rpc.destination,
                             },
