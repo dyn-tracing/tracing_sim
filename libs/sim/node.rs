@@ -86,7 +86,8 @@ impl SimElement for Node {
 
                 // 2. If there's a plugin, run it through the plugin and then put into ret
                 if self.plugin.is_some() {
-                    deq.headers.insert("location".to_string(), "egress".to_string());
+                    deq.headers
+                        .insert("location".to_string(), "egress".to_string());
                     self.plugin.as_mut().unwrap().recv(deq, tick, &self.id);
                     let filtered_rpcs = self.plugin.as_mut().unwrap().tick(tick);
                     for filtered_rpc in filtered_rpcs {
@@ -135,7 +136,8 @@ impl SimElement for Node {
                 self.enqueue(rpc, tick);
             } else {
                 // inbound filter check
-                rpc.headers.insert("location".to_string(), "ingress".to_string());
+                rpc.headers
+                    .insert("location".to_string(), "ingress".to_string());
                 self.plugin.as_mut().unwrap().recv(rpc, tick, &self.id);
                 let ret = self.plugin.as_mut().unwrap().tick(tick);
                 for inbound_rpc in ret {
