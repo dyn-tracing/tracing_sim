@@ -70,7 +70,7 @@ impl SimElement for Node {
                 let mut deq = self.dequeue(tick).unwrap();
 
                 // 1. change src/dst headers appropriately
-                let new_dest = self.route_rpc(&deq);
+                let new_dest = self.choose_destination(&deq);
                 if !deq.headers.contains_key("dest") {
                     deq.headers.insert("dest".to_string(), new_dest.clone());
                 } else {
@@ -106,7 +106,7 @@ impl SimElement for Node {
                     .insert("direction".to_string(), "request".to_string());
                 new_rpc
                     .headers
-                    .insert("dest".to_string(), self.route_rpc(&new_rpc));
+                    .insert("dest".to_string(), self.choose_destination(&new_rpc));
                 if self.plugin.is_some() {
                     self.plugin.as_mut().unwrap().recv(new_rpc, tick, &self.id);
                     let filtered_rpcs = self.plugin.as_mut().unwrap().tick(tick);
@@ -117,7 +117,7 @@ impl SimElement for Node {
                         ));
                     }
                 } else {
-                    let new_dest = self.route_rpc(&new_rpc);
+                    let new_dest = self.choose_destination(&new_rpc);
                     ret.push((new_rpc, new_dest));
                 }
             }
@@ -175,7 +175,7 @@ impl Node {
     }
 
     // given an RPC, returns the neighbor it should be sent to
-    pub fn route_rpc(&mut self, rpc: &Rpc) -> String {
+    pub fn choose_destination(&mut self, rpc: &Rpc) -> String {
         if rpc.headers.contains_key("dest") {
             let dest = &rpc.headers["dest"].clone();
             for n in &self.neighbors {

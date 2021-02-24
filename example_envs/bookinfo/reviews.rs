@@ -43,13 +43,9 @@ impl SimElement for Reviews {
                     .insert("src".to_string(), self.core_node.id.to_string());
                 rpc.headers
                     .insert("location".to_string(), "egress".to_string());
-                if self.core_node.plugin.is_some() {
-                    self.core_node
-                        .plugin
-                        .as_mut()
-                        .unwrap()
-                        .recv(rpc, tick, &self.core_node.id);
-                    let filtered_rpcs = self.core_node.plugin.as_mut().unwrap().tick(tick);
+                if let Some(plugin) = self.core_node.plugin.as_mut() {
+                    plugin.recv(rpc, tick, &self.core_node.id);
+                    let filtered_rpcs = plugin.tick(tick);
                     for filtered_rpc in filtered_rpcs {
                         ret.push((
                             filtered_rpc.0.clone(),
@@ -91,17 +87,14 @@ impl Reviews {
     }
 
     pub fn choose_destination(&self, rpc: &Rpc) -> String {
-        if rpc.headers.contains_key("src") {
-            let source = &rpc.headers["src"];
-            if source == "ratings-v1" {
-                return "productpage-v1".to_string();
-            } else if source == "productpage-v1" {
-                return "ratings-v1".to_string();
-            } else {
-                panic!("Unexpected RPC source {:?}", source);
-            }
+        let source = &rpc.headers["src"];
+        if source == "ratings-v1" {
+            return "productpage-v1".to_string();
+        } else if source == "productpage-v1" {
+            return "ratings-v1".to_string();
+        } else {
+            panic!("Unexpected RPC source {:?}", source);
         }
-        panic!("Reviews node is missing source header for forwarding! Invalid RPC.");
     }
 }
 

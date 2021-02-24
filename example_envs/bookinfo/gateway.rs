@@ -32,8 +32,6 @@ impl SimElement for Gateway {
                 .insert("direction".to_string(), "request".to_string());
             rpc.headers
                 .insert("src".to_string(), self.core_node.id.to_string());
-            rpc.headers
-                .insert("dest".to_string(), "productpage-v1".to_string());
             ret.push((rpc, "productpage-v1".to_string()));
         }
         ret

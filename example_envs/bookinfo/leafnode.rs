@@ -32,10 +32,9 @@ impl SimElement for LeafNode {
                 let deq = self.core_node.dequeue(tick);
                 rpc = deq.unwrap();
             } else {
-                // no rpc in the queue, we only forward so nothing to do
+                // no rpc in the queue, we only react so nothing to do
                 continue;
             }
-            // forward requests/responses from productpage or reviews
             if rpc.headers.contains_key("src") {
                 let dest = self.choose_destination(&rpc);
                 rpc.headers.insert("dest".to_string(), dest.clone());
@@ -43,13 +42,11 @@ impl SimElement for LeafNode {
                     .insert("src".to_string(), self.core_node.id.to_string());
                 rpc.headers
                     .insert("location".to_string(), "egress".to_string());
-                if self.core_node.plugin.is_some() {
-                    self.core_node
-                        .plugin
-                        .as_mut()
-                        .unwrap()
-                        .recv(rpc, tick, &self.core_node.id);
-                    let filtered_rpcs = self.core_node.plugin.as_mut().unwrap().tick(tick);
+                rpc.headers
+                    .insert("direction".to_string(), "response".to_string());
+                if let Some(plugin) = self.core_node.plugin.as_mut() {
+                    plugin.recv(rpc, tick, &self.core_node.id);
+                    let filtered_rpcs = plugin.tick(tick);
                     for filtered_rpc in filtered_rpcs {
                         ret.push((
                             filtered_rpc.0.clone(),
@@ -60,7 +57,7 @@ impl SimElement for LeafNode {
                     ret.push((rpc.clone(), dest.to_string()));
                 }
             } else {
-                panic!("Reviews node is missing source header for forwarding! Invalid RPC.");
+                panic!("Leaf node is missing source header for forwarding! Invalid RPC.");
             }
         }
         ret
@@ -91,11 +88,7 @@ impl LeafNode {
     }
 
     pub fn choose_destination(&self, rpc: &Rpc) -> String {
-        // "respond to every node that has sent a request"
-        if rpc.headers.contains_key("src") {
-            return rpc.headers["src"].to_string();
-        }
-        panic!("Leaf node is missing source header for response! Invalid request.");
+        return rpc.headers["src"].to_string();
     }
 }
 
