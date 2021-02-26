@@ -72,9 +72,8 @@ impl SimElement for Node {
         ) {
             // Dequeue an RPC, or generate one
             let mut rpc: Rpc;
-            if self.queue.size() > 0 {
-                let deq = self.dequeue(tick);
-                rpc = deq.unwrap();
+            if let Some(deq) = self.dequeue(tick) {
+                rpc = deq;
             } else {
                 rpc = Rpc::new_rpc(&tick.to_string());
                 rpc.headers
@@ -86,7 +85,9 @@ impl SimElement for Node {
             self.process_rpc(&mut rpc, &mut new_rpcs);
 
             // Pass the RPCs we have through the plugin
-            self.pass_through_plugin(new_rpcs, &mut outgoing_rpcs, tick, "egress");
+            for rpc in new_rpcs {
+                self.pass_through_plugin(rpc, &mut outgoing_rpcs, tick, "egress");
+            }
         }
         outgoing_rpcs
     }
@@ -94,20 +95,13 @@ impl SimElement for Node {
     // once the RPC is received, the plugin executes, the rpc gets a new destination,
     // the RPC once again goes through the plugin, this time as an outbound rpc, and then it is
     // placed in the outbound queue
-    fn recv(&mut self, mut rpc: Rpc, tick: u64) {
+    fn recv(&mut self, rpc: Rpc, tick: u64) {
         // drop packets you cannot accept
         if (self.queue.size() as u32) < self.capacity {
-            if self.plugin.is_none() {
-                self.enqueue(rpc, tick);
-            } else {
-                // inbound filter check
-                rpc.headers
-                    .insert("location".to_string(), "ingress".to_string());
-                self.plugin.as_mut().unwrap().recv(rpc, tick);
-                let ret = self.plugin.as_mut().unwrap().tick(tick);
-                for inbound_rpc in ret {
-                    self.enqueue(inbound_rpc, tick);
-                }
+            let mut inbound_rpcs: Vec<Rpc> = vec![];
+            self.pass_through_plugin(rpc, &mut inbound_rpcs, tick, "ingress");
+            for inbound_rpc in inbound_rpcs {
+                self.enqueue(inbound_rpc, tick);
             }
         }
     }
@@ -137,7 +131,7 @@ impl NodeTraits for Node {
             let mut rng: StdRng = SeedableRng::seed_from_u64(self.seed);
             let idx = rng.gen_range(0, self.neighbors.len());
             rpc.headers
-                .insert("dest".to_string(), self.neighbors[idx].clone());
+                .insert("dest".to_string(), self.neighbors[idx].to_string());
         } else {
             panic!("Node has no neighbors and no one to send to");
         }
@@ -177,25 +171,24 @@ impl Node {
 
     pub fn pass_through_plugin(
         &mut self,
-        input_rcps: Vec<Rpc>,
+        mut input_rcp: Rpc,
         processed_rpcs: &mut Vec<Rpc>,
         tick: u64,
         direction: &str,
     ) {
-        for mut rpc in input_rcps {
-            // If the plugin exists, run the RPC through
-            // Otherwise just push it into the egress queue
-            if let Some(plugin) = self.plugin.as_mut() {
-                rpc.headers
-                    .insert("location".to_string(), direction.to_string());
-                plugin.recv(rpc, tick);
-                let filtered_rpcs = plugin.tick(tick);
-                for filtered_rpc in filtered_rpcs {
-                    processed_rpcs.push(filtered_rpc.clone());
-                }
-            } else {
-                processed_rpcs.push(rpc);
+        // If the plugin exists, run the RPC through
+        // Otherwise just push it into the egress queue
+        if let Some(plugin) = self.plugin.as_mut() {
+            input_rcp
+                .headers
+                .insert("location".to_string(), direction.to_string());
+            plugin.recv(input_rcp, tick);
+            let filtered_rpcs = plugin.tick(tick);
+            for filtered_rpc in filtered_rpcs {
+                processed_rpcs.push(filtered_rpc.clone());
             }
+        } else {
+            processed_rpcs.push(input_rcp);
         }
     }
 

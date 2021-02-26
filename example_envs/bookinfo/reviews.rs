@@ -41,8 +41,10 @@ impl SimElement for Reviews {
             self.process_rpc(&mut rpc, &mut new_rpcs);
 
             // Pass the rpc we have through the plugin
-            self.core_node
-                .pass_through_plugin(new_rpcs, &mut outgoing_rpcs, tick, "egress");
+            for rpc in new_rpcs {
+                self.core_node
+                    .pass_through_plugin(rpc, &mut outgoing_rpcs, tick, "egress");
+            }
         }
         outgoing_rpcs
     }
