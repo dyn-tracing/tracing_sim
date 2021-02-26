@@ -22,7 +22,7 @@ impl fmt::Display for Reviews {
 
 impl SimElement for Reviews {
     fn tick(&mut self, tick: u64) -> Vec<Rpc> {
-        let mut ret = vec![];
+        let mut outgoing_rpcs: Vec<Rpc> = vec![];
         for _ in 0..min(
             self.core_node.queue.size(),
             self.core_node.egress_rate as usize,
@@ -35,28 +35,25 @@ impl SimElement for Reviews {
                 // no rpc in the queue, we only forward so nothing to do
                 continue;
             }
-            // forward requests/responses from productpage or reviews
-            if rpc.headers.contains_key("src") {
-                let dest = self.choose_destination(&rpc);
-                rpc.headers.insert("dest".to_string(), dest.clone());
-                rpc.headers
-                    .insert("src".to_string(), self.core_node.id.to_string());
-                if let Some(plugin) = self.core_node.plugin.as_mut() {
-                    rpc.headers
-                        .insert("location".to_string(), "egress".to_string());
-                    plugin.recv(rpc, tick, &self.core_node.id);
-                    let filtered_rpcs = plugin.tick(tick);
-                    for filtered_rpc in filtered_rpcs {
-                        ret.push(filtered_rpc.clone());
-                    }
-                } else {
-                    ret.push(rpc);
-                }
-            } else {
+            if !rpc.headers.contains_key("src") {
                 panic!("Reviews node is missing source header for forwarding! Invalid RPC.");
             }
+
+            // forward requests/responses from productpage or reviews
+            self.choose_destination(&mut rpc);
+            if let Some(plugin) = self.core_node.plugin.as_mut() {
+                rpc.headers
+                    .insert("location".to_string(), "egress".to_string());
+                plugin.recv(rpc, tick, &self.core_node.id);
+                let filtered_rpcs = plugin.tick(tick);
+                for filtered_rpc in filtered_rpcs {
+                    outgoing_rpcs.push(filtered_rpc.clone());
+                }
+            } else {
+                outgoing_rpcs.push(rpc);
+            }
         }
-        ret
+        outgoing_rpcs
     }
     fn recv(&mut self, rpc: Rpc, tick: u64, sender: &str) {
         self.core_node.recv(rpc, tick, sender);
@@ -83,15 +80,19 @@ impl Reviews {
         Reviews { core_node }
     }
 
-    pub fn choose_destination(&self, rpc: &Rpc) -> String {
+    pub fn choose_destination(&self, rpc: &mut Rpc) {
         let source = &rpc.headers["src"];
         if source == "ratings-v1" {
-            return "productpage-v1".to_string();
+            rpc.headers
+                .insert("dest".to_string(), "productpage-v1".to_string());
         } else if source == "productpage-v1" {
-            return "ratings-v1".to_string();
+            rpc.headers
+                .insert("dest".to_string(), "ratings-v1".to_string());
         } else {
             panic!("Unexpected RPC source {:?}", source);
         }
+        rpc.headers
+            .insert("src".to_string(), self.core_node.id.to_string());
     }
 }
 

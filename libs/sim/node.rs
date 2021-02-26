@@ -61,7 +61,7 @@ impl fmt::Display for Node {
 
 impl SimElement for Node {
     fn tick(&mut self, tick: u64) -> Vec<Rpc> {
-        let mut ret = vec![];
+        let mut outgoing_rpcs: Vec<Rpc> = vec![];
         for _ in 0..min(
             self.queue.size() + (self.generation_rate as usize),
             self.egress_rate as usize,
@@ -77,24 +77,26 @@ impl SimElement for Node {
                     .insert("direction".to_string(), "request".to_string());
             }
             // Set yourself as the source
-            rpc.headers.insert("src".to_string(), self.id.clone());
+            rpc.headers.insert("src".to_string(), self.id.to_string());
 
             // Select the destination
             self.choose_destination(&mut rpc);
 
             // If the plugin exists, run the RPC through
             // Otherwise just push it into the egress queue
-            if self.plugin.is_some() {
-                self.plugin.as_mut().unwrap().recv(rpc, tick, &self.id);
-                let filtered_rpcs = self.plugin.as_mut().unwrap().tick(tick);
+            if let Some(plugin) = self.plugin.as_mut() {
+                rpc.headers
+                    .insert("location".to_string(), "egress".to_string());
+                plugin.recv(rpc, tick, &self.id);
+                let filtered_rpcs = plugin.tick(tick);
                 for filtered_rpc in filtered_rpcs {
-                    ret.push(filtered_rpc.clone());
+                    outgoing_rpcs.push(filtered_rpc.clone());
                 }
             } else {
-                ret.push(rpc);
+                outgoing_rpcs.push(rpc);
             }
         }
-        ret
+        outgoing_rpcs
     }
 
     // once the RPC is received, the plugin executes, the rpc gets a new destination,

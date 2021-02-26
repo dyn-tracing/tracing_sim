@@ -22,7 +22,7 @@ impl fmt::Display for LeafNode {
 
 impl SimElement for LeafNode {
     fn tick(&mut self, tick: u64) -> Vec<Rpc> {
-        let mut ret = vec![];
+        let mut outgoing_rpcs: Vec<Rpc> = vec![];
         for _ in 0..min(
             self.core_node.queue.size(),
             self.core_node.egress_rate as usize,
@@ -35,29 +35,34 @@ impl SimElement for LeafNode {
                 // no rpc in the queue, we only react so nothing to do
                 continue;
             }
-            if rpc.headers.contains_key("src") {
-                let dest = self.choose_destination(&rpc);
-                rpc.headers.insert("dest".to_string(), dest.clone());
-                rpc.headers
-                    .insert("src".to_string(), self.core_node.id.to_string());
-                rpc.headers
-                    .insert("direction".to_string(), "response".to_string());
-                if let Some(plugin) = self.core_node.plugin.as_mut() {
-                    rpc.headers
-                        .insert("location".to_string(), "egress".to_string());
-                    plugin.recv(rpc, tick, &self.core_node.id);
-                    let filtered_rpcs = plugin.tick(tick);
-                    for filtered_rpc in filtered_rpcs {
-                        ret.push(filtered_rpc.clone());
-                    }
-                } else {
-                    ret.push(rpc.clone());
-                }
-            } else {
+            if !rpc.headers.contains_key("src") {
                 panic!("Leaf node is missing source header for forwarding! Invalid RPC.");
             }
+            self.choose_destination(&mut rpc);
+
+            // This turns into a response now
+            rpc.headers
+                .insert("direction".to_string(), "response".to_string());
+
+            // Update the source after we have chosen the destination
+            rpc.headers
+                .insert("src".to_string(), self.core_node.id.to_string());
+
+            // If the plugin exists, run the RPC through
+            // Otherwise just push it into the egress queue
+            if let Some(plugin) = self.core_node.plugin.as_mut() {
+                rpc.headers
+                    .insert("location".to_string(), "egress".to_string());
+                plugin.recv(rpc, tick, &self.core_node.id);
+                let filtered_rpcs = plugin.tick(tick);
+                for filtered_rpc in filtered_rpcs {
+                    outgoing_rpcs.push(filtered_rpc.clone());
+                }
+            } else {
+                outgoing_rpcs.push(rpc.clone());
+            }
         }
-        ret
+        outgoing_rpcs
     }
     fn recv(&mut self, rpc: Rpc, tick: u64, sender: &str) {
         self.core_node.recv(rpc, tick, sender);
@@ -84,8 +89,10 @@ impl LeafNode {
         LeafNode { core_node }
     }
 
-    pub fn choose_destination(&self, rpc: &Rpc) -> String {
-        return rpc.headers["src"].to_string();
+    pub fn choose_destination(&mut self, rpc: &mut Rpc) {
+        // We just reflect the RPC
+        rpc.headers
+            .insert("dest".to_string(), rpc.headers["src"].to_string());
     }
 }
 

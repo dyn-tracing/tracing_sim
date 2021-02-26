@@ -23,46 +23,40 @@ impl fmt::Display for ProductPage {
 
 impl SimElement for ProductPage {
     fn tick(&mut self, tick: u64) -> Vec<Rpc> {
-        let mut ret = vec![];
+        let mut outgoing_rpcs: Vec<Rpc> = vec![];
         for _ in 0..min(
             self.core_node.queue.size(),
             self.core_node.egress_rate as usize,
         ) {
-            let rpc: Rpc;
-            if self.core_node.queue.size() > 0 {
-                rpc = self.core_node.dequeue(tick).unwrap();
-            } else {
+            if self.core_node.queue.size() == 0 {
                 // no rpc in the queue, we only forward so nothing to do
                 continue;
             }
+            let mut rpc = self.core_node.dequeue(tick).unwrap();
             // forward requests/responses from productpage or reviews
-            if rpc.headers.contains_key("src") {
-                let destinations = self.choose_destination(&rpc);
-                for dest in destinations {
-                    let mut new_rpc = rpc.clone();
-                    new_rpc.headers.insert("dest".to_string(), dest.clone());
-                    new_rpc
-                        .headers
-                        .insert("src".to_string(), self.core_node.id.to_string());
-                    if let Some(plugin) = self.core_node.plugin.as_mut() {
-                        new_rpc
-                            .headers
-                            .insert("location".to_string(), "egress".to_string());
-
-                        plugin.recv(new_rpc, tick, &self.core_node.id);
-                        let filtered_rpcs = plugin.tick(tick);
-                        for filtered_rpc in filtered_rpcs {
-                            ret.push(filtered_rpc);
-                        }
-                    } else {
-                        ret.push(new_rpc)
-                    }
-                }
-            } else {
+            if !rpc.headers.contains_key("src") {
                 panic!("Product page got rpc without a source");
             }
+            let mut new_rpcs: Vec<Rpc> = vec![];
+            self.choose_destination(&mut rpc, &mut new_rpcs);
+            new_rpcs.push(rpc.clone());
+            for mut rpc in new_rpcs {
+                // If the plugin exists, run the RPC through
+                // Otherwise just push it into the egress queue
+                if let Some(plugin) = self.core_node.plugin.as_mut() {
+                    rpc.headers
+                        .insert("location".to_string(), "egress".to_string());
+                    plugin.recv(rpc, tick, &self.core_node.id);
+                    let filtered_rpcs = plugin.tick(tick);
+                    for filtered_rpc in filtered_rpcs {
+                        outgoing_rpcs.push(filtered_rpc.clone());
+                    }
+                } else {
+                    outgoing_rpcs.push(rpc);
+                }
+            }
         }
-        ret
+        outgoing_rpcs
     }
 
     fn recv(&mut self, rpc: Rpc, tick: u64, sender: &str) {
@@ -95,23 +89,33 @@ impl ProductPage {
         ProductPage { core_node }
     }
 
-    pub fn choose_destination(&self, rpc: &Rpc) -> Vec<String> {
+    pub fn choose_destination(&self, rpc: &mut Rpc, new_rpcs: &mut Vec<Rpc>) {
         let review_nodes = vec!["reviews-v1", "reviews-v2", "reviews-v3"];
         let mut rng: StdRng = SeedableRng::seed_from_u64(self.core_node.seed);
         let source: &str = &rpc.headers["src"];
         if review_nodes.contains(&source) || source == "details-v1" {
-            return vec!["gateway".to_string()];
+            rpc.headers
+                .insert("dest".to_string(), "gateway".to_string());
         } else if source == "gateway" {
             let idx = rng.gen_range(0, review_nodes.len());
             let dest = review_nodes[idx];
-            return vec![dest.to_string(), "details-v1".to_string()];
+            rpc.headers.insert("dest".to_string(), dest.to_string());
+            let mut details_rpc = rpc.clone();
+            details_rpc
+                .headers
+                .insert("dest".to_string(), "details-v1".to_string());
+            details_rpc
+                .headers
+                .insert("src".to_string(), self.core_node.id.to_string());
+            new_rpcs.push(details_rpc);
         } else if source == &self.core_node.id {
             // if we are creating a new RPC, eg, we are sending to storage
-            let dest: &str = &rpc.headers["dest"];
-            return vec![dest.to_string()];
+            // do nothing here
         } else {
             panic!("ProductPage node does not have a valid source!");
         }
+        rpc.headers
+            .insert("src".to_string(), self.core_node.id.to_string());
     }
 }
 
