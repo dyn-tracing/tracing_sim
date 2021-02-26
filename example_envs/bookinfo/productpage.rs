@@ -38,7 +38,7 @@ impl SimElement for ProductPage {
                 panic!("Product page got rpc without a source");
             }
             let mut new_rpcs: Vec<Rpc> = vec![];
-            self.choose_destination(&mut rpc, &mut new_rpcs);
+            self.process_rpc(&mut rpc, &mut new_rpcs);
             new_rpcs.push(rpc.clone());
             for mut rpc in new_rpcs {
                 // If the plugin exists, run the RPC through
@@ -46,7 +46,7 @@ impl SimElement for ProductPage {
                 if let Some(plugin) = self.core_node.plugin.as_mut() {
                     rpc.headers
                         .insert("location".to_string(), "egress".to_string());
-                    plugin.recv(rpc, tick, &self.core_node.id);
+                    plugin.recv(rpc, tick);
                     let filtered_rpcs = plugin.tick(tick);
                     for filtered_rpc in filtered_rpcs {
                         outgoing_rpcs.push(filtered_rpc.clone());
@@ -59,8 +59,8 @@ impl SimElement for ProductPage {
         outgoing_rpcs
     }
 
-    fn recv(&mut self, rpc: Rpc, tick: u64, sender: &str) {
-        self.core_node.recv(rpc, tick, sender);
+    fn recv(&mut self, rpc: Rpc, tick: u64) {
+        self.core_node.recv(rpc, tick);
     }
     fn add_connection(&mut self, neighbor: String) {
         self.core_node.add_connection(neighbor)
@@ -89,7 +89,7 @@ impl ProductPage {
         ProductPage { core_node }
     }
 
-    pub fn choose_destination(&self, rpc: &mut Rpc, new_rpcs: &mut Vec<Rpc>) {
+    pub fn process_rpc(&self, rpc: &mut Rpc, new_rpcs: &mut Vec<Rpc>) {
         let review_nodes = vec!["reviews-v1", "reviews-v2", "reviews-v3"];
         let mut rng: StdRng = SeedableRng::seed_from_u64(self.core_node.seed);
         let source: &str = &rpc.headers["src"];
@@ -135,10 +135,10 @@ mod tests {
         node.add_connection("foo".to_string()); // without at least one neighbor, it will just drop rpcs
         assert!(node.core_node.capacity == 2);
         assert!(node.core_node.egress_rate == 1);
-        node.core_node.recv(Rpc::new_rpc("0"), 0, "0");
-        node.core_node.recv(Rpc::new_rpc("0"), 0, "0");
+        node.core_node.recv(Rpc::new_rpc("0"), 0);
+        node.core_node.recv(Rpc::new_rpc("0"), 0);
         assert!(node.core_node.queue.size() == 2);
-        node.core_node.recv(Rpc::new_rpc("0"), 0, "0");
+        node.core_node.recv(Rpc::new_rpc("0"), 0);
         assert!(node.core_node.queue.size() == 2);
         node.core_node.tick(0);
         assert!(node.core_node.queue.size() == 1);

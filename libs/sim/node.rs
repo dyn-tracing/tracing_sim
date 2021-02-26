@@ -87,7 +87,7 @@ impl SimElement for Node {
             if let Some(plugin) = self.plugin.as_mut() {
                 rpc.headers
                     .insert("location".to_string(), "egress".to_string());
-                plugin.recv(rpc, tick, &self.id);
+                plugin.recv(rpc, tick);
                 let filtered_rpcs = plugin.tick(tick);
                 for filtered_rpc in filtered_rpcs {
                     outgoing_rpcs.push(filtered_rpc.clone());
@@ -102,7 +102,7 @@ impl SimElement for Node {
     // once the RPC is received, the plugin executes, the rpc gets a new destination,
     // the RPC once again goes through the plugin, this time as an outbound rpc, and then it is
     // placed in the outbound queue
-    fn recv(&mut self, mut rpc: Rpc, tick: u64, _sender: &str) {
+    fn recv(&mut self, mut rpc: Rpc, tick: u64) {
         // drop packets you cannot accept
         if (self.queue.size() as u32) < self.capacity {
             if self.plugin.is_none() {
@@ -111,7 +111,7 @@ impl SimElement for Node {
                 // inbound filter check
                 rpc.headers
                     .insert("location".to_string(), "ingress".to_string());
-                self.plugin.as_mut().unwrap().recv(rpc, tick, &self.id);
+                self.plugin.as_mut().unwrap().recv(rpc, tick);
                 let ret = self.plugin.as_mut().unwrap().tick(tick);
                 for inbound_rpc in ret {
                     self.enqueue(inbound_rpc, tick);
@@ -205,10 +205,10 @@ mod tests {
         node.add_connection("foo".to_string()); // without at least one neighbor, it will just drop rpcs
         assert!(node.capacity == 2);
         assert!(node.egress_rate == 1);
-        node.recv(Rpc::new_rpc("0"), 0, "0");
-        node.recv(Rpc::new_rpc("0"), 0, "0");
+        node.recv(Rpc::new_rpc("0"), 0);
+        node.recv(Rpc::new_rpc("0"), 0);
         assert!(node.queue.size() == 2);
-        node.recv(Rpc::new_rpc("0"), 0, "0");
+        node.recv(Rpc::new_rpc("0"), 0);
         assert!(node.queue.size() == 2);
         node.tick(0);
         assert!(node.queue.size() == 1);

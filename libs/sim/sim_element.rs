@@ -9,7 +9,7 @@ pub trait SimElement {
 
     fn tick(&mut self, tick: u64) -> Vec<Rpc>;
 
-    fn recv(&mut self, rpc: Rpc, tick: u64, sender: &str);
+    fn recv(&mut self, rpc: Rpc, tick: u64);
 
     fn whoami(&self) -> &str;
 

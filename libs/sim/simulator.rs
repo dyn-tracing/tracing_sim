@@ -160,7 +160,7 @@ impl Simulator {
             for rpc in rpcs {
                 let dst = &rpc.headers["dest"];
                 match self.elements.get_mut(dst) {
-                    Some(elem) => elem.recv(rpc, tick, &elem_name),
+                    Some(elem) => elem.recv(rpc, tick),
                     None => panic!("expected {0} to be in elements, but it was not", dst),
                 }
             }

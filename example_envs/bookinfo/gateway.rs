@@ -38,7 +38,7 @@ impl SimElement for Gateway {
         }
         ret
     }
-    fn recv(&mut self, _rpc: Rpc, _tick: u64, _sender: &str) {
+    fn recv(&mut self, _rpc: Rpc, _tick: u64) {
         // we discard anything we receive
     }
     fn add_connection(&mut self, neighbor: String) {
@@ -85,10 +85,10 @@ mod tests {
         node.add_connection("foo".to_string()); // without at least one neighbor, it will just drop rpcs
         assert!(node.core_node.capacity == 2);
         assert!(node.core_node.egress_rate == 1);
-        node.core_node.recv(Rpc::new_rpc("0"), 0, "0");
-        node.core_node.recv(Rpc::new_rpc("0"), 0, "0");
+        node.core_node.recv(Rpc::new_rpc("0"), 0);
+        node.core_node.recv(Rpc::new_rpc("0"), 0);
         assert!(node.core_node.queue.size() == 2);
-        node.core_node.recv(Rpc::new_rpc("0"), 0, "0");
+        node.core_node.recv(Rpc::new_rpc("0"), 0);
         assert!(node.core_node.queue.size() == 2);
         node.core_node.tick(0);
         assert!(node.core_node.queue.size() == 1);

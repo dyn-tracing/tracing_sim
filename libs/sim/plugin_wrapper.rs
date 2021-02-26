@@ -52,7 +52,7 @@ impl SimElement for PluginWrapper {
         }
         return to_return;
     }
-    fn recv(&mut self, rpc: Rpc, _tick: u64, _sender: &str) {
+    fn recv(&mut self, rpc: Rpc, _tick: u64) {
         self.stored_rpc.push(rpc);
     }
     fn add_connection(&mut self, neighbor: String) {

@@ -38,22 +38,14 @@ impl SimElement for LeafNode {
             if !rpc.headers.contains_key("src") {
                 panic!("Leaf node is missing source header for forwarding! Invalid RPC.");
             }
-            self.choose_destination(&mut rpc);
-
-            // This turns into a response now
-            rpc.headers
-                .insert("direction".to_string(), "response".to_string());
-
-            // Update the source after we have chosen the destination
-            rpc.headers
-                .insert("src".to_string(), self.core_node.id.to_string());
+            self.process_rpc(&mut rpc);
 
             // If the plugin exists, run the RPC through
             // Otherwise just push it into the egress queue
             if let Some(plugin) = self.core_node.plugin.as_mut() {
                 rpc.headers
                     .insert("location".to_string(), "egress".to_string());
-                plugin.recv(rpc, tick, &self.core_node.id);
+                plugin.recv(rpc, tick);
                 let filtered_rpcs = plugin.tick(tick);
                 for filtered_rpc in filtered_rpcs {
                     outgoing_rpcs.push(filtered_rpc.clone());
@@ -64,8 +56,8 @@ impl SimElement for LeafNode {
         }
         outgoing_rpcs
     }
-    fn recv(&mut self, rpc: Rpc, tick: u64, sender: &str) {
-        self.core_node.recv(rpc, tick, sender);
+    fn recv(&mut self, rpc: Rpc, tick: u64) {
+        self.core_node.recv(rpc, tick);
     }
     fn add_connection(&mut self, neighbor: String) {
         self.core_node.add_connection(neighbor)
@@ -89,10 +81,17 @@ impl LeafNode {
         LeafNode { core_node }
     }
 
-    pub fn choose_destination(&mut self, rpc: &mut Rpc) {
+    pub fn process_rpc(&mut self, rpc: &mut Rpc) {
         // We just reflect the RPC
         rpc.headers
             .insert("dest".to_string(), rpc.headers["src"].to_string());
+        // This turns into a response now
+        rpc.headers
+            .insert("direction".to_string(), "response".to_string());
+
+        // Update the source after we have chosen the destination
+        rpc.headers
+            .insert("src".to_string(), self.core_node.id.to_string());
     }
 }
 
@@ -112,10 +111,10 @@ mod tests {
         node.add_connection("foo".to_string()); // without at least one neighbor, it will just drop rpcs
         assert!(node.core_node.capacity == 2);
         assert!(node.core_node.egress_rate == 1);
-        node.core_node.recv(Rpc::new_rpc("0"), 0, "0");
-        node.core_node.recv(Rpc::new_rpc("0"), 0, "0");
+        node.core_node.recv(Rpc::new_rpc("0"), 0);
+        node.core_node.recv(Rpc::new_rpc("0"), 0);
         assert!(node.core_node.queue.size() == 2);
-        node.core_node.recv(Rpc::new_rpc("0"), 0, "0");
+        node.core_node.recv(Rpc::new_rpc("0"), 0);
         assert!(node.core_node.queue.size() == 2);
         node.core_node.tick(0);
         assert!(node.core_node.queue.size() == 1);
