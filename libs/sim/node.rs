@@ -21,6 +21,10 @@ pub struct Node {
     pub seed: u64,
 }
 
+pub trait NodeTraits {
+    fn process_rpc(&self, rpc: &mut Rpc, new_rpcs: &mut Vec<Rpc>);
+}
+
 pub fn node_fmt_with_name(node: &Node, f: &mut fmt::Formatter<'_>, name: &str) -> fmt::Result {
     if let Some(width) = f.width() {
         if node.plugin.is_none() {
@@ -61,83 +65,43 @@ impl fmt::Display for Node {
 
 impl SimElement for Node {
     fn tick(&mut self, tick: u64) -> Vec<Rpc> {
-        let mut ret = vec![];
+        let mut outgoing_rpcs: Vec<Rpc> = vec![];
         for _ in 0..min(
             self.queue.size() + (self.generation_rate as usize),
             self.egress_rate as usize,
         ) {
-            if self.queue.size() > 0 {
-                let mut deq = self.dequeue(tick).unwrap();
-
-                // 1. change src/dst headers appropriately
-                let new_dest = self.choose_destination(&deq);
-                if !deq.headers.contains_key("dest") {
-                    deq.headers.insert("dest".to_string(), new_dest.clone());
-                } else {
-                    let dest = deq.headers.get_mut("dest").unwrap();
-                    *dest = new_dest.clone();
-                }
-                if !deq.headers.contains_key("src") {
-                    deq.headers.insert("src".to_string(), self.id.clone());
-                } else {
-                    let src = deq.headers.get_mut("src").unwrap();
-                    *src = self.id.clone();
-                }
-
-                // 2. If there's a plugin, run it through the plugin and then put into ret
-                if self.plugin.is_some() {
-                    deq.headers
-                        .insert("location".to_string(), "egress".to_string());
-                    self.plugin.as_mut().unwrap().recv(deq, tick, &self.id);
-                    let filtered_rpcs = self.plugin.as_mut().unwrap().tick(tick);
-                    for filtered_rpc in filtered_rpcs {
-                        ret.push(filtered_rpc.clone());
-                    }
-                } else {
-                    ret.push(deq);
-                }
+            // Dequeue an RPC, or generate one
+            let mut rpc: Rpc;
+            if let Some(deq) = self.dequeue(tick) {
+                rpc = deq;
             } else {
-                let mut new_rpc = Rpc::new_rpc(&tick.to_string());
-                new_rpc
-                    .headers
+                rpc = Rpc::new_rpc(&tick.to_string());
+                rpc.headers
                     .insert("direction".to_string(), "request".to_string());
-                new_rpc
-                    .headers
-                    .insert("dest".to_string(), self.choose_destination(&new_rpc));
-                if self.plugin.is_some() {
-                    self.plugin.as_mut().unwrap().recv(new_rpc, tick, &self.id);
-                    let filtered_rpcs = self.plugin.as_mut().unwrap().tick(tick);
-                    for filtered_rpc in filtered_rpcs {
-                        ret.push(filtered_rpc.clone());
-                    }
-                } else {
-                    let new_dest = self.choose_destination(&new_rpc);
-                    let dst = new_rpc.headers.get_mut("dest").unwrap();
-                    *dst = new_dest;
-                    ret.push(new_rpc);
-                }
+            }
+
+            // Select the destination
+            let mut new_rpcs: Vec<Rpc> = vec![];
+            self.process_rpc(&mut rpc, &mut new_rpcs);
+
+            // Pass the RPCs we have through the plugin
+            for rpc in new_rpcs {
+                self.pass_through_plugin(rpc, &mut outgoing_rpcs, tick, "egress");
             }
         }
-        ret
+        outgoing_rpcs
     }
 
     // once the RPC is received, the plugin executes, the rpc gets a new destination,
     // the RPC once again goes through the plugin, this time as an outbound rpc, and then it is
     // placed in the outbound queue
-    fn recv(&mut self, mut rpc: Rpc, tick: u64, _sender: &str) {
+    fn recv(&mut self, rpc: Rpc, tick: u64) {
         // drop packets you cannot accept
         if (self.queue.size() as u32) < self.capacity {
-            if self.plugin.is_none() {
-                self.enqueue(rpc, tick);
-            } else {
-                // inbound filter check
-                rpc.headers
-                    .insert("location".to_string(), "ingress".to_string());
-                self.plugin.as_mut().unwrap().recv(rpc, tick, &self.id);
-                let ret = self.plugin.as_mut().unwrap().tick(tick);
-                for inbound_rpc in ret {
-                    self.enqueue(inbound_rpc, tick);
-                }
+            let mut inbound_rpcs: Vec<Rpc> = vec![];
+            self.pass_through_plugin(rpc, &mut inbound_rpcs, tick, "ingress");
+            for inbound_rpc in inbound_rpcs {
+                self.enqueue(inbound_rpc, tick);
             }
         }
     }
@@ -157,36 +121,25 @@ impl SimElement for Node {
     }
 }
 
-impl Node {
-    pub fn enqueue(&mut self, x: Rpc, _now: u64) {
-        let _res = self.queue.add(x);
-    }
-    pub fn dequeue(&mut self, _now: u64) -> Option<Rpc> {
-        if self.queue.size() == 0 {
-            return None;
-        } else {
-            return Some(self.queue.remove().unwrap());
-        }
-    }
+impl NodeTraits for Node {
+    fn process_rpc(&self, rpc: &mut Rpc, new_rpcs: &mut Vec<Rpc>) {
+        // Set yourself as the source
+        rpc.headers.insert("src".to_string(), self.id.to_string());
 
-    // given an RPC, returns the neighbor it should be sent to
-    pub fn choose_destination(&mut self, rpc: &Rpc) -> String {
-        if rpc.headers.contains_key("dest") {
-            let dest = &rpc.headers["dest"].clone();
-            for n in &self.neighbors {
-                if n == dest {
-                    return dest.to_string();
-                }
-            }
-        } else if self.neighbors.len() > 0 {
+        // Select a new destination at random
+        if self.neighbors.len() > 0 {
             let mut rng: StdRng = SeedableRng::seed_from_u64(self.seed);
             let idx = rng.gen_range(0, self.neighbors.len());
-            let which_neighbor = self.neighbors[idx].clone();
-            return which_neighbor;
+            rpc.headers
+                .insert("dest".to_string(), self.neighbors[idx].to_string());
+        } else {
+            panic!("Node has no neighbors and no one to send to");
         }
-        panic!("Node has no neighbors and no one to send to");
+        new_rpcs.push(rpc.clone());
     }
+}
 
+impl Node {
     pub fn new(
         id: &str,
         capacity: u32,
@@ -215,6 +168,40 @@ impl Node {
             seed,
         }
     }
+
+    pub fn pass_through_plugin(
+        &mut self,
+        mut input_rcp: Rpc,
+        processed_rpcs: &mut Vec<Rpc>,
+        tick: u64,
+        direction: &str,
+    ) {
+        // If the plugin exists, run the RPC through
+        // Otherwise just push it into the egress queue
+        if let Some(plugin) = self.plugin.as_mut() {
+            input_rcp
+                .headers
+                .insert("location".to_string(), direction.to_string());
+            plugin.recv(input_rcp, tick);
+            let filtered_rpcs = plugin.tick(tick);
+            for filtered_rpc in filtered_rpcs {
+                processed_rpcs.push(filtered_rpc.clone());
+            }
+        } else {
+            processed_rpcs.push(input_rcp);
+        }
+    }
+
+    pub fn enqueue(&mut self, x: Rpc, _now: u64) {
+        let _res = self.queue.add(x);
+    }
+    pub fn dequeue(&mut self, _now: u64) -> Option<Rpc> {
+        if self.queue.size() == 0 {
+            return None;
+        } else {
+            return Some(self.queue.remove().unwrap());
+        }
+    }
 }
 
 #[cfg(test)]
@@ -233,10 +220,10 @@ mod tests {
         node.add_connection("foo".to_string()); // without at least one neighbor, it will just drop rpcs
         assert!(node.capacity == 2);
         assert!(node.egress_rate == 1);
-        node.recv(Rpc::new_rpc("0"), 0, "0");
-        node.recv(Rpc::new_rpc("0"), 0, "0");
+        node.recv(Rpc::new_rpc("0"), 0);
+        node.recv(Rpc::new_rpc("0"), 0);
         assert!(node.queue.size() == 2);
-        node.recv(Rpc::new_rpc("0"), 0, "0");
+        node.recv(Rpc::new_rpc("0"), 0);
         assert!(node.queue.size() == 2);
         node.tick(0);
         assert!(node.queue.size() == 1);

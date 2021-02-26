@@ -12,7 +12,6 @@ use std::fmt;
 struct TimestampedRpc {
     pub start_time: u64,
     pub rpc: Rpc,
-    pub sender: String,
 }
 
 pub struct Edge {
@@ -57,8 +56,8 @@ impl SimElement for Edge {
         }
         return to_return;
     }
-    fn recv(&mut self, rpc: Rpc, tick: u64, sender: &str) {
-        self.enqueue(rpc, tick, sender);
+    fn recv(&mut self, rpc: Rpc, tick: u64) {
+        self.enqueue(rpc, tick);
     }
     fn add_connection(&mut self, neighbor: String) {
         assert!(self.neighbors.len() < 2);
@@ -77,12 +76,11 @@ impl SimElement for Edge {
 }
 
 impl Edge {
-    pub fn enqueue(&mut self, x: Rpc, now: u64, sender: &str) {
+    pub fn enqueue(&mut self, x: Rpc, now: u64) {
         self.queue
             .add(TimestampedRpc {
                 start_time: now,
                 rpc: x,
-                sender: sender.to_string(),
             })
             .unwrap();
     }
@@ -101,12 +99,15 @@ impl Edge {
                 let mut queue_element_to_remove = self.queue.remove().unwrap();
                 let dest: String;
                 // send the RPC to the other end of the edge
-                if self.neighbors[0] == queue_element_to_remove.sender {
+                if self.neighbors[0] == queue_element_to_remove.rpc.headers["dest"] {
                     dest = self.neighbors[1].clone();
                 } else {
                     dest = self.neighbors[0].clone();
                 }
-                *(queue_element_to_remove.rpc.headers.get_mut("dest").unwrap()) = dest;
+                queue_element_to_remove
+                    .rpc
+                    .headers
+                    .insert("dest".to_string(), dest);
                 ret.push(queue_element_to_remove.rpc);
             }
             // Either the queue has emptied or no other RPCs are ready.
@@ -150,7 +151,7 @@ mod tests {
         let mut edge = Edge::new("0", 0);
         b.iter(|| {
             for i in 1..100 {
-                edge.enqueue(Rpc::new_rpc("0"), i, "0")
+                edge.enqueue(Rpc::new_rpc("0"), i)
             }
         });
     }
@@ -160,7 +161,7 @@ mod tests {
         let mut edge = Edge::new("0", 0);
         b.iter(|| {
             for i in 1..100 {
-                edge.enqueue(Rpc::new_rpc("0"), i, "0");
+                edge.enqueue(Rpc::new_rpc("0"), i);
             }
             edge.dequeue(0);
         });

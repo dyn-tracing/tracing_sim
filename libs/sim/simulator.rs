@@ -136,33 +136,29 @@ impl Simulator {
     }
 
     pub fn tick(&mut self, tick: u64) {
-        let mut rpc_buffer = HashMap::new();
+        let mut rpc_buffer = vec![];
         // tick all elements to generate Rpcs
         // this is the send phase. collect all the rpcs
         for (elem_name, element_obj) in self.elements.iter_mut() {
             let rpcs = element_obj.tick(tick);
-            let mut input_rpcs = vec![];
-            for rpc in rpcs {
-                input_rpcs.push(rpc);
+            for rpc in &rpcs {
+                rpc_buffer.push(rpc.clone());
             }
-            rpc_buffer.insert(elem_name.clone(), input_rpcs);
             if !elem_name.contains("_") {
                 println!(
                     "After tick {:5}, {:45} \n\toutputs {:?}\n",
-                    tick, element_obj, rpc_buffer[elem_name]
+                    tick, element_obj, rpcs
                 );
             }
         }
         print!("\n\n");
 
         // now start the receive phase
-        for (elem_name, rpcs) in rpc_buffer {
-            for rpc in rpcs {
-                let dst = &rpc.headers["dest"];
-                match self.elements.get_mut(dst) {
-                    Some(elem) => elem.recv(rpc, tick, &elem_name),
-                    None => panic!("expected {0} to be in elements, but it was not", dst),
-                }
+        for rpc in rpc_buffer {
+            let dst = &rpc.headers["dest"];
+            match self.elements.get_mut(dst) {
+                Some(elem) => elem.recv(rpc, tick),
+                None => panic!("expected {0} to be in elements, but it was not", dst),
             }
         }
 

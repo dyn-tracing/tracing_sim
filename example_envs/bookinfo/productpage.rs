@@ -1,12 +1,10 @@
-//! An abstraction of a node.  The node can have a plugin, which is meant to reprsent a WebAssembly filter
-//! A node is a sim_element.
-
 use core::any::Any;
 use queues::*;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use rpc_lib::rpc::Rpc;
 use sim::node::node_fmt_with_name;
 use sim::node::Node;
+use sim::node::NodeTraits;
 use sim::sim_element::SimElement;
 use std::cmp::min;
 use std::fmt;
@@ -23,50 +21,35 @@ impl fmt::Display for ProductPage {
 
 impl SimElement for ProductPage {
     fn tick(&mut self, tick: u64) -> Vec<Rpc> {
-        let mut ret = vec![];
+        let mut outgoing_rpcs: Vec<Rpc> = vec![];
         for _ in 0..min(
             self.core_node.queue.size(),
             self.core_node.egress_rate as usize,
         ) {
-            let rpc: Rpc;
-            if self.core_node.queue.size() > 0 {
-                rpc = self.core_node.dequeue(tick).unwrap();
-            } else {
-                // no rpc in the queue, we only forward so nothing to do
+            if self.core_node.queue.size() == 0 {
+                // No RPC in the queue. We only forward, so nothing to do
                 continue;
             }
-            // forward requests/responses from productpage or reviews
-            if rpc.headers.contains_key("src") {
-                let destinations = self.choose_destination(&rpc);
-                for dest in destinations {
-                    let mut new_rpc = rpc.clone();
-                    new_rpc.headers.insert("dest".to_string(), dest.clone());
-                    new_rpc
-                        .headers
-                        .insert("src".to_string(), self.core_node.id.to_string());
-                    if let Some(plugin) = self.core_node.plugin.as_mut() {
-                        new_rpc
-                            .headers
-                            .insert("location".to_string(), "egress".to_string());
-
-                        plugin.recv(new_rpc, tick, &self.core_node.id);
-                        let filtered_rpcs = plugin.tick(tick);
-                        for filtered_rpc in filtered_rpcs {
-                            ret.push(filtered_rpc);
-                        }
-                    } else {
-                        ret.push(new_rpc)
-                    }
-                }
-            } else {
+            let mut rpc = self.core_node.dequeue(tick).unwrap();
+            // Forward requests/responses from productpage or reviews
+            if !rpc.headers.contains_key("src") {
                 panic!("Product page got rpc without a source");
             }
+            // Process the RPC
+            let mut new_rpcs: Vec<Rpc> = vec![];
+            self.process_rpc(&mut rpc, &mut new_rpcs);
+
+            // Pass the RPCs we have through the plugin
+            for rpc in new_rpcs {
+                self.core_node
+                    .pass_through_plugin(rpc, &mut outgoing_rpcs, tick, "egress");
+            }
         }
-        ret
+        outgoing_rpcs
     }
 
-    fn recv(&mut self, rpc: Rpc, tick: u64, sender: &str) {
-        self.core_node.recv(rpc, tick, sender);
+    fn recv(&mut self, rpc: Rpc, tick: u64) {
+        self.core_node.recv(rpc, tick);
     }
     fn add_connection(&mut self, neighbor: String) {
         self.core_node.add_connection(neighbor)
@@ -82,6 +65,35 @@ impl SimElement for ProductPage {
     }
 }
 
+impl NodeTraits for ProductPage {
+    fn process_rpc(&self, rpc: &mut Rpc, new_rpcs: &mut Vec<Rpc>) {
+        let review_nodes = vec!["reviews-v1", "reviews-v2", "reviews-v3"];
+        let mut rng: StdRng = SeedableRng::seed_from_u64(self.core_node.seed);
+        let source: &str = &rpc.headers["src"];
+        if review_nodes.contains(&source) || source == "details-v1" {
+            rpc.headers
+                .insert("dest".to_string(), "gateway".to_string());
+        } else if source == "gateway" {
+            let idx = rng.gen_range(0, review_nodes.len());
+            let dest = review_nodes[idx];
+            rpc.headers.insert("dest".to_string(), dest.to_string());
+            let mut details_rpc = rpc.clone();
+            details_rpc
+                .headers
+                .insert("dest".to_string(), "details-v1".to_string());
+            details_rpc
+                .headers
+                .insert("src".to_string(), self.core_node.id.to_string());
+            new_rpcs.push(details_rpc);
+        } else {
+            panic!("ProductPage node does not have a valid source!");
+        }
+        rpc.headers
+            .insert("src".to_string(), self.core_node.id.to_string());
+        new_rpcs.push(rpc.clone());
+    }
+}
+
 impl ProductPage {
     pub fn new(
         id: &str,
@@ -93,25 +105,6 @@ impl ProductPage {
         assert!(capacity >= 1);
         let core_node = Node::new(id, capacity, egress_rate, 0, plugin, seed);
         ProductPage { core_node }
-    }
-
-    pub fn choose_destination(&self, rpc: &Rpc) -> Vec<String> {
-        let review_nodes = vec!["reviews-v1", "reviews-v2", "reviews-v3"];
-        let mut rng: StdRng = SeedableRng::seed_from_u64(self.core_node.seed);
-        let source: &str = &rpc.headers["src"];
-        if review_nodes.contains(&source) || source == "details-v1" {
-            return vec!["gateway".to_string()];
-        } else if source == "gateway" {
-            let idx = rng.gen_range(0, review_nodes.len());
-            let dest = review_nodes[idx];
-            return vec![dest.to_string(), "details-v1".to_string()];
-        } else if source == &self.core_node.id {
-            // if we are creating a new RPC, eg, we are sending to storage
-            let dest: &str = &rpc.headers["dest"];
-            return vec![dest.to_string()];
-        } else {
-            panic!("ProductPage node does not have a valid source!");
-        }
     }
 }
 
@@ -131,10 +124,10 @@ mod tests {
         node.add_connection("foo".to_string()); // without at least one neighbor, it will just drop rpcs
         assert!(node.core_node.capacity == 2);
         assert!(node.core_node.egress_rate == 1);
-        node.core_node.recv(Rpc::new_rpc("0"), 0, "0");
-        node.core_node.recv(Rpc::new_rpc("0"), 0, "0");
+        node.core_node.recv(Rpc::new_rpc("0"), 0);
+        node.core_node.recv(Rpc::new_rpc("0"), 0);
         assert!(node.core_node.queue.size() == 2);
-        node.core_node.recv(Rpc::new_rpc("0"), 0, "0");
+        node.core_node.recv(Rpc::new_rpc("0"), 0);
         assert!(node.core_node.queue.size() == 2);
         node.core_node.tick(0);
         assert!(node.core_node.queue.size() == 1);

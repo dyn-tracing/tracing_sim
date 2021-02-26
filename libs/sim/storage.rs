@@ -34,7 +34,7 @@ impl SimElement for Storage {
         return vec![];
     }
 
-    fn recv(&mut self, rpc: Rpc, tick: u64, _sender: &str) {
+    fn recv(&mut self, rpc: Rpc, tick: u64) {
         self.store(rpc, tick);
     }
     fn add_connection(&mut self, neighbor: String) {
@@ -86,7 +86,7 @@ mod tests {
         let mut rpc = Rpc::new_rpc("0");
         rpc.headers
             .insert("dest".to_string(), "storage".to_string());
-        storage.recv(rpc, 0, "node");
+        storage.recv(rpc, 0);
         let ret = storage.query();
         assert!(ret == "0\n".to_string());
     }
