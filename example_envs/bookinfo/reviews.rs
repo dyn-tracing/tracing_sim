@@ -1,11 +1,9 @@
-//! An abstraction of a review node from bookinfo.  The node can have a plugin, which is meant to reprsent a WebAssembly filter
-//! A node is a sim_element.
-
 use core::any::Any;
 use queues::*;
 use rpc_lib::rpc::Rpc;
 use sim::node::node_fmt_with_name;
 use sim::node::Node;
+use sim::node::NodeTraits;
 use sim::sim_element::SimElement;
 use std::cmp::min;
 use std::fmt;
@@ -38,20 +36,13 @@ impl SimElement for Reviews {
             if !rpc.headers.contains_key("src") {
                 panic!("Reviews node is missing source header for forwarding! Invalid RPC.");
             }
+            // Process the RPC
+            let mut new_rpcs: Vec<Rpc> = vec![];
+            self.process_rpc(&mut rpc, &mut new_rpcs);
 
-            // forward requests/responses from productpage or reviews
-            self.choose_destination(&mut rpc);
-            if let Some(plugin) = self.core_node.plugin.as_mut() {
-                rpc.headers
-                    .insert("location".to_string(), "egress".to_string());
-                plugin.recv(rpc, tick);
-                let filtered_rpcs = plugin.tick(tick);
-                for filtered_rpc in filtered_rpcs {
-                    outgoing_rpcs.push(filtered_rpc.clone());
-                }
-            } else {
-                outgoing_rpcs.push(rpc);
-            }
+            // Pass the rpc we have through the plugin
+            self.core_node
+                .pass_through_plugin(new_rpcs, &mut outgoing_rpcs, tick, "egress");
         }
         outgoing_rpcs
     }
@@ -73,14 +64,8 @@ impl SimElement for Reviews {
     }
 }
 
-impl Reviews {
-    pub fn new(id: &str, capacity: u32, egress_rate: u32, plugin: Option<&str>) -> Reviews {
-        assert!(capacity >= 1);
-        let core_node = Node::new(id, capacity, egress_rate, 0, plugin, 0);
-        Reviews { core_node }
-    }
-
-    pub fn choose_destination(&self, rpc: &mut Rpc) {
+impl NodeTraits for Reviews {
+    fn process_rpc(&self, rpc: &mut Rpc, new_rpcs: &mut Vec<Rpc>) {
         let source = &rpc.headers["src"];
         if source == "ratings-v1" {
             rpc.headers
@@ -93,6 +78,15 @@ impl Reviews {
         }
         rpc.headers
             .insert("src".to_string(), self.core_node.id.to_string());
+        new_rpcs.push(rpc.clone());
+    }
+}
+
+impl Reviews {
+    pub fn new(id: &str, capacity: u32, egress_rate: u32, plugin: Option<&str>) -> Reviews {
+        assert!(capacity >= 1);
+        let core_node = Node::new(id, capacity, egress_rate, 0, plugin, 0);
+        Reviews { core_node }
     }
 }
 
@@ -100,7 +94,6 @@ impl Reviews {
 mod tests {
     use super::*;
     use std::path::PathBuf;
-
     #[test]
     fn test_node_creation() {
         let _node = Reviews::new("0", 2, 2, None);

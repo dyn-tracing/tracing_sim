@@ -17,5 +17,3 @@ pub trait SimElement {
 
     fn as_any(&self) -> &dyn Any;
 }
-
-pub trait Node {}

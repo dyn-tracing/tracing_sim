@@ -1,11 +1,9 @@
-//! An abstraction of a node.  The node can have a plugin, which is meant to reprsent a WebAssembly filter
-//! A node is a sim_element.
-
 use core::any::Any;
 use queues::*;
 use rpc_lib::rpc::Rpc;
 use sim::node::node_fmt_with_name;
 use sim::node::Node;
+use sim::node::NodeTraits;
 use sim::sim_element::SimElement;
 use std::cmp::min;
 use std::fmt;
@@ -27,32 +25,22 @@ impl SimElement for LeafNode {
             self.core_node.queue.size(),
             self.core_node.egress_rate as usize,
         ) {
-            let mut rpc: Rpc;
-            if self.core_node.queue.size() > 0 {
-                let deq = self.core_node.dequeue(tick);
-                rpc = deq.unwrap();
-            } else {
-                // no rpc in the queue, we only react so nothing to do
+            if self.core_node.queue.size() == 0 {
+                // No RPC in the queue. We only react, so nothing to do
                 continue;
             }
+            let mut rpc = self.core_node.dequeue(tick).unwrap();
+
             if !rpc.headers.contains_key("src") {
                 panic!("Leaf node is missing source header for forwarding! Invalid RPC.");
             }
-            self.process_rpc(&mut rpc);
+            // Process the RPC
+            let mut new_rpcs: Vec<Rpc> = vec![];
+            self.process_rpc(&mut rpc, &mut new_rpcs);
 
-            // If the plugin exists, run the RPC through
-            // Otherwise just push it into the egress queue
-            if let Some(plugin) = self.core_node.plugin.as_mut() {
-                rpc.headers
-                    .insert("location".to_string(), "egress".to_string());
-                plugin.recv(rpc, tick);
-                let filtered_rpcs = plugin.tick(tick);
-                for filtered_rpc in filtered_rpcs {
-                    outgoing_rpcs.push(filtered_rpc.clone());
-                }
-            } else {
-                outgoing_rpcs.push(rpc.clone());
-            }
+            // Pass the RPCs we have through the plugin
+            self.core_node
+                .pass_through_plugin(new_rpcs, &mut outgoing_rpcs, tick, "egress");
         }
         outgoing_rpcs
     }
@@ -74,24 +62,26 @@ impl SimElement for LeafNode {
     }
 }
 
-impl LeafNode {
-    pub fn new(id: &str, capacity: u32, egress_rate: u32, plugin: Option<&str>) -> LeafNode {
-        assert!(capacity >= 1);
-        let core_node = Node::new(id, capacity, egress_rate, 0, plugin, 0);
-        LeafNode { core_node }
-    }
-
-    pub fn process_rpc(&mut self, rpc: &mut Rpc) {
+impl NodeTraits for LeafNode {
+    fn process_rpc(&self, rpc: &mut Rpc, new_rpcs: &mut Vec<Rpc>) {
         // We just reflect the RPC
         rpc.headers
             .insert("dest".to_string(), rpc.headers["src"].to_string());
         // This turns into a response now
         rpc.headers
             .insert("direction".to_string(), "response".to_string());
-
         // Update the source after we have chosen the destination
         rpc.headers
             .insert("src".to_string(), self.core_node.id.to_string());
+        new_rpcs.push(rpc.clone());
+    }
+}
+
+impl LeafNode {
+    pub fn new(id: &str, capacity: u32, egress_rate: u32, plugin: Option<&str>) -> LeafNode {
+        assert!(capacity >= 1);
+        let core_node = Node::new(id, capacity, egress_rate, 0, plugin, 0);
+        LeafNode { core_node }
     }
 }
 

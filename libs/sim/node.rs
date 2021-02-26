@@ -21,6 +21,10 @@ pub struct Node {
     pub seed: u64,
 }
 
+pub trait NodeTraits {
+    fn process_rpc(&self, rpc: &mut Rpc, new_rpcs: &mut Vec<Rpc>);
+}
+
 pub fn node_fmt_with_name(node: &Node, f: &mut fmt::Formatter<'_>, name: &str) -> fmt::Result {
     if let Some(width) = f.width() {
         if node.plugin.is_none() {
@@ -76,25 +80,13 @@ impl SimElement for Node {
                 rpc.headers
                     .insert("direction".to_string(), "request".to_string());
             }
-            // Set yourself as the source
-            rpc.headers.insert("src".to_string(), self.id.to_string());
 
             // Select the destination
-            self.choose_destination(&mut rpc);
+            let mut new_rpcs: Vec<Rpc> = vec![];
+            self.process_rpc(&mut rpc, &mut new_rpcs);
 
-            // If the plugin exists, run the RPC through
-            // Otherwise just push it into the egress queue
-            if let Some(plugin) = self.plugin.as_mut() {
-                rpc.headers
-                    .insert("location".to_string(), "egress".to_string());
-                plugin.recv(rpc, tick);
-                let filtered_rpcs = plugin.tick(tick);
-                for filtered_rpc in filtered_rpcs {
-                    outgoing_rpcs.push(filtered_rpc.clone());
-                }
-            } else {
-                outgoing_rpcs.push(rpc);
-            }
+            // Pass the RPCs we have through the plugin
+            self.pass_through_plugin(new_rpcs, &mut outgoing_rpcs, tick, "egress");
         }
         outgoing_rpcs
     }
@@ -135,20 +127,12 @@ impl SimElement for Node {
     }
 }
 
-impl Node {
-    pub fn enqueue(&mut self, x: Rpc, _now: u64) {
-        let _res = self.queue.add(x);
-    }
-    pub fn dequeue(&mut self, _now: u64) -> Option<Rpc> {
-        if self.queue.size() == 0 {
-            return None;
-        } else {
-            return Some(self.queue.remove().unwrap());
-        }
-    }
+impl NodeTraits for Node {
+    fn process_rpc(&self, rpc: &mut Rpc, new_rpcs: &mut Vec<Rpc>) {
+        // Set yourself as the source
+        rpc.headers.insert("src".to_string(), self.id.to_string());
 
-    // given an RPC, returns the neighbor it should be sent to
-    pub fn choose_destination(&mut self, rpc: &mut Rpc) {
+        // Select a new destination at random
         if self.neighbors.len() > 0 {
             let mut rng: StdRng = SeedableRng::seed_from_u64(self.seed);
             let idx = rng.gen_range(0, self.neighbors.len());
@@ -157,8 +141,11 @@ impl Node {
         } else {
             panic!("Node has no neighbors and no one to send to");
         }
+        new_rpcs.push(rpc.clone());
     }
+}
 
+impl Node {
     pub fn new(
         id: &str,
         capacity: u32,
@@ -185,6 +172,41 @@ impl Node {
             plugin: created_plugin,
             neighbors: Vec::new(),
             seed,
+        }
+    }
+
+    pub fn pass_through_plugin(
+        &mut self,
+        input_rcps: Vec<Rpc>,
+        processed_rpcs: &mut Vec<Rpc>,
+        tick: u64,
+        direction: &str,
+    ) {
+        for mut rpc in input_rcps {
+            // If the plugin exists, run the RPC through
+            // Otherwise just push it into the egress queue
+            if let Some(plugin) = self.plugin.as_mut() {
+                rpc.headers
+                    .insert("location".to_string(), direction.to_string());
+                plugin.recv(rpc, tick);
+                let filtered_rpcs = plugin.tick(tick);
+                for filtered_rpc in filtered_rpcs {
+                    processed_rpcs.push(filtered_rpc.clone());
+                }
+            } else {
+                processed_rpcs.push(rpc);
+            }
+        }
+    }
+
+    pub fn enqueue(&mut self, x: Rpc, _now: u64) {
+        let _res = self.queue.add(x);
+    }
+    pub fn dequeue(&mut self, _now: u64) -> Option<Rpc> {
+        if self.queue.size() == 0 {
+            return None;
+        } else {
+            return Some(self.queue.remove().unwrap());
         }
     }
 }

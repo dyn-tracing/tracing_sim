@@ -1,12 +1,10 @@
-//! An abstraction of a node.  The node can have a plugin, which is meant to reprsent a WebAssembly filter
-//! A node is a sim_element.
-
 use core::any::Any;
 use queues::*;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use rpc_lib::rpc::Rpc;
 use sim::node::node_fmt_with_name;
 use sim::node::Node;
+use sim::node::NodeTraits;
 use sim::sim_element::SimElement;
 use std::cmp::min;
 use std::fmt;
@@ -29,32 +27,21 @@ impl SimElement for ProductPage {
             self.core_node.egress_rate as usize,
         ) {
             if self.core_node.queue.size() == 0 {
-                // no rpc in the queue, we only forward so nothing to do
+                // No RPC in the queue. We only forward, so nothing to do
                 continue;
             }
             let mut rpc = self.core_node.dequeue(tick).unwrap();
-            // forward requests/responses from productpage or reviews
+            // Forward requests/responses from productpage or reviews
             if !rpc.headers.contains_key("src") {
                 panic!("Product page got rpc without a source");
             }
+            // Process the RPC
             let mut new_rpcs: Vec<Rpc> = vec![];
             self.process_rpc(&mut rpc, &mut new_rpcs);
-            new_rpcs.push(rpc.clone());
-            for mut rpc in new_rpcs {
-                // If the plugin exists, run the RPC through
-                // Otherwise just push it into the egress queue
-                if let Some(plugin) = self.core_node.plugin.as_mut() {
-                    rpc.headers
-                        .insert("location".to_string(), "egress".to_string());
-                    plugin.recv(rpc, tick);
-                    let filtered_rpcs = plugin.tick(tick);
-                    for filtered_rpc in filtered_rpcs {
-                        outgoing_rpcs.push(filtered_rpc.clone());
-                    }
-                } else {
-                    outgoing_rpcs.push(rpc);
-                }
-            }
+
+            // Pass the RPCs we have through the plugin
+            self.core_node
+                .pass_through_plugin(new_rpcs, &mut outgoing_rpcs, tick, "egress");
         }
         outgoing_rpcs
     }
@@ -76,20 +63,8 @@ impl SimElement for ProductPage {
     }
 }
 
-impl ProductPage {
-    pub fn new(
-        id: &str,
-        capacity: u32,
-        egress_rate: u32,
-        plugin: Option<&str>,
-        seed: u64,
-    ) -> ProductPage {
-        assert!(capacity >= 1);
-        let core_node = Node::new(id, capacity, egress_rate, 0, plugin, seed);
-        ProductPage { core_node }
-    }
-
-    pub fn process_rpc(&self, rpc: &mut Rpc, new_rpcs: &mut Vec<Rpc>) {
+impl NodeTraits for ProductPage {
+    fn process_rpc(&self, rpc: &mut Rpc, new_rpcs: &mut Vec<Rpc>) {
         let review_nodes = vec!["reviews-v1", "reviews-v2", "reviews-v3"];
         let mut rng: StdRng = SeedableRng::seed_from_u64(self.core_node.seed);
         let source: &str = &rpc.headers["src"];
@@ -108,14 +83,26 @@ impl ProductPage {
                 .headers
                 .insert("src".to_string(), self.core_node.id.to_string());
             new_rpcs.push(details_rpc);
-        } else if source == &self.core_node.id {
-            // if we are creating a new RPC, eg, we are sending to storage
-            // do nothing here
         } else {
             panic!("ProductPage node does not have a valid source!");
         }
         rpc.headers
             .insert("src".to_string(), self.core_node.id.to_string());
+        new_rpcs.push(rpc.clone());
+    }
+}
+
+impl ProductPage {
+    pub fn new(
+        id: &str,
+        capacity: u32,
+        egress_rate: u32,
+        plugin: Option<&str>,
+        seed: u64,
+    ) -> ProductPage {
+        assert!(capacity >= 1);
+        let core_node = Node::new(id, capacity, egress_rate, 0, plugin, seed);
+        ProductPage { core_node }
     }
 }
 
