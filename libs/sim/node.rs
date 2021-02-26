@@ -66,56 +66,32 @@ impl SimElement for Node {
             self.queue.size() + (self.generation_rate as usize),
             self.egress_rate as usize,
         ) {
+            // Dequeue an RPC, or generate one
+            let mut rpc: Rpc;
             if self.queue.size() > 0 {
-                let mut deq = self.dequeue(tick).unwrap();
+                let deq = self.dequeue(tick);
+                rpc = deq.unwrap();
+            } else {
+                rpc = Rpc::new_rpc(&tick.to_string());
+                rpc.headers
+                    .insert("direction".to_string(), "request".to_string());
+            }
+            // Set yourself as the source
+            rpc.headers.insert("src".to_string(), self.id.clone());
 
-                // 1. change src/dst headers appropriately
-                let new_dest = self.choose_destination(&deq);
-                if !deq.headers.contains_key("dest") {
-                    deq.headers.insert("dest".to_string(), new_dest.clone());
-                } else {
-                    let dest = deq.headers.get_mut("dest").unwrap();
-                    *dest = new_dest.clone();
-                }
-                if !deq.headers.contains_key("src") {
-                    deq.headers.insert("src".to_string(), self.id.clone());
-                } else {
-                    let src = deq.headers.get_mut("src").unwrap();
-                    *src = self.id.clone();
-                }
+            // Select the destination
+            self.choose_destination(&mut rpc);
 
-                // 2. If there's a plugin, run it through the plugin and then put into ret
-                if self.plugin.is_some() {
-                    deq.headers
-                        .insert("location".to_string(), "egress".to_string());
-                    self.plugin.as_mut().unwrap().recv(deq, tick, &self.id);
-                    let filtered_rpcs = self.plugin.as_mut().unwrap().tick(tick);
-                    for filtered_rpc in filtered_rpcs {
-                        ret.push(filtered_rpc.clone());
-                    }
-                } else {
-                    ret.push(deq);
+            // If the plugin exists, run the RPC through
+            // Otherwise just push it into the egress queue
+            if self.plugin.is_some() {
+                self.plugin.as_mut().unwrap().recv(rpc, tick, &self.id);
+                let filtered_rpcs = self.plugin.as_mut().unwrap().tick(tick);
+                for filtered_rpc in filtered_rpcs {
+                    ret.push(filtered_rpc.clone());
                 }
             } else {
-                let mut new_rpc = Rpc::new_rpc(&tick.to_string());
-                new_rpc
-                    .headers
-                    .insert("direction".to_string(), "request".to_string());
-                new_rpc
-                    .headers
-                    .insert("dest".to_string(), self.choose_destination(&new_rpc));
-                if self.plugin.is_some() {
-                    self.plugin.as_mut().unwrap().recv(new_rpc, tick, &self.id);
-                    let filtered_rpcs = self.plugin.as_mut().unwrap().tick(tick);
-                    for filtered_rpc in filtered_rpcs {
-                        ret.push(filtered_rpc.clone());
-                    }
-                } else {
-                    let new_dest = self.choose_destination(&new_rpc);
-                    let dst = new_rpc.headers.get_mut("dest").unwrap();
-                    *dst = new_dest;
-                    ret.push(new_rpc);
-                }
+                ret.push(rpc);
             }
         }
         ret
@@ -170,21 +146,15 @@ impl Node {
     }
 
     // given an RPC, returns the neighbor it should be sent to
-    pub fn choose_destination(&mut self, rpc: &Rpc) -> String {
-        if rpc.headers.contains_key("dest") {
-            let dest = &rpc.headers["dest"].clone();
-            for n in &self.neighbors {
-                if n == dest {
-                    return dest.to_string();
-                }
-            }
-        } else if self.neighbors.len() > 0 {
+    pub fn choose_destination(&mut self, rpc: &mut Rpc) {
+        if self.neighbors.len() > 0 {
             let mut rng: StdRng = SeedableRng::seed_from_u64(self.seed);
             let idx = rng.gen_range(0, self.neighbors.len());
-            let which_neighbor = self.neighbors[idx].clone();
-            return which_neighbor;
+            rpc.headers
+                .insert("dest".to_string(), self.neighbors[idx].clone());
+        } else {
+            panic!("Node has no neighbors and no one to send to");
         }
-        panic!("Node has no neighbors and no one to send to");
     }
 
     pub fn new(
