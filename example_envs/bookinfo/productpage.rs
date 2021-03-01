@@ -8,9 +8,20 @@ use sim::node::NodeTraits;
 use sim::sim_element::SimElement;
 use std::cmp::min;
 use std::fmt;
+use std::collections::HashMap;
+
+pub struct PendingRpc {
+    details_rpc: Option<Rpc>,
+    review_rpc: Option<Rpc>,
+}
+
+impl PendingRpc {
+    fn default() -> PendingRpc { PendingRpc { details_rpc: None, review_rpc: None } }
+}
 
 pub struct ProductPage {
     core_node: Node,
+    pending_rpcs: HashMap<u64, PendingRpc>
 }
 
 impl fmt::Display for ProductPage {
@@ -49,7 +60,37 @@ impl SimElement for ProductPage {
     }
 
     fn recv(&mut self, rpc: Rpc, tick: u64) {
-        self.core_node.recv(rpc, tick);
+        // drop packets you cannot accept
+        if (self.core_node.queue.size() as u32) < self.core_node.capacity {
+            let mut inbound_rpcs: Vec<Rpc> = vec![];
+            self.core_node.pass_through_plugin(rpc, &mut inbound_rpcs, tick, "ingress");
+            for inbound_rpc in inbound_rpcs {
+                if self.pending_rpcs.contains_key(&inbound_rpc.uid) {
+                    if inbound_rpc.headers["src"].contains("review") {
+                        self.pending_rpcs.get_mut(&inbound_rpc.uid).unwrap().review_rpc = Some(inbound_rpc.clone());
+                    }
+                    else if inbound_rpc.headers["src"].contains("details") {
+                        self.pending_rpcs.get_mut(&inbound_rpc.uid).unwrap().details_rpc = Some(inbound_rpc.clone());
+                    }
+                }
+                else { 
+                    self.pending_rpcs.insert(inbound_rpc.uid, PendingRpc::default());
+                    self.core_node.enqueue(inbound_rpc, tick);
+                }
+            }
+            let mut to_remove = Vec::new();
+            for trace_id in self.pending_rpcs.keys() {
+                let pending = &self.pending_rpcs[trace_id];
+                if pending.review_rpc.is_some() && pending.details_rpc.is_some() {
+                    let new_rpc = ProductPage::merge_rpcs(pending.review_rpc.as_ref().unwrap().clone(), pending.details_rpc.as_ref().unwrap().clone());
+                    self.core_node.enqueue(new_rpc, tick);
+                    to_remove.push(trace_id.clone());
+                }
+            }
+            for trace_id_to_remove in to_remove {
+                self.pending_rpcs.remove(&trace_id_to_remove);
+            }
+        }
     }
     fn add_connection(&mut self, neighbor: String) {
         self.core_node.add_connection(neighbor)
@@ -70,7 +111,8 @@ impl NodeTraits for ProductPage {
         let review_nodes = vec!["reviews-v1", "reviews-v2", "reviews-v3"];
         let mut rng: StdRng = SeedableRng::seed_from_u64(self.core_node.seed);
         let source: &str = &rpc.headers["src"];
-        if review_nodes.contains(&source) || source == "details-v1" {
+        if review_nodes.contains(&source) || source.contains("details-v1") {
+            // contains is used rather than an exact match in order to accomodate merging rpcs
             rpc.headers
                 .insert("dest".to_string(), "gateway".to_string());
         } else if source == "gateway" {
@@ -104,7 +146,32 @@ impl ProductPage {
     ) -> ProductPage {
         assert!(capacity >= 1);
         let core_node = Node::new(id, capacity, egress_rate, 0, plugin, seed);
-        ProductPage { core_node }
+        ProductPage { core_node, pending_rpcs: HashMap::new() }
+    }
+
+    pub fn merge_rpcs(rpc1: Rpc, rpc2: Rpc) -> Rpc {
+        assert!(rpc1.uid==rpc2.uid);
+        let mut new_headers = rpc1.headers.clone();
+        for key in rpc2.headers.keys() {
+            if new_headers.contains_key(key) {
+                let mut new_value = rpc1.headers[key].clone();
+                new_value.push_str(&rpc2.headers[key]); // concatenate
+                new_headers.insert(key.to_string(), new_value);
+            }
+            else { new_headers.insert(key.to_string(), rpc2.headers[key].clone()); }
+        }
+        let mut new_data = rpc1.data;
+        new_data.push_str(&rpc2.data);
+
+        let mut new_path = rpc1.path;
+        new_path.push_str(&rpc2.path);
+
+        Rpc {
+            data: new_data,
+            uid: rpc1.uid,
+            path: new_path,
+            headers: new_headers,
+        }
     }
 }
 
