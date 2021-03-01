@@ -257,6 +257,14 @@ mod tests {
         assert!(graph.node_count() == 0);
     }
 
+    fn test_generate_trace_graph_from_headers_on_small_string() {
+        let graph = generate_trace_graph_from_headers(
+            "productpage-v1,details-v1,productpage-v1".to_string(),
+            String::new(),
+        );
+        assert!(graph.node_count() == 3);
+    }
+
     #[test]
     fn test_get_tree_height() {
         let graph = generate_trace_graph_from_headers("0,1,3,1,2".to_string(), String::new());

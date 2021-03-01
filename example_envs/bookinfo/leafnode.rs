@@ -66,15 +66,17 @@ impl SimElement for LeafNode {
 
 impl NodeTraits for LeafNode {
     fn process_rpc(&self, rpc: &mut Rpc, new_rpcs: &mut Vec<Rpc>) {
-        // We just reflect the RPC
-        rpc.headers
-            .insert("dest".to_string(), rpc.headers["src"].to_string());
-        // This turns into a response now
-        rpc.headers
-            .insert("direction".to_string(), "response".to_string());
-        // Update the source after we have chosen the destination
-        rpc.headers
-            .insert("src".to_string(), self.core_node.id.to_string());
+        if !rpc.headers["dest"].contains("storage") {
+            // We just reflect the RPC
+            rpc.headers
+                .insert("dest".to_string(), rpc.headers["src"].to_string());
+            // This turns into a response now
+            rpc.headers
+                .insert("direction".to_string(), "response".to_string());
+            // Update the source after we have chosen the destination
+            rpc.headers
+                .insert("src".to_string(), self.core_node.id.to_string());
+        }
         new_rpcs.push(rpc.clone());
     }
 }

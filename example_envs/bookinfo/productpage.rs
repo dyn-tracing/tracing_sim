@@ -85,7 +85,7 @@ impl NodeTraits for ProductPage {
                 .headers
                 .insert("src".to_string(), self.core_node.id.to_string());
             new_rpcs.push(details_rpc);
-        } else {
+        } else if !&rpc.headers["dest"].contains("storage") {
             panic!("ProductPage node does not have a valid source!");
         }
         rpc.headers

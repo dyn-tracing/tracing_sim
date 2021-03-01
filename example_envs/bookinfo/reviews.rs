@@ -75,7 +75,7 @@ impl NodeTraits for Reviews {
         } else if source == "productpage-v1" {
             rpc.headers
                 .insert("dest".to_string(), "ratings-v1".to_string());
-        } else {
+        } else if !&rpc.headers["dest"].contains("storage") {
             panic!("Unexpected RPC source {:?}", source);
         }
         rpc.headers
