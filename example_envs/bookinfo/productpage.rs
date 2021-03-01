@@ -7,8 +7,8 @@ use sim::node::Node;
 use sim::node::NodeTraits;
 use sim::sim_element::SimElement;
 use std::cmp::min;
-use std::fmt;
 use std::collections::HashMap;
+use std::fmt;
 
 pub struct PendingRpc {
     details_rpc: Option<Rpc>,
@@ -16,12 +16,17 @@ pub struct PendingRpc {
 }
 
 impl PendingRpc {
-    fn default() -> PendingRpc { PendingRpc { details_rpc: None, review_rpc: None } }
+    fn default() -> PendingRpc {
+        PendingRpc {
+            details_rpc: None,
+            review_rpc: None,
+        }
+    }
 }
 
 pub struct ProductPage {
     core_node: Node,
-    pending_rpcs: HashMap<u64, PendingRpc>
+    pending_rpcs: HashMap<u64, PendingRpc>,
 }
 
 impl fmt::Display for ProductPage {
@@ -33,13 +38,15 @@ impl fmt::Display for ProductPage {
 impl SimElement for ProductPage {
     fn tick(&mut self, tick: u64) -> Vec<Rpc> {
         let mut outgoing_rpcs: Vec<Rpc> = vec![];
-        for _ in 0..min(
+        let max_output = min(
             self.core_node.queue.size(),
             self.core_node.egress_rate as usize,
-        ) {
+        );
+        let mut sent_rpcs = 0;
+        while sent_rpcs < max_output {
             if self.core_node.queue.size() == 0 {
                 // No RPC in the queue. We only forward, so nothing to do
-                continue;
+                return outgoing_rpcs;
             }
             let mut rpc = self.core_node.dequeue(tick).unwrap();
             // Forward requests/responses from productpage or reviews
@@ -49,6 +56,9 @@ impl SimElement for ProductPage {
             // Process the RPC
             let mut new_rpcs: Vec<Rpc> = vec![];
             self.process_rpc(&mut rpc, &mut new_rpcs);
+
+            // make sure to count new rpcs among all outgoing rpcs
+            sent_rpcs += new_rpcs.len();
 
             // Pass the RPCs we have through the plugin
             for rpc in new_rpcs {
@@ -60,37 +70,7 @@ impl SimElement for ProductPage {
     }
 
     fn recv(&mut self, rpc: Rpc, tick: u64) {
-        // drop packets you cannot accept
-        if (self.core_node.queue.size() as u32) < self.core_node.capacity {
-            let mut inbound_rpcs: Vec<Rpc> = vec![];
-            self.core_node.pass_through_plugin(rpc, &mut inbound_rpcs, tick, "ingress");
-            for inbound_rpc in inbound_rpcs {
-                if self.pending_rpcs.contains_key(&inbound_rpc.uid) {
-                    if inbound_rpc.headers["src"].contains("review") {
-                        self.pending_rpcs.get_mut(&inbound_rpc.uid).unwrap().review_rpc = Some(inbound_rpc.clone());
-                    }
-                    else if inbound_rpc.headers["src"].contains("details") {
-                        self.pending_rpcs.get_mut(&inbound_rpc.uid).unwrap().details_rpc = Some(inbound_rpc.clone());
-                    }
-                }
-                else { 
-                    self.pending_rpcs.insert(inbound_rpc.uid, PendingRpc::default());
-                    self.core_node.enqueue(inbound_rpc, tick);
-                }
-            }
-            let mut to_remove = Vec::new();
-            for trace_id in self.pending_rpcs.keys() {
-                let pending = &self.pending_rpcs[trace_id];
-                if pending.review_rpc.is_some() && pending.details_rpc.is_some() {
-                    let new_rpc = ProductPage::merge_rpcs(pending.review_rpc.as_ref().unwrap().clone(), pending.details_rpc.as_ref().unwrap().clone());
-                    self.core_node.enqueue(new_rpc, tick);
-                    to_remove.push(trace_id.clone());
-                }
-            }
-            for trace_id_to_remove in to_remove {
-                self.pending_rpcs.remove(&trace_id_to_remove);
-            }
-        }
+        self.core_node.recv(rpc, tick);
     }
     fn add_connection(&mut self, neighbor: String) {
         self.core_node.add_connection(neighbor)
@@ -107,18 +87,14 @@ impl SimElement for ProductPage {
 }
 
 impl NodeTraits for ProductPage {
-    fn process_rpc(&self, rpc: &mut Rpc, new_rpcs: &mut Vec<Rpc>) {
-        let review_nodes = vec!["reviews-v1", "reviews-v2", "reviews-v3"];
-        let mut rng: StdRng = SeedableRng::seed_from_u64(self.core_node.seed);
-        let source: &str = &rpc.headers["src"];
-        if review_nodes.contains(&source) || source.contains("details-v1") {
-            // contains is used rather than an exact match in order to accomodate merging rpcs
-            rpc.headers
-                .insert("dest".to_string(), "gateway".to_string());
-        } else if source == "gateway" {
-            let idx = rng.gen_range(0, review_nodes.len());
-            let dest = review_nodes[idx];
-            rpc.headers.insert("dest".to_string(), dest.to_string());
+    fn process_rpc(&mut self, rpc: &mut Rpc, new_rpcs: &mut Vec<Rpc>) {
+        if !self.pending_rpcs.contains_key(&rpc.uid) {
+            self.pending_rpcs.insert(rpc.uid, PendingRpc::default());
+            // this RPC must have come from the gateway;  if it came from
+            // reviews or details, we should already have its uid in our pending_rpcs
+            assert!(rpc.headers["src"] == "gateway");
+
+            // make and add details rpc
             let mut details_rpc = rpc.clone();
             details_rpc
                 .headers
@@ -127,12 +103,33 @@ impl NodeTraits for ProductPage {
                 .headers
                 .insert("src".to_string(), self.core_node.id.to_string());
             new_rpcs.push(details_rpc);
+
+            // make and add reviews rpc
+            let review_nodes = vec!["reviews-v1", "reviews-v2", "reviews-v3"];
+            let mut rng: StdRng = SeedableRng::seed_from_u64(self.core_node.seed);
+            let idx = rng.gen_range(0, review_nodes.len());
+            let dest = review_nodes[idx];
+            rpc.headers.insert("dest".to_string(), dest.to_string());
+            rpc.headers
+                .insert("src".to_string(), self.core_node.id.to_string());
+            new_rpcs.push(rpc.clone());
         } else {
-            panic!("ProductPage node does not have a valid source!");
+            let pending_struct = self.pending_rpcs.get_mut(&rpc.uid).unwrap();
+            if rpc.headers["src"].contains("reviews") {
+                pending_struct.review_rpc = Some(rpc.clone());
+            }
+            if rpc.headers["src"].contains("details") {
+                pending_struct.details_rpc = Some(rpc.clone());
+            }
+            if pending_struct.review_rpc.is_some() && pending_struct.details_rpc.is_some() {
+                // send back to gateway
+                rpc.headers
+                    .insert("src".to_string(), self.core_node.id.to_string());
+                rpc.headers
+                    .insert("dest".to_string(), "gateway".to_string());
+                new_rpcs.push(rpc.clone());
+            }
         }
-        rpc.headers
-            .insert("src".to_string(), self.core_node.id.to_string());
-        new_rpcs.push(rpc.clone());
     }
 }
 
@@ -146,31 +143,9 @@ impl ProductPage {
     ) -> ProductPage {
         assert!(capacity >= 1);
         let core_node = Node::new(id, capacity, egress_rate, 0, plugin, seed);
-        ProductPage { core_node, pending_rpcs: HashMap::new() }
-    }
-
-    pub fn merge_rpcs(rpc1: Rpc, rpc2: Rpc) -> Rpc {
-        assert!(rpc1.uid==rpc2.uid);
-        let mut new_headers = rpc1.headers.clone();
-        for key in rpc2.headers.keys() {
-            if new_headers.contains_key(key) {
-                let mut new_value = rpc1.headers[key].clone();
-                new_value.push_str(&rpc2.headers[key]); // concatenate
-                new_headers.insert(key.to_string(), new_value);
-            }
-            else { new_headers.insert(key.to_string(), rpc2.headers[key].clone()); }
-        }
-        let mut new_data = rpc1.data;
-        new_data.push_str(&rpc2.data);
-
-        let mut new_path = rpc1.path;
-        new_path.push_str(&rpc2.path);
-
-        Rpc {
-            data: new_data,
-            uid: rpc1.uid,
-            path: new_path,
-            headers: new_headers,
+        ProductPage {
+            core_node,
+            pending_rpcs: HashMap::new(),
         }
     }
 }

@@ -65,7 +65,7 @@ impl SimElement for LeafNode {
 }
 
 impl NodeTraits for LeafNode {
-    fn process_rpc(&self, rpc: &mut Rpc, new_rpcs: &mut Vec<Rpc>) {
+    fn process_rpc(&mut self, rpc: &mut Rpc, new_rpcs: &mut Vec<Rpc>) {
         // We just reflect the RPC
         rpc.headers
             .insert("dest".to_string(), rpc.headers["src"].to_string());

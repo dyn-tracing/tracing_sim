@@ -22,7 +22,7 @@ pub struct Node {
 }
 
 pub trait NodeTraits {
-    fn process_rpc(&self, rpc: &mut Rpc, new_rpcs: &mut Vec<Rpc>);
+    fn process_rpc(&mut self, rpc: &mut Rpc, new_rpcs: &mut Vec<Rpc>);
 }
 
 pub fn node_fmt_with_name(node: &Node, f: &mut fmt::Formatter<'_>, name: &str) -> fmt::Result {
@@ -122,7 +122,7 @@ impl SimElement for Node {
 }
 
 impl NodeTraits for Node {
-    fn process_rpc(&self, rpc: &mut Rpc, new_rpcs: &mut Vec<Rpc>) {
+    fn process_rpc(&mut self, rpc: &mut Rpc, new_rpcs: &mut Vec<Rpc>) {
         // Set yourself as the source
         rpc.headers.insert("src".to_string(), self.id.to_string());
 

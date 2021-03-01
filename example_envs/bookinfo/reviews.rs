@@ -67,7 +67,7 @@ impl SimElement for Reviews {
 }
 
 impl NodeTraits for Reviews {
-    fn process_rpc(&self, rpc: &mut Rpc, new_rpcs: &mut Vec<Rpc>) {
+    fn process_rpc(&mut self, rpc: &mut Rpc, new_rpcs: &mut Vec<Rpc>) {
         let source = &rpc.headers["src"];
         if source == "ratings-v1" {
             rpc.headers
