@@ -83,7 +83,7 @@ mod tests {
     #[test]
     fn test_query_storage() {
         let mut storage = Storage::new("storage");
-        let mut rpc = Rpc::new_rpc("0");
+        let mut rpc = Rpc::new("0");
         rpc.headers
             .insert("dest".to_string(), "storage".to_string());
         storage.recv(rpc, 0);

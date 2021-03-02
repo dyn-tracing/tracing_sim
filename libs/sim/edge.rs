@@ -151,7 +151,7 @@ mod tests {
         let mut edge = Edge::new("0", 0);
         b.iter(|| {
             for i in 1..100 {
-                edge.enqueue(Rpc::new_rpc("0"), i)
+                edge.enqueue(Rpc::new("0"), i)
             }
         });
     }
@@ -161,7 +161,7 @@ mod tests {
         let mut edge = Edge::new("0", 0);
         b.iter(|| {
             for i in 1..100 {
-                edge.enqueue(Rpc::new_rpc("0"), i);
+                edge.enqueue(Rpc::new("0"), i);
             }
             edge.dequeue(0);
         });

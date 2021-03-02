@@ -6,7 +6,6 @@ use rpc_lib::rpc::Rpc;
 use sim::node::node_fmt_with_name;
 use sim::node::Node;
 use sim::sim_element::SimElement;
-use std::cmp::min;
 use std::fmt;
 
 pub struct Gateway {
@@ -21,22 +20,19 @@ impl fmt::Display for Gateway {
 
 impl SimElement for Gateway {
     fn tick(&mut self, tick: u64) -> Vec<Rpc> {
-        let mut ret = vec![];
-        for _ in 0..min(
-            self.core_node.generation_rate as usize,
-            self.core_node.egress_rate as usize,
-        ) {
-            let mut rpc: Rpc;
-            rpc = Rpc::new_rpc(&tick.to_string());
-            rpc.headers
+        let mut outbound_rpcs = self.core_node.tick(tick);
+        for outbound_rpc in &mut outbound_rpcs {
+            outbound_rpc
+                .headers
                 .insert("direction".to_string(), "request".to_string());
-            rpc.headers
+            outbound_rpc
+                .headers
                 .insert("src".to_string(), self.core_node.id.to_string());
-            rpc.headers
+            outbound_rpc
+                .headers
                 .insert("dest".to_string(), "productpage-v1".to_string());
-            ret.push(rpc);
         }
-        ret
+        outbound_rpcs
     }
     fn recv(&mut self, _rpc: Rpc, _tick: u64) {
         // we discard anything we receive
@@ -82,15 +78,28 @@ mod tests {
     #[test]
     fn test_node_capacity_and_egress_rate() {
         let mut node = Gateway::new("0", 2, 1, 0, 1);
-        node.add_connection("foo".to_string()); // without at least one neighbor, it will just drop rpcs
+        // without at least one neighbor, it will just drop rpcs
+        node.add_connection("foo".to_string());
+        let mut queue_size: usize;
         assert!(node.core_node.capacity == 2);
         assert!(node.core_node.egress_rate == 1);
-        node.core_node.recv(Rpc::new_rpc("0"), 0);
-        node.core_node.recv(Rpc::new_rpc("0"), 0);
-        assert!(node.core_node.queue.size() == 2);
-        node.core_node.recv(Rpc::new_rpc("0"), 0);
-        assert!(node.core_node.queue.size() == 2);
-        node.core_node.tick(0);
-        assert!(node.core_node.queue.size() == 1);
+        node.core_node.enqueue_ingress(Rpc::new("0"), 0);
+        node.core_node.enqueue_ingress(Rpc::new("0"), 0);
+        queue_size = node.core_node.ingress_queue.size();
+        assert!(
+            node.core_node.ingress_queue.size() == 2,
+            "Queue size was `{}`",
+            queue_size
+        );
+        node.recv(Rpc::new("0"), 0);
+        queue_size = node.core_node.ingress_queue.size();
+        assert!(
+            node.core_node.ingress_queue.size() == 2,
+            "Queue size was `{}`",
+            queue_size
+        );
+        let outbound_rpcs = node.tick(0);
+        queue_size = node.core_node.egress_queue.size();
+        assert!(outbound_rpcs.len() == 1, "Queue size was `{}`", queue_size);
     }
 }

@@ -153,7 +153,7 @@ mod tests {
         cargo_dir.push("../../target/debug/libfilter_example");
         let library_str = cargo_dir.to_str().unwrap();
         let plugin = PluginWrapper::new("0", library_str);
-        let rpc = &Rpc::new_rpc("55");
+        let rpc = &Rpc::new("55");
         let rpc_data = &plugin.execute(rpc)[0].data;
         assert!(rpc_data == &"55".to_string());
     }
@@ -167,7 +167,7 @@ mod tests {
         let plugin2 = PluginWrapper::new("1", library_str);
         let plugin3 = PluginWrapper::new("2", library_str);
         let plugin4 = PluginWrapper::new("3", library_str);
-        let ret1: &Rpc = &plugin1.execute(&Rpc::new_rpc("5"))[0];
+        let ret1: &Rpc = &plugin1.execute(&Rpc::new("5"))[0];
         let ret2: &Rpc = &plugin2.execute(&ret1)[0];
         let ret3: &Rpc = &plugin3.execute(&ret2)[0];
         let ret4: &Rpc = &plugin4.execute(&ret3)[0];

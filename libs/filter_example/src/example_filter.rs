@@ -60,7 +60,6 @@ impl Filter {
         let rpc_to_return = Rpc {
             data: x.data.clone(),
             uid: x.uid,
-            path: x.path.clone(),
             headers: x.headers.clone(),
         };
         let mut to_return = vec![rpc_to_return];
@@ -211,7 +210,7 @@ impl Filter {
             let trace_graph;
             if x.headers.contains_key(&"properties".to_string()) {
                 trace_graph = graph_utils::generate_trace_graph_from_headers(
-                    x.path.clone(),
+                    "".to_string(),
                     mod_rpc
                         .headers
                         .get_mut(&"properties".to_string())
@@ -220,7 +219,7 @@ impl Filter {
                 );
             } else {
                 trace_graph =
-                    graph_utils::generate_trace_graph_from_headers(x.path.clone(), String::new());
+                    graph_utils::generate_trace_graph_from_headers("".to_string(), String::new());
             }
             let mapping = isomorphic_subgraph_matching(
                 &target_graph,
@@ -251,7 +250,7 @@ impl Filter {
                     &trace_graph.node_weight(trace_node_index).unwrap().1
                         [&vec!["response", "total_size"].join(".")];
 
-                let mut result_rpc = Rpc::new_rpc(a_response_total_size_str);
+                let mut result_rpc = Rpc::new(a_response_total_size_str);
                 result_rpc
                     .headers
                     .insert("dest".to_string(), "storage".to_string());
