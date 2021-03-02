@@ -161,7 +161,7 @@ impl ProductPage {
             pending_rpc.reviews_reply = Some(inbound_rpc);
         }
         if pending_rpc.details_reply.is_some() && pending_rpc.reviews_reply.is_some() {
-            let mut merged_rpc = Rpc::new_rpc("response");
+            let mut merged_rpc = Rpc::new("response");
             merged_rpc
                 .headers
                 .insert("direction".to_string(), "response".to_string());

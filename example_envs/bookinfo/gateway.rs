@@ -84,15 +84,15 @@ mod tests {
         let mut queue_size: usize;
         assert!(node.core_node.capacity == 2);
         assert!(node.core_node.egress_rate == 1);
-        node.core_node.enqueue_ingress(Rpc::new_rpc("0"), 0);
-        node.core_node.enqueue_ingress(Rpc::new_rpc("0"), 0);
+        node.core_node.enqueue_ingress(Rpc::new("0"), 0);
+        node.core_node.enqueue_ingress(Rpc::new("0"), 0);
         queue_size = node.core_node.ingress_queue.size();
         assert!(
             node.core_node.ingress_queue.size() == 2,
             "Queue size was `{}`",
             queue_size
         );
-        node.recv(Rpc::new_rpc("0"), 0);
+        node.recv(Rpc::new("0"), 0);
         queue_size = node.core_node.ingress_queue.size();
         assert!(
             node.core_node.ingress_queue.size() == 2,

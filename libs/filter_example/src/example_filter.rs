@@ -250,7 +250,7 @@ impl Filter {
                     &trace_graph.node_weight(trace_node_index).unwrap().1
                         [&vec!["response", "total_size"].join(".")];
 
-                let mut result_rpc = Rpc::new_rpc(a_response_total_size_str);
+                let mut result_rpc = Rpc::new(a_response_total_size_str);
                 result_rpc
                     .headers
                     .insert("dest".to_string(), "storage".to_string());

@@ -74,7 +74,7 @@ impl SimElement for Node {
             if let Some(deq) = self.dequeue_ingress(tick) {
                 rpc = deq;
             } else {
-                rpc = Rpc::new_rpc(&tick.to_string());
+                rpc = Rpc::new(&tick.to_string());
                 rpc.headers
                     .insert("direction".to_string(), "request".to_string());
             }
@@ -240,8 +240,8 @@ mod tests {
 
         assert!(node.capacity == 2);
         assert!(node.egress_rate == 1);
-        node.recv(Rpc::new_rpc("0"), 0);
-        node.recv(Rpc::new_rpc("0"), 0);
+        node.recv(Rpc::new("0"), 0);
+        node.recv(Rpc::new("0"), 0);
         queue_size = node.ingress_queue.size();
         assert!(
             node.ingress_queue.size() == 2,
