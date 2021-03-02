@@ -37,41 +37,42 @@ impl fmt::Display for ProductPage {
 
 impl SimElement for ProductPage {
     fn tick(&mut self, tick: u64) -> Vec<Rpc> {
-        let mut outgoing_rpcs: Vec<Rpc> = vec![];
-        let max_output = min(
-            self.core_node.ingress_queue.size(),
-            self.core_node.egress_rate as usize,
-        );
-        let mut sent_rpcs = 0;
-        while sent_rpcs < max_output {
-            if self.core_node.ingress_queue.size() == 0 {
-                // No RPC in the queue. We only forward, so nothing to do
-                return outgoing_rpcs;
-            }
-            let mut rpc = self.core_node.dequeue_ingress(tick).unwrap();
+        if let Some(mut rpc) = self.core_node.dequeue_ingress(tick) {
+            let mut queued_rpcs: Vec<Rpc> = vec![];
             // Forward requests/responses from productpage or reviews
             if !rpc.headers.contains_key("src") {
-                panic!("Product page got rpc without a source");
+                panic!("Productpage received an RPC without a source");
             }
             // Process the RPC
             let mut new_rpcs: Vec<Rpc> = vec![];
             self.process_rpc(&mut rpc, &mut new_rpcs);
 
-            // make sure to count new rpcs among all outgoing rpcs
-            sent_rpcs += new_rpcs.len();
-
             // Pass the RPCs we have through the plugin
             for rpc in new_rpcs {
                 self.core_node
-                    .pass_through_plugin(rpc, &mut outgoing_rpcs, tick, "egress");
+                    .pass_through_plugin(rpc, &mut queued_rpcs, tick, "egress");
+            }
+            for queued_rpcs in &queued_rpcs {
+                self.core_node.enqueue_egress(queued_rpcs.clone())
             }
         }
-        outgoing_rpcs
+
+        let max_output = min(
+            self.core_node.egress_queue.size(),
+            self.core_node.egress_rate as usize,
+        );
+        let mut outbound_rpcs: Vec<Rpc> = vec![];
+        for _ in 0..max_output {
+            outbound_rpcs.push(self.core_node.dequeue_egress().unwrap())
+        }
+        outbound_rpcs
     }
 
     fn recv(&mut self, rpc: Rpc, tick: u64) {
         // drop packets you cannot accept
-        if (self.core_node.ingress_queue.size() as u32) > self.core_node.capacity {
+        let mut cur_queue = self.core_node.ingress_queue.size() as u32;
+        cur_queue += self.core_node.egress_queue.size() as u32;
+        if cur_queue >= self.core_node.capacity {
             return;
         }
         let uid = rpc.uid;
@@ -186,16 +187,29 @@ mod tests {
     #[test]
     fn test_node_capacity_and_egress_rate() {
         let mut node = ProductPage::new("0", 2, 1, None, 0);
-        node.add_connection("foo".to_string()); // without at least one neighbor, it will just drop rpcs
+        // without at least one neighbor, it will just drop rpcs
+        node.add_connection("foo".to_string());
+        let mut queue_size: usize;
         assert!(node.core_node.capacity == 2);
         assert!(node.core_node.egress_rate == 1);
-        node.core_node.recv(Rpc::new_rpc("0"), 0);
-        node.core_node.recv(Rpc::new_rpc("0"), 0);
-        assert!(node.core_node.ingress_queue.size() == 2);
-        node.core_node.recv(Rpc::new_rpc("0"), 0);
-        assert!(node.core_node.ingress_queue.size() == 2);
-        node.core_node.tick(0);
-        assert!(node.core_node.ingress_queue.size() == 1);
+        node.recv(Rpc::new_with_src("0", "gateway"), 0);
+        node.recv(Rpc::new_with_src("0", "gateway"), 0);
+        queue_size = node.core_node.ingress_queue.size();
+        assert!(
+            node.core_node.ingress_queue.size() == 2,
+            "Queue size was `{}`",
+            queue_size
+        );
+        node.recv(Rpc::new_with_src("0", "gateway"), 0);
+        queue_size = node.core_node.ingress_queue.size();
+        assert!(
+            node.core_node.ingress_queue.size() == 2,
+            "Queue size was `{}`",
+            queue_size
+        );
+        node.tick(0);
+        queue_size = node.core_node.ingress_queue.size();
+        assert!(queue_size == 1, "Queue size was `{}`", queue_size);
     }
 
     #[test]

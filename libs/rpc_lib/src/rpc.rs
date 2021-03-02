@@ -5,7 +5,6 @@ use std::collections::HashMap;
 pub struct Rpc {
     pub data: String,                     // application data
     pub uid: u64,                         // number of hops the message has taken
-    pub path: String,                     // the path that the request has taken thus far
     pub headers: HashMap<String, String>, // the "http" headers of the rpc, ie, filter-defined book keeping
 }
 
@@ -16,7 +15,6 @@ impl Rpc {
             Rpc {
                 data: data.to_string(),
                 uid: COUNTER,
-                path: String::new(),
                 headers: HashMap::new(),
             }
         };
@@ -25,8 +23,18 @@ impl Rpc {
         }
         ret
     }
-    pub fn add_to_path(&mut self, hop: &str) {
-        self.path.push(' ');
-        self.path.push_str(hop);
+
+    pub fn new_with_src(data: &str, src: &str) -> Self {
+        let mut rpc = Rpc::new_rpc(data);
+        rpc.headers.insert("src".to_string(), src.to_string());
+        rpc
     }
+
+    pub fn new_with_src_dest(data: &str, src: &str, dst: &str) -> Self {
+        let mut rpc = Rpc::new_rpc(data);
+        rpc.headers.insert("src".to_string(), src.to_string());
+        rpc.headers.insert("dst".to_string(), dst.to_string());
+        rpc
+    }
+
 }

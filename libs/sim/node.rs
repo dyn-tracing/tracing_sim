@@ -7,6 +7,7 @@ use core::any::Any;
 use queues::*;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use rpc_lib::rpc::Rpc;
+use std::cmp::max;
 use std::cmp::min;
 use std::fmt;
 
@@ -66,7 +67,7 @@ impl fmt::Display for Node {
 
 impl SimElement for Node {
     fn tick(&mut self, tick: u64) -> Vec<Rpc> {
-        for _ in 0..self.generation_rate as usize {
+        for _ in 0..max(self.ingress_queue.size(), self.generation_rate as usize) {
             let mut queued_rpcs: Vec<Rpc> = vec![];
             // Dequeue an RPC, or generate one
             let mut rpc: Rpc;
@@ -235,15 +236,28 @@ mod tests {
     fn test_node_capacity_and_egress_rate() {
         let mut node = Node::new("0", 2, 1, 0, None, 1);
         node.add_connection("foo".to_string()); // without at least one neighbor, it will just drop rpcs
+        let mut queue_size: usize;
+
         assert!(node.capacity == 2);
         assert!(node.egress_rate == 1);
         node.recv(Rpc::new_rpc("0"), 0);
         node.recv(Rpc::new_rpc("0"), 0);
-        assert!(node.ingress_queue.size() == 2);
-        node.recv(Rpc::new_rpc("0"), 0);
-        assert!(node.ingress_queue.size() == 2);
+        queue_size = node.ingress_queue.size();
+        assert!(
+            node.ingress_queue.size() == 2,
+            "Queue size was `{}`",
+            queue_size
+        );
+        node.recv(Rpc::new_with_src("0", "gateway"), 0);
+        queue_size = node.ingress_queue.size();
+        assert!(
+            node.ingress_queue.size() == 2,
+            "Queue size was `{}`",
+            queue_size
+        );
         node.tick(0);
-        assert!(node.ingress_queue.size() == 1);
+        queue_size = node.egress_queue.size();
+        assert!(queue_size == 1, "Queue size was `{}`", queue_size);
     }
 
     #[test]

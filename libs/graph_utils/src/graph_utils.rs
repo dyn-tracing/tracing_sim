@@ -286,4 +286,14 @@ mod tests {
         let ret = get_node_with_id(&graph, "0".to_string()).unwrap();
         assert!(graph.node_weight(ret).unwrap().1[&"property".to_string()] == "thing");
     }
+
+    // #[test]
+    // fn test_generate_trace_graph_from_headers_on_small_string() {
+    //     let graph = generate_trace_graph_from_headers(
+    //         "productpage-v1,details-v1,productpage-v1".to_string(),
+    //         String::new(),
+    //     );
+    //     let node_count = graph.node_count();
+    //     assert!(graph.node_count() == 3, "Graph node count `{}`", node_count);
+    // }
 }
