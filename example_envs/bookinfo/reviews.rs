@@ -22,12 +22,12 @@ impl SimElement for Reviews {
     fn tick(&mut self, tick: u64) -> Vec<Rpc> {
         let mut outgoing_rpcs: Vec<Rpc> = vec![];
         for _ in 0..min(
-            self.core_node.queue.size(),
+            self.core_node.ingress_queue.size(),
             self.core_node.egress_rate as usize,
         ) {
             let mut rpc: Rpc;
-            if self.core_node.queue.size() > 0 {
-                let deq = self.core_node.dequeue(tick);
+            if self.core_node.ingress_queue.size() > 0 {
+                let deq = self.core_node.dequeue_ingress(tick);
                 rpc = deq.unwrap();
             } else {
                 // no rpc in the queue, we only forward so nothing to do
@@ -109,11 +109,11 @@ mod tests {
         assert!(node.core_node.egress_rate == 1);
         node.core_node.recv(Rpc::new_rpc("0"), 0);
         node.core_node.recv(Rpc::new_rpc("0"), 0);
-        assert!(node.core_node.queue.size() == 2);
+        assert!(node.core_node.ingress_queue.size() == 2);
         node.core_node.recv(Rpc::new_rpc("0"), 0);
-        assert!(node.core_node.queue.size() == 2);
+        assert!(node.core_node.ingress_queue.size() == 2);
         node.core_node.tick(0);
-        assert!(node.core_node.queue.size() == 1);
+        assert!(node.core_node.ingress_queue.size() == 1);
     }
 
     #[test]

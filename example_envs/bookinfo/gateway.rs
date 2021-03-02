@@ -87,10 +87,10 @@ mod tests {
         assert!(node.core_node.egress_rate == 1);
         node.core_node.recv(Rpc::new_rpc("0"), 0);
         node.core_node.recv(Rpc::new_rpc("0"), 0);
-        assert!(node.core_node.queue.size() == 2);
+        assert!(node.core_node.ingress_queue.size() == 2);
         node.core_node.recv(Rpc::new_rpc("0"), 0);
-        assert!(node.core_node.queue.size() == 2);
+        assert!(node.core_node.ingress_queue.size() == 2);
         node.core_node.tick(0);
-        assert!(node.core_node.queue.size() == 1);
+        assert!(node.core_node.ingress_queue.size() == 1);
     }
 }

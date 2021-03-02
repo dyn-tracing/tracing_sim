@@ -39,16 +39,16 @@ impl SimElement for ProductPage {
     fn tick(&mut self, tick: u64) -> Vec<Rpc> {
         let mut outgoing_rpcs: Vec<Rpc> = vec![];
         let max_output = min(
-            self.core_node.queue.size(),
+            self.core_node.ingress_queue.size(),
             self.core_node.egress_rate as usize,
         );
         let mut sent_rpcs = 0;
         while sent_rpcs < max_output {
-            if self.core_node.queue.size() == 0 {
+            if self.core_node.ingress_queue.size() == 0 {
                 // No RPC in the queue. We only forward, so nothing to do
                 return outgoing_rpcs;
             }
-            let mut rpc = self.core_node.dequeue(tick).unwrap();
+            let mut rpc = self.core_node.dequeue_ingress(tick).unwrap();
             // Forward requests/responses from productpage or reviews
             if !rpc.headers.contains_key("src") {
                 panic!("Product page got rpc without a source");
@@ -71,7 +71,7 @@ impl SimElement for ProductPage {
 
     fn recv(&mut self, rpc: Rpc, tick: u64) {
         // drop packets you cannot accept
-        if (self.core_node.queue.size() as u32) > self.core_node.capacity {
+        if (self.core_node.ingress_queue.size() as u32) > self.core_node.capacity {
             return;
         }
         let uid = rpc.uid;
@@ -83,10 +83,10 @@ impl SimElement for ProductPage {
             let rpc_source = &inbound_rpc.headers["src"];
             if rpc_source == "details-v1" || rpc_source.starts_with("reviews") {
                 if let Some(merged_rpc) = self.handle_reply(uid, inbound_rpc) {
-                    self.core_node.enqueue(merged_rpc, tick);
+                    self.core_node.enqueue_ingress(merged_rpc, tick);
                 }
             } else {
-                self.core_node.enqueue(inbound_rpc, tick);
+                self.core_node.enqueue_ingress(inbound_rpc, tick);
             }
         }
     }
@@ -191,11 +191,11 @@ mod tests {
         assert!(node.core_node.egress_rate == 1);
         node.core_node.recv(Rpc::new_rpc("0"), 0);
         node.core_node.recv(Rpc::new_rpc("0"), 0);
-        assert!(node.core_node.queue.size() == 2);
+        assert!(node.core_node.ingress_queue.size() == 2);
         node.core_node.recv(Rpc::new_rpc("0"), 0);
-        assert!(node.core_node.queue.size() == 2);
+        assert!(node.core_node.ingress_queue.size() == 2);
         node.core_node.tick(0);
-        assert!(node.core_node.queue.size() == 1);
+        assert!(node.core_node.ingress_queue.size() == 1);
     }
 
     #[test]
