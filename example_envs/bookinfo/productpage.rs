@@ -11,15 +11,15 @@ use std::collections::HashMap;
 use std::fmt;
 
 pub struct PendingRpc {
-    details_rpc: Option<Rpc>,
-    review_rpc: Option<Rpc>,
+    details_reply: Option<Rpc>,
+    reviews_reply: Option<Rpc>,
 }
 
 impl PendingRpc {
     fn default() -> PendingRpc {
         PendingRpc {
-            details_rpc: None,
-            review_rpc: None,
+            details_reply: None,
+            reviews_reply: None,
         }
     }
 }
@@ -70,7 +70,25 @@ impl SimElement for ProductPage {
     }
 
     fn recv(&mut self, rpc: Rpc, tick: u64) {
-        self.core_node.recv(rpc, tick);
+        // drop packets you cannot accept
+        if (self.core_node.queue.size() as u32) > self.core_node.capacity {
+            return;
+        }
+        let uid = rpc.uid;
+        let mut inbound_rpcs: Vec<Rpc> = vec![];
+        self.core_node
+            .pass_through_plugin(rpc, &mut inbound_rpcs, tick, "ingress");
+
+        for inbound_rpc in inbound_rpcs {
+            let rpc_source = &inbound_rpc.headers["src"];
+            if rpc_source == "details-v1" || rpc_source.starts_with("reviews") {
+                if let Some(merged_rpc) = self.handle_reply(uid, inbound_rpc) {
+                    self.core_node.enqueue(merged_rpc, tick);
+                }
+            } else {
+                self.core_node.enqueue(inbound_rpc, tick);
+            }
+        }
     }
     fn add_connection(&mut self, neighbor: String) {
         self.core_node.add_connection(neighbor)
@@ -88,13 +106,16 @@ impl SimElement for ProductPage {
 
 impl NodeTraits for ProductPage {
     fn process_rpc(&mut self, rpc: &mut Rpc, new_rpcs: &mut Vec<Rpc>) {
-        if !self.pending_rpcs.contains_key(&rpc.uid) {
-            self.pending_rpcs.insert(rpc.uid, PendingRpc::default());
-            // this RPC must have come from the gateway;  if it came from
-            // reviews or details, we should already have its uid in our pending_rpcs
-            assert!(rpc.headers["src"] == "gateway");
-
-            // make and add details rpc
+        let review_nodes = vec!["reviews-v1", "reviews-v2", "reviews-v3"];
+        let mut rng: StdRng = SeedableRng::seed_from_u64(self.core_node.seed);
+        let source: &str = &rpc.headers["src"];
+        if source == "internal_rpc" {
+            rpc.headers
+                .insert("dest".to_string(), "gateway".to_string());
+        } else if source == "gateway" {
+            let idx = rng.gen_range(0, review_nodes.len());
+            let dest = review_nodes[idx];
+            rpc.headers.insert("dest".to_string(), dest.to_string());
             let mut details_rpc = rpc.clone();
             details_rpc
                 .headers
@@ -103,33 +124,12 @@ impl NodeTraits for ProductPage {
                 .headers
                 .insert("src".to_string(), self.core_node.id.to_string());
             new_rpcs.push(details_rpc);
-
-            // make and add reviews rpc
-            let review_nodes = vec!["reviews-v1", "reviews-v2", "reviews-v3"];
-            let mut rng: StdRng = SeedableRng::seed_from_u64(self.core_node.seed);
-            let idx = rng.gen_range(0, review_nodes.len());
-            let dest = review_nodes[idx];
-            rpc.headers.insert("dest".to_string(), dest.to_string());
-            rpc.headers
-                .insert("src".to_string(), self.core_node.id.to_string());
-            new_rpcs.push(rpc.clone());
         } else {
-            let pending_struct = self.pending_rpcs.get_mut(&rpc.uid).unwrap();
-            if rpc.headers["src"].contains("reviews") {
-                pending_struct.review_rpc = Some(rpc.clone());
-            }
-            if rpc.headers["src"].contains("details") {
-                pending_struct.details_rpc = Some(rpc.clone());
-            }
-            if pending_struct.review_rpc.is_some() && pending_struct.details_rpc.is_some() {
-                // send back to gateway
-                rpc.headers
-                    .insert("src".to_string(), self.core_node.id.to_string());
-                rpc.headers
-                    .insert("dest".to_string(), "gateway".to_string());
-                new_rpcs.push(rpc.clone());
-            }
+            panic!("ProductPage node does not have a valid source!");
         }
+        rpc.headers
+            .insert("src".to_string(), self.core_node.id.to_string());
+        new_rpcs.push(rpc.clone());
     }
 }
 
@@ -147,6 +147,29 @@ impl ProductPage {
             core_node,
             pending_rpcs: HashMap::new(),
         }
+    }
+
+    fn handle_reply(&mut self, uid: u64, inbound_rpc: Rpc) -> Option<Rpc> {
+        if !self.pending_rpcs.contains_key(&uid) {
+            self.pending_rpcs.insert(uid, PendingRpc::default());
+        }
+        let pending_rpc = self.pending_rpcs.get_mut(&uid).unwrap();
+        if inbound_rpc.headers["src"] == "details-v1" {
+            pending_rpc.details_reply = Some(inbound_rpc);
+        } else if inbound_rpc.headers["src"].starts_with("reviews") {
+            pending_rpc.reviews_reply = Some(inbound_rpc);
+        }
+        if pending_rpc.details_reply.is_some() && pending_rpc.reviews_reply.is_some() {
+            let mut merged_rpc = Rpc::new_rpc("response");
+            merged_rpc
+                .headers
+                .insert("direction".to_string(), "response".to_string());
+            merged_rpc
+                .headers
+                .insert("src".to_string(), "internal_rpc".to_string());
+            return Some(merged_rpc);
+        }
+        return None;
     }
 }
 
