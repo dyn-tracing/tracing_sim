@@ -36,5 +36,4 @@ impl Rpc {
         rpc.headers.insert("dst".to_string(), dst.to_string());
         rpc
     }
-
 }
