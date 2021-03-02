@@ -80,9 +80,12 @@ impl SimElement for ProductPage {
         self.core_node
             .pass_through_plugin(rpc, &mut inbound_rpcs, tick, "ingress");
 
+        // Check the inbound rpcs
         for inbound_rpc in inbound_rpcs {
             let rpc_source = &inbound_rpc.headers["src"];
+            // Custom receive if we have a response from reviews or details
             if rpc_source == "details-v1" || rpc_source.starts_with("reviews") {
+                // We only enqueue if handle+reply returns an RPC
                 if let Some(merged_rpc) = self.handle_reply(uid, inbound_rpc) {
                     self.core_node.enqueue_ingress(merged_rpc, tick);
                 }
@@ -110,6 +113,7 @@ impl NodeTraits for ProductPage {
         let review_nodes = vec!["reviews-v1", "reviews-v2", "reviews-v3"];
         let mut rng: StdRng = SeedableRng::seed_from_u64(self.core_node.seed);
         let source: &str = &rpc.headers["src"];
+        // internal_rpc represents the merged header of details and reviews responses
         if source == "internal_rpc" {
             rpc.headers
                 .insert("dest".to_string(), "gateway".to_string());
@@ -151,16 +155,20 @@ impl ProductPage {
     }
 
     fn handle_reply(&mut self, uid: u64, inbound_rpc: Rpc) -> Option<Rpc> {
+        // If the trace is not tracked yet insert the id
         if !self.pending_rpcs.contains_key(&uid) {
             self.pending_rpcs.insert(uid, PendingRpc::default());
         }
         let pending_rpc = self.pending_rpcs.get_mut(&uid).unwrap();
+        // Check the source and "activate" the member of the struct
         if inbound_rpc.headers["src"] == "details-v1" {
             pending_rpc.details_reply = Some(inbound_rpc);
         } else if inbound_rpc.headers["src"].starts_with("reviews") {
             pending_rpc.reviews_reply = Some(inbound_rpc);
         }
+        // Only if both struct members are active we return an RPC
         if pending_rpc.details_reply.is_some() && pending_rpc.reviews_reply.is_some() {
+            // Create a dummy for now, the filter is supposed to do this
             let mut merged_rpc = Rpc::new("response");
             merged_rpc
                 .headers
@@ -168,6 +176,8 @@ impl ProductPage {
             merged_rpc
                 .headers
                 .insert("src".to_string(), "internal_rpc".to_string());
+            // We are done with this trace. Clear the map enty
+            self.pending_rpcs.remove(&uid);
             return Some(merged_rpc);
         }
         return None;
