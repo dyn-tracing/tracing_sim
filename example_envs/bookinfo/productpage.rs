@@ -37,7 +37,7 @@ impl fmt::Display for ProductPage {
 
 impl SimElement for ProductPage {
     fn tick(&mut self, tick: u64) -> Vec<Rpc> {
-        if let Some(mut rpc) = self.core_node.dequeue_ingress(tick) {
+        while let Some(mut rpc) = self.core_node.dequeue_ingress(tick) {
             let mut queued_rpcs: Vec<Rpc> = vec![];
             // Forward requests/responses from productpage or reviews
             if !rpc.headers.contains_key("src") {
@@ -218,8 +218,8 @@ mod tests {
             queue_size
         );
         node.tick(0);
-        queue_size = node.core_node.ingress_queue.size();
-        assert!(queue_size == 1, "Queue size was `{}`", queue_size);
+        queue_size = node.core_node.egress_queue.size();
+        assert!(queue_size == 3, "Queue size was `{}`", queue_size);
     }
 
     #[test]

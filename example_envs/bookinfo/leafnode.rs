@@ -20,7 +20,7 @@ impl fmt::Display for LeafNode {
 
 impl SimElement for LeafNode {
     fn tick(&mut self, tick: u64) -> Vec<Rpc> {
-        if let Some(mut rpc) = self.core_node.dequeue_ingress(tick) {
+        while let Some(mut rpc) = self.core_node.dequeue_ingress(tick) {
             let mut queued_rpcs: Vec<Rpc> = vec![];
             if !rpc.headers.contains_key("src") {
                 panic!("Leaf node received an RPC without a source");
@@ -124,7 +124,7 @@ mod tests {
             queue_size
         );
         node.tick(0);
-        queue_size = node.core_node.ingress_queue.size();
+        queue_size = node.core_node.egress_queue.size();
         assert!(queue_size == 1, "Queue size was `{}`", queue_size);
     }
 

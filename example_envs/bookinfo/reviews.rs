@@ -20,7 +20,7 @@ impl fmt::Display for Reviews {
 
 impl SimElement for Reviews {
     fn tick(&mut self, tick: u64) -> Vec<Rpc> {
-        if let Some(mut rpc) = self.core_node.dequeue_ingress(tick) {
+        while let Some(mut rpc) = self.core_node.dequeue_ingress(tick) {
             let mut queued_rpcs: Vec<Rpc> = vec![];
             if !rpc.headers.contains_key("src") {
                 panic!("Reviews received an RPC without a source");
@@ -111,14 +111,14 @@ mod tests {
         assert!(node.core_node.capacity == 2);
         assert!(node.core_node.egress_rate == 1);
         node.recv(Rpc::new_with_src("0", "ratings-v1"), 0);
-        node.recv(Rpc::new_with_src("0", "productpage"), 0);
+        node.recv(Rpc::new_with_src("0", "productpage-v1"), 0);
         queue_size = node.core_node.ingress_queue.size();
         assert!(
             node.core_node.ingress_queue.size() == 2,
             "Queue size was `{}`",
             queue_size
         );
-        node.recv(Rpc::new_with_src("0", "productpage"), 0);
+        node.recv(Rpc::new_with_src("0", "productpage-v1"), 0);
         queue_size = node.core_node.ingress_queue.size();
         assert!(
             node.core_node.ingress_queue.size() == 2,
@@ -126,7 +126,7 @@ mod tests {
             queue_size
         );
         node.tick(0);
-        queue_size = node.core_node.ingress_queue.size();
+        queue_size = node.core_node.egress_queue.size();
         assert!(queue_size == 1, "Queue size was `{}`", queue_size);
     }
 
