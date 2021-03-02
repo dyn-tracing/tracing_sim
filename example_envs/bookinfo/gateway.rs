@@ -21,7 +21,6 @@ impl fmt::Display for Gateway {
 impl SimElement for Gateway {
     fn tick(&mut self, tick: u64) -> Vec<Rpc> {
         let mut outbound_rpcs = self.core_node.tick(tick);
-        println!("{:?}", outbound_rpcs);
         for outbound_rpc in &mut outbound_rpcs {
             outbound_rpc
                 .headers
