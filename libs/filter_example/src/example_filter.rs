@@ -218,10 +218,8 @@ impl Filter {
                         .to_string(),
                 );
             } else {
-                trace_graph = graph_utils::generate_trace_graph_from_headers(
-                    "".to_string(),
-                    String::new(),
-                );
+                trace_graph =
+                    graph_utils::generate_trace_graph_from_headers("".to_string(), String::new());
             }
             let mapping = isomorphic_subgraph_matching(
                 &target_graph,
