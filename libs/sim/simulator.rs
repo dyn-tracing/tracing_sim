@@ -23,15 +23,17 @@ pub struct Simulator {
     elements: HashMap<String, Box<dyn PrintableElement>>,
     graph: Graph<String, String>,
     node_index_to_node: HashMap<String, NodeIndex>,
+    edge_matrix: HashMap<(String, String), Edge>,
     seed: u64,
 }
 
-impl Simulator {
+impl<'a> Simulator {
     pub fn new(seed: u64) -> Self {
         Simulator {
             elements: HashMap::new(),
             graph: Graph::new(),
             node_index_to_node: HashMap::new(),
+            edge_matrix: HashMap::new(),
             seed,
         }
     }
@@ -69,6 +71,14 @@ impl Simulator {
         self.add_node(id, node);
     }
 
+    fn add_to_edge_matrix(&mut self, element1: &str, element2: &str, edge: Edge) {
+        self.edge_matrix
+            .insert((element1.to_string(), element2.to_string()), edge);
+    }
+    fn get_from_edge_matrix(&mut self, element1: String, element2: String) -> &mut Edge {
+        return self.edge_matrix.get_mut(&(element1, element2)).unwrap();
+    }
+
     pub fn add_edge(&mut self, delay: u32, element1: &str, element2: &str, unidirectional: bool) {
         if !self.elements.contains_key(element1) {
             panic!(
@@ -86,19 +96,22 @@ impl Simulator {
         let id = element1.to_string() + "_" + element2;
 
         // 2. create the edge
-        let edge = Edge::new(&id, delay.into());
-        self.add_element(&id, edge);
+        let edge = Edge::new(
+            &id,
+            element1.to_string(),
+            element2.to_string(),
+            delay.into(),
+        );
+        self.add_to_edge_matrix(element1, element2, edge);
         let e1_node = self.node_index_to_node[element1];
         let e2_node = self.node_index_to_node[element2];
         self.graph.add_edge(e1_node, e2_node, "".to_string());
 
         // 3. connect the edge to its nodes
-        self.add_connection(element1, &id);
-        self.add_connection(&id, element2);
+        self.add_connection(element1, element2);
 
         if !unidirectional {
-            self.add_connection(&id, element1);
-            self.add_connection(element2, &id);
+            self.add_connection(element2, element1);
         }
     }
 
@@ -151,10 +164,20 @@ impl Simulator {
                 );
             }
         }
+
+        let mut edge_buffer = vec![];
+        for rpc in rpc_buffer {
+            let edge = self.get_from_edge_matrix(
+                rpc.headers["src"].to_string(),
+                rpc.headers["dest"].to_string(),
+            );
+            edge.recv(rpc, tick);
+            edge_buffer.extend(edge.tick(tick));
+        }
         print!("\n\n");
 
         // now start the receive phase
-        for rpc in rpc_buffer {
+        for rpc in edge_buffer {
             let dst = &rpc.headers["dest"];
             match self.elements.get_mut(dst) {
                 Some(elem) => elem.recv(rpc, tick),
