@@ -1,15 +1,13 @@
-use example_envs::gateway::Gateway;
 use example_envs::bookinfo::new_bookinfo;
+use example_envs::gateway::Gateway;
 use rpc_lib::rpc::Rpc;
 
 #[test]
 fn check_bookinfo() {
-
     // Set up library access
 
     // Create simulator object.
     let mut simulator = new_bookinfo(0, None);
-
 
     // Execute the simulator
     simulator.insert_rpc("gateway", Rpc::new("0"));
@@ -21,11 +19,18 @@ fn check_bookinfo() {
     let gateway = simulator.get_element::<Gateway>("gateway");
     let collected_rpcs = gateway.get_collected_responses();
     let response_num = collected_rpcs.len();
-    assert!(response_num == 1, "Number of responses was {}", response_num);
+    assert!(
+        response_num == 1,
+        "Number of responses was {}",
+        response_num
+    );
     // Also check that we stay at one response
     for tick in 0..10 {
         simulator.tick(tick);
     }
-    assert!(response_num == 1, "Number of final responses was {}", response_num);
-
+    assert!(
+        response_num == 1,
+        "Number of final responses was {}",
+        response_num
+    );
 }
