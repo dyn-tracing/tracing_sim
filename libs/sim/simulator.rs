@@ -159,7 +159,7 @@ impl<'a> Simulator {
     }
 
     pub fn tick(&mut self, tick: u64) {
-        println!("################# TICK {0} START #################", tick);
+         log::info!("################# TICK {0} START #################", tick);
         let mut rpc_buffer = vec![];
         // tick all elements to generate Rpcs
         // this is the send phase. collect all the rpcs
@@ -168,7 +168,8 @@ impl<'a> Simulator {
             for rpc in &rpcs {
                 rpc_buffer.push(rpc.clone());
             }
-            println!("{:45} \n\toutputs {:?}", element_obj, rpcs);
+             log::info!("{:45}", element_obj);
+             log::info!("\toutputs {:?}", rpcs);
         }
 
         for rpc in rpc_buffer {
@@ -182,7 +183,6 @@ impl<'a> Simulator {
         for (_, edge) in self.edge_matrix.iter_mut() {
             edge_buffer.extend(edge.tick(tick));
         }
-        println!("");
         // now start the receive phase
         for rpc in edge_buffer {
             let dst = &rpc.headers["dest"];
@@ -191,6 +191,6 @@ impl<'a> Simulator {
                 None => panic!("expected {0} to be in elements, but it was not", dst),
             }
         }
-        println!("################# TICK {0} END #################", tick);
+         log::info!("################# TICK {0} END #################", tick);
     }
 }
