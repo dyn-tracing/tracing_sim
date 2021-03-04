@@ -18,8 +18,6 @@ pub struct Edge {
     queue: Queue<TimestampedRpc>,
     delay: u64,
     id: String,
-    left: String,
-    right: String,
     neighbors: Vec<String>,
 }
 
@@ -132,9 +130,8 @@ impl Edge {
                     || (self.queue.peek().unwrap().start_time + self.delay > now)
             );
             return ret;
-        } else {
-            return vec![];
         }
+        return vec![];
     }
     pub fn new(left: String, right: String, delay: u64) -> Self {
         let id = left.to_string() + "_" + &right;
@@ -142,8 +139,6 @@ impl Edge {
             id: id.to_string(),
             delay,
             queue: queue![],
-            left: left.clone(),
-            right: right.clone(),
             neighbors: vec![left, right],
         }
     }
@@ -161,8 +156,6 @@ mod tests {
             id: "0".to_string(),
             queue: queue![],
             delay: 0,
-            left: "left".to_string(),
-            right: "right".to_string(),
             neighbors: Vec::new(),
         };
     }

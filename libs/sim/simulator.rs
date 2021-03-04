@@ -7,6 +7,7 @@ use crate::sim_element::SimElement;
 use crate::storage::Storage;
 use petgraph::dot::{Config, Dot};
 use petgraph::graph::{Graph, NodeIndex};
+use rpc_lib::rpc::Rpc;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::fs;
@@ -69,6 +70,11 @@ impl<'a> Simulator {
             self.seed,
         );
         self.add_node(id, node);
+    }
+
+    pub fn insert_rpc(&mut self, target: &str, rpc: Rpc) {
+        let node = self.elements.get_mut(target).unwrap();
+        node.recv(rpc, 0);
     }
 
     fn add_to_edge_matrix(&mut self, left: &str, right: &str, edge: Edge) {
@@ -153,34 +159,30 @@ impl<'a> Simulator {
     }
 
     pub fn tick(&mut self, tick: u64) {
+        println!("################# TICK {0} START #################", tick);
         let mut rpc_buffer = vec![];
         // tick all elements to generate Rpcs
         // this is the send phase. collect all the rpcs
-        for (elem_name, element_obj) in self.elements.iter_mut() {
+        for (_elem_name, element_obj) in self.elements.iter_mut() {
             let rpcs = element_obj.tick(tick);
             for rpc in &rpcs {
                 rpc_buffer.push(rpc.clone());
             }
-            if !elem_name.contains("_") {
-                println!(
-                    "After tick {:5}, {:45} \n\toutputs {:?}\n",
-                    tick, element_obj, rpcs
-                );
-            }
+            println!("{:45} \n\toutputs {:?}", element_obj, rpcs);
         }
 
-        let mut edge_buffer = vec![];
         for rpc in rpc_buffer {
             let edge = self.get_from_edge_matrix(
                 rpc.headers["src"].to_string(),
                 rpc.headers["dest"].to_string(),
             );
             edge.recv(rpc, tick);
-            let ret_rpcs = edge.tick(tick);
-            edge_buffer.extend(ret_rpcs);
         }
-        print!("\n\n");
-
+        let mut edge_buffer = vec![];
+        for (_, edge) in self.edge_matrix.iter_mut() {
+            edge_buffer.extend(edge.tick(tick));
+        }
+        println!("");
         // now start the receive phase
         for rpc in edge_buffer {
             let dst = &rpc.headers["dest"];
@@ -189,7 +191,6 @@ impl<'a> Simulator {
                 None => panic!("expected {0} to be in elements, but it was not", dst),
             }
         }
-
-        // Send these elements to the next hops
+        println!("################# TICK {0} END #################", tick);
     }
 }

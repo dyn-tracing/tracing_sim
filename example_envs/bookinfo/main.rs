@@ -11,6 +11,7 @@ pub mod bookinfo;
 use crate::bookinfo::new_bookinfo;
 use clap::{App, Arg};
 use rand::Rng;
+use rpc_lib::rpc::Rpc;
 
 fn main() {
     let matches = App::new("Tracing Simulator")
@@ -58,12 +59,13 @@ fn main() {
     }
 
     // Execute the simulator
-    for tick in 0..10 {
+    simulator.insert_rpc("gateway", Rpc::new("0"));
+    for tick in 0..7 {
         simulator.tick(tick);
-        print!(
-            "Filter outputs:\n {0}\n\n\n\n",
-            simulator.query_storage("storage")
-        );
+        println!("Filter results:\n {0}", simulator.query_storage("storage"));
     }
-    print!("Filter outputs:\n {0}", simulator.query_storage("storage"));
+    println!(
+        "Final filter results:\n {0}",
+        simulator.query_storage("storage")
+    );
 }
