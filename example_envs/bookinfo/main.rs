@@ -9,6 +9,7 @@ mod reviews;
 pub mod bookinfo;
 
 use crate::bookinfo::new_bookinfo;
+use crate::gateway::Gateway;
 use clap::{App, Arg};
 use rand::Rng;
 use rpc_lib::rpc::Rpc;
@@ -24,7 +25,6 @@ use log4rs::{
 };
 
 fn log_setup() {
-
     // Build a stderr logger.
     let stderr = ConsoleAppender::builder()
         .encoder(Box::new(PatternEncoder::new("{h({l})}: {m}\n")))
@@ -113,9 +113,14 @@ fn main() {
 
     // Execute the simulator
     simulator.insert_rpc("gateway", Rpc::new("0"));
-    for tick in 0..7 {
+    for tick in 0..6 {
         simulator.tick(tick);
         log::info!("Filter results:\n {0}", simulator.query_storage("storage"));
+    }
+    let gateway = simulator.get_element::<Gateway>("gateway");
+    log::info!("Gateway collected RPCS:");
+    for rpc in gateway.get_collected_responses() {
+        log::info!("{:?}", rpc);
     }
     let storage_result = simulator.query_storage("storage");
     log::info!("Final filter results:\n {0}", storage_result);

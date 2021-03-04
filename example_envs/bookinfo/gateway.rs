@@ -53,7 +53,7 @@ impl SimElement for Gateway {
     }
     fn recv(&mut self, rpc: Rpc, tick: u64) {
         if let Some(direction) = rpc.headers.get("direction") {
-            if direction == "reponse" {
+            if direction == "response" {
                 self.collected_responses.push(rpc);
             }
         } else {
@@ -101,6 +101,11 @@ impl Gateway {
             core_node,
             collected_responses: vec![],
         }
+    }
+
+    #[allow(dead_code)]
+    pub fn get_collected_responses(&self) -> &Vec<Rpc> {
+        return &self.collected_responses;
     }
 }
 
