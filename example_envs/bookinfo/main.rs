@@ -58,7 +58,7 @@ fn main() {
     }
 
     // Execute the simulator
-    for tick in 0..20 {
+    for tick in 0..10 {
         simulator.tick(tick);
         print!(
             "Filter outputs:\n {0}\n\n\n\n",

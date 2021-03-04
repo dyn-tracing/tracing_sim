@@ -71,47 +71,51 @@ impl<'a> Simulator {
         self.add_node(id, node);
     }
 
-    fn add_to_edge_matrix(&mut self, element1: &str, element2: &str, edge: Edge) {
+    fn add_to_edge_matrix(&mut self, left: &str, right: &str, edge: Edge) {
         self.edge_matrix
-            .insert((element1.to_string(), element2.to_string()), edge);
+            .insert((left.to_string(), right.to_string()), edge);
     }
-    fn get_from_edge_matrix(&mut self, element1: String, element2: String) -> &mut Edge {
-        return self.edge_matrix.get_mut(&(element1, element2)).unwrap();
+    fn get_from_edge_matrix(&mut self, left: String, right: String) -> &mut Edge {
+        let key_tuple = &(left.clone(), right.clone());
+        if self.edge_matrix.contains_key(&key_tuple) {
+            return self.edge_matrix.get_mut(&key_tuple).unwrap();
+        } else {
+            panic!("Edge connecting {:?} and {:?} not found", left, right);
+        }
     }
 
-    pub fn add_edge(&mut self, delay: u32, element1: &str, element2: &str, unidirectional: bool) {
-        if !self.elements.contains_key(element1) {
+    pub fn add_edge(&mut self, delay: u32, left: &str, right: &str, bidirectional: bool) {
+        if !self.elements.contains_key(left) {
             panic!(
-                "Tried to add an edge using {0};  that is not a valid node",
-                element1
+                "Tried to add an edge using {:?};  that is not a valid node",
+                left
             );
         }
-        if !self.elements.contains_key(element2) {
+        if !self.elements.contains_key(right) {
             panic!(
-                "Tried to add an edge using {0};  that is not a valid node",
-                element2
+                "Tried to add an edge using {:?};  that is not a valid node",
+                right
             );
         }
         // 1. create the id, which will be the two nodes' ids put together with a _
-        let id = element1.to_string() + "_" + element2;
 
         // 2. create the edge
-        let edge = Edge::new(
-            &id,
-            element1.to_string(),
-            element2.to_string(),
-            delay.into(),
-        );
-        self.add_to_edge_matrix(element1, element2, edge);
-        let e1_node = self.node_index_to_node[element1];
-        let e2_node = self.node_index_to_node[element2];
+        let edge = Edge::new(left.to_string(), right.to_string(), delay.into());
+        let e1_node = self.node_index_to_node[left];
+        let e2_node = self.node_index_to_node[right];
         self.graph.add_edge(e1_node, e2_node, "".to_string());
-
-        // 3. connect the edge to its nodes
-        self.add_connection(element1, element2);
-
-        if !unidirectional {
-            self.add_connection(element2, element1);
+        // 3. add a connection between nodes
+        self.add_connection(left, right);
+        self.add_to_edge_matrix(left, right, edge);
+        if bidirectional {
+            // 2. create the edge
+            let ret_edge = Edge::new(left.to_string(), right.to_string(), delay.into());
+            let e1_node = self.node_index_to_node[left];
+            let e2_node = self.node_index_to_node[right];
+            self.graph.add_edge(e1_node, e2_node, "".to_string());
+            // 3. add a connection between nodes
+            self.add_connection(right, left);
+            self.add_to_edge_matrix(right, left, ret_edge);
         }
     }
 
@@ -172,7 +176,8 @@ impl<'a> Simulator {
                 rpc.headers["dest"].to_string(),
             );
             edge.recv(rpc, tick);
-            edge_buffer.extend(edge.tick(tick));
+            let ret_rpcs = edge.tick(tick);
+            edge_buffer.extend(ret_rpcs);
         }
         print!("\n\n");
 
