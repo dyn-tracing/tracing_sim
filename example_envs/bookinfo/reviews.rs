@@ -93,6 +93,16 @@ impl Reviews {
         let core_node = Node::new(id, capacity, egress_rate, 0, plugin, 0);
         Reviews { core_node }
     }
+
+    #[allow(dead_code)]
+    pub const fn get_ingress_queue(&self) -> &Queue<Rpc> {
+        return &self.core_node.ingress_queue;
+    }
+
+    #[allow(dead_code)]
+    pub const fn get_egress_queue(&self) -> &Queue<Rpc> {
+        return &self.core_node.ingress_queue;
+    }
 }
 
 #[cfg(test)]
