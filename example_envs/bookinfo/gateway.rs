@@ -9,6 +9,7 @@ use sim::node::node_fmt_with_name;
 use sim::node::Node;
 use sim::node::NodeTraits;
 use sim::sim_element::SimElement;
+use std::cmp::max;
 use std::fmt;
 
 pub struct Gateway {
@@ -24,10 +25,23 @@ impl fmt::Display for Gateway {
 
 impl SimElement for Gateway {
     fn tick(&mut self, tick: u64) -> Vec<Rpc> {
-        while let Some(mut rpc) = self.core_node.dequeue_ingress(tick) {
+        log::error!("{:?}", self.core_node.generation_rate);
+        for _ in 0..max(
+            self.core_node.ingress_queue.size(),
+            self.core_node.generation_rate as usize,
+        ) {
             let mut queued_rpcs: Vec<Rpc> = vec![];
+            // Dequeue an RPC, or generate one
+            let mut rpc: Rpc;
+            if let Some(deq) = self.core_node.dequeue_ingress(tick) {
+                rpc = deq;
+            } else {
+                rpc = Rpc::new(&tick.to_string());
+                rpc.headers
+                    .insert("direction".to_string(), "request".to_string());
+            }
 
-            // Process the RPC
+            // Select the destination
             let mut new_rpcs: Vec<Rpc> = vec![];
             self.process_rpc(&mut rpc, &mut new_rpcs);
 
@@ -40,7 +54,6 @@ impl SimElement for Gateway {
                 self.core_node.enqueue_egress(queued_rpcs.clone())
             }
         }
-
         let max_output = min(
             self.core_node.egress_queue.size(),
             self.core_node.egress_rate as usize,
@@ -104,7 +117,7 @@ impl Gateway {
     }
 
     #[allow(dead_code)]
-    pub fn get_collected_responses(&self) -> &Vec<Rpc> {
+    pub const fn get_collected_responses(&self) -> &Vec<Rpc> {
         return &self.collected_responses;
     }
 }

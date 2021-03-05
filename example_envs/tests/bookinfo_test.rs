@@ -28,6 +28,11 @@ fn check_bookinfo() {
     for tick in 0..10 {
         simulator.tick(tick);
     }
+    // TODO: It should not be necessary to call this getter twice
+    // Look into const fn in Rust
+    let gateway = simulator.get_element::<Gateway>("gateway");
+    let collected_rpcs = gateway.get_collected_responses();
+    let response_num = collected_rpcs.len();
     assert!(
         response_num == 1,
         "Number of final responses was {}",

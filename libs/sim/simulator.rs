@@ -67,7 +67,7 @@ impl<'a> Simulator {
             .insert(id.to_string(), self.graph.add_node(id.to_string()));
     }
 
-    pub fn get_element<T: 'static + SimElement>(&'a mut self, node_id: &str) -> &T {
+    pub fn get_element<T: 'static + SimElement>(&'a self, node_id: &str) -> &T {
         let elem = &self.elements[node_id];
         return match elem.as_any().downcast_ref::<T>() {
             Some(elem) => elem,
@@ -112,21 +112,18 @@ impl<'a> Simulator {
                 right
             );
         }
-        // 1. create the id, which will be the two nodes' ids put together with a _
-
-        // 2. create the edge
+        // Create the edge
         let edge = Edge::new(left.to_string(), right.to_string(), delay);
         let left_node = self.petgraph_id_map[left];
         let right_node = self.petgraph_id_map[right];
         self.graph.add_edge(left_node, right_node, "".to_string());
-        // 3. add a connection between nodes
+        //  Add a connection between nodes
         self.add_connection(left, right);
         self.add_to_edge_matrix(left, right, edge);
         if bidirectional {
-            // if we are bidrectional, repeat the same process.
+            // If we are bi-directional, repeat the same process.
             let ret_edge = Edge::new(left.to_string(), right.to_string(), delay);
             self.graph.add_edge(right_node, left_node, "".to_string());
-            // 3. add a connection between nodes
             self.add_connection(right, left);
             self.add_to_edge_matrix(right, left, ret_edge);
         }
@@ -168,8 +165,8 @@ impl<'a> Simulator {
     pub fn tick(&mut self, tick: u64) {
         log::info!("################# TICK {0} START #################", tick);
         let mut rpc_buffer = vec![];
-        // tick all elements to generate Rpcs
-        // this is the send phase. collect all the rpcs
+        // tick all elements to generate RPCs
+        // this is the send phase. collect all the RPCs
         for (_elem_name, element_obj) in self.elements.iter_mut() {
             let rpcs = element_obj.tick(tick);
             for rpc in &rpcs {
@@ -178,7 +175,8 @@ impl<'a> Simulator {
             log::info!("{:45}", element_obj);
             log::info!("\toutputs {:?}", rpcs);
         }
-
+        // feed the collected RPCs into the corresponding edges
+        // unfortunately we have to do this out of the loop because mutability
         for rpc in rpc_buffer {
             let edge = self.get_from_edge_matrix(
                 rpc.headers["src"].to_string(),
@@ -186,16 +184,21 @@ impl<'a> Simulator {
             );
             edge.recv(rpc, tick);
         }
+        // now tick each edge and collect their outputs
+        // edges with delay will return an output in the next ticks
         let mut edge_buffer = vec![];
         for (_, edge) in self.edge_matrix.iter_mut() {
             edge_buffer.extend(edge.tick(tick));
         }
-        // now start the receive phase
+        // finally, start the receive phase on the nodes
         for rpc in edge_buffer {
             let dst = &rpc.headers["dest"];
             match self.elements.get_mut(dst) {
                 Some(elem) => elem.recv(rpc, tick),
-                None => panic!("expected {0} to be in elements, but it was not", dst),
+                None => {
+                    log::error!("Expected {0} to be in elements, but it was not", dst);
+                    std::process::exit(1)
+                }
             }
         }
         log::info!("################# TICK {0} END #################", tick);

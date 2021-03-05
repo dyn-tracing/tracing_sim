@@ -7,7 +7,7 @@ use sim::simulator::Simulator;
 pub fn new_bookinfo(seed: u64, plugin: Option<&str>) -> Simulator {
     let mut sim = Simulator::new(seed);
 
-    let gateway = Gateway::new("gateway", 5, 5, 1, seed); // no plugins on a gateway
+    let gateway = Gateway::new("gateway", 5, 5, 0, seed); // no plugins on a gateway
     let productpage = ProductPage::new("productpage-v1", 5, 5, plugin, seed);
     let reviews1 = Reviews::new("reviews-v1", 5, 5, plugin);
     let reviews2 = Reviews::new("reviews-v2", 5, 5, plugin);
