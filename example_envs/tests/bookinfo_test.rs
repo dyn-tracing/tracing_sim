@@ -1,9 +1,9 @@
-use queues::IsQueue;
-use example_envs::reviews::Reviews;
-use example_envs::productpage::ProductPage;
-use example_envs::leafnode::LeafNode;
-use example_envs::gateway::Gateway;
 use example_envs::bookinfo::new_bookinfo;
+use example_envs::gateway::Gateway;
+use example_envs::leafnode::LeafNode;
+use example_envs::productpage::ProductPage;
+use example_envs::reviews::Reviews;
+use queues::IsQueue;
 use rpc_lib::rpc::Rpc;
 
 #[test]
