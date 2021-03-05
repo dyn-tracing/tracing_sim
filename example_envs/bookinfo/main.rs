@@ -30,7 +30,6 @@ fn log_setup() {
         .encoder(Box::new(PatternEncoder::new("{h({l})}: {m}\n")))
         .target(Target::Stderr)
         .build();
-
     // Logging to log file.
     let logfile = FileAppender::builder()
         // Pattern: https://docs.rs/log4rs/*/log4rs/encode/pattern/index.html
@@ -38,7 +37,6 @@ fn log_setup() {
         .append(false)
         .build("sim.log")
         .unwrap();
-
     // Log Trace level output to file where trace is the default level
     // and the programmatically specified level to stderr.
     let config = Config::builder()
@@ -55,7 +53,6 @@ fn log_setup() {
                 .build(log::LevelFilter::Trace),
         )
         .unwrap();
-
     // Use this to change log levels at runtime.
     // This means you can change the default log level to trace
     // if you are trying to debug an issue and need more logs on then turn it off
