@@ -3,6 +3,7 @@
 use petgraph::algo::{dijkstra, toposort};
 use petgraph::graph::{Graph, NodeIndex};
 use std::collections::HashMap;
+use regex::Regex;
 
 /* This function creates a petgraph graph representing the query given by the user.
  * For example, if the cql query were MATCH n -> m, e WHERE ... the input to this function
@@ -73,9 +74,10 @@ pub fn generate_trace_graph_from_headers(
     properties_header: String,
 ) -> Graph<(String, HashMap<String, String>), String> {
     let mut graph : Graph<(String, HashMap<String, String>), String>= Graph::new();
+    if paths_header.is_empty() { return graph; }
     let name = "node.metadata.WORKLOAD_NAME";
     let mut node_handles : HashMap<String, NodeIndex> = HashMap::new();
-    let straight_paths = path.split(",");
+    let straight_paths = paths_header.split(",");
     for straight_path in straight_paths {
         let mut node_iterator = straight_path.split(";");
         let mut node_str = node_iterator.next().unwrap();
@@ -100,27 +102,28 @@ pub fn generate_trace_graph_from_headers(
             node_str = new_node_str;
         }
     }
-    
-    let properties_iterator = properties.split(",");
+    if properties_header.is_empty() { return graph; } 
+    let properties_iterator = properties_header.split(",");
     for property in properties_iterator {
         let re = Regex::new(r"(?P<node>[^.]*)[.](?P<property>[^=]*)[=][=](?P<value>.*)").unwrap();
         let captures = re.captures(property);
         match captures {
             Some(c) => {
                 let node = c.name("node").unwrap().as_str();
-                println!("node: {:?}", node);
                 let property = c.name("property").unwrap().as_str();
-                println!("property: {:?}", property);
                 let value = c.name("value").unwrap().as_str();
-                println!("value: {:?}", value);
-                graph.node_weight_mut(node_handles[node]).unwrap().1.insert(
-                    property.to_string(), value.to_string());
+                // we may propagate values that aren't in the path, because we've visited
+                // those nodes as requests but not yet as responses
+                if node_handles.contains_key(node) {
+                    graph.node_weight_mut(node_handles[node]).unwrap().1.insert(
+                        property.to_string(), value.to_string());
+                }
                 
             }
             None => { print!("WARNING:  propagating badly formed properties"); }
         }
     }
-}
+    return graph;
 
 }
 
@@ -178,7 +181,7 @@ mod tests {
     use super::*;
 
     fn make_small_trace_graph() -> Graph<(String, HashMap<String, String>), String> {
-        let graph_string = String::from("0,1,2");
+        let graph_string = String::from("0;1;2");
         let graph = generate_trace_graph_from_headers(graph_string, String::new());
         graph
     }
@@ -230,10 +233,10 @@ mod tests {
 
     #[test]
     fn test_correctly_parse_branching_graphs() {
-        let graph = generate_trace_graph_from_headers("0,1,3,1,2".to_string(), String::new());
+        let graph = generate_trace_graph_from_headers("0;1;3,2;1".to_string(), String::new());
         assert!(graph.node_count() == 4);
         for node in graph.node_indices() {
-            if graph.node_weight(node).unwrap().1["node.metadata.WORKLOAD_NAME"] == "0" {
+            if graph.node_weight(node).unwrap().1["node.metadata.WORKLOAD_NAME"] == "3" {
                 assert!(graph.neighbors(node).count() == 1);
             }
             if graph.node_weight(node).unwrap().1["node.metadata.WORKLOAD_NAME"] == "1" {
@@ -250,20 +253,20 @@ mod tests {
 
     #[test]
     fn test_get_tree_height() {
-        let graph = generate_trace_graph_from_headers("0,1,3,1,2".to_string(), String::new());
+        let graph = generate_trace_graph_from_headers("0;1;3,1;2".to_string(), String::new());
         assert!(get_tree_height(&graph, None) == 2);
     }
 
     #[test]
     fn test_get_out_degree() {
         let straight_graph =
-            generate_trace_graph_from_headers("0,1,2,3,4,5,6".to_string(), String::new());
+            generate_trace_graph_from_headers("0;1;2;3;4;5;6".to_string(), String::new());
         assert!(get_out_degree(&straight_graph, None) == 1);
     }
 
     #[test]
     fn test_get_node_with_id() {
-        let graph = generate_trace_graph_from_headers("0,1,2,3".to_string(), String::new());
+        let graph = generate_trace_graph_from_headers("0;1;2;3".to_string(), String::new());
         let ret = get_node_with_id(&graph, "0".to_string());
         assert!(!ret.is_none());
     }
@@ -271,20 +274,11 @@ mod tests {
     #[test]
     fn test_parsing_of_properties_in_trace_graph_creation() {
         let graph = generate_trace_graph_from_headers(
-            "0,1,2,3".to_string(),
+            "0;1;2;3".to_string(),
             "0.property==thing,".to_string(),
         );
         let ret = get_node_with_id(&graph, "0".to_string()).unwrap();
         assert!(graph.node_weight(ret).unwrap().1[&"property".to_string()] == "thing");
     }
 
-    // #[test]
-    // fn test_generate_trace_graph_from_headers_on_small_string() {
-    //     let graph = generate_trace_graph_from_headers(
-    //         "productpage-v1,details-v1,productpage-v1".to_string(),
-    //         String::new(),
-    //     );
-    //     let node_count = graph.node_count();
-    //     assert!(graph.node_count() == 3, "Graph node count `{}`", node_count);
-    // }
 }
