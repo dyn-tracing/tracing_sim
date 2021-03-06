@@ -25,7 +25,6 @@ impl fmt::Display for Gateway {
 
 impl SimElement for Gateway {
     fn tick(&mut self, tick: u64) -> Vec<Rpc> {
-        log::error!("{:?}", self.core_node.generation_rate);
         for _ in 0..max(
             self.core_node.ingress_queue.size(),
             self.core_node.generation_rate as usize,
