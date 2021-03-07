@@ -7,6 +7,7 @@ use crate::sim_element::SimElement;
 use crate::storage::Storage;
 use petgraph::dot::{Config, Dot};
 use petgraph::graph::{Graph, NodeIndex};
+use rpc_lib::rpc::Rpc;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::fs;
@@ -22,16 +23,32 @@ impl<T: SimElement + Display> PrintableElement for T {}
 pub struct Simulator {
     elements: HashMap<String, Box<dyn PrintableElement>>,
     graph: Graph<String, String>,
-    node_index_to_node: HashMap<String, NodeIndex>,
+    petgraph_id_map: HashMap<String, NodeIndex>,
+    edge_matrix: HashMap<(String, String), Edge>,
     seed: u64,
 }
 
-impl Simulator {
+impl<'a> Simulator {
+    fn add_to_edge_matrix(&mut self, left: &str, right: &str, edge: Edge) {
+        self.edge_matrix
+            .insert((left.to_string(), right.to_string()), edge);
+    }
+    fn get_from_edge_matrix(&mut self, left: String, right: String) -> &mut Edge {
+        let key_tuple = &(left.clone(), right.clone());
+        if self.edge_matrix.contains_key(&key_tuple) {
+            return self.edge_matrix.get_mut(&key_tuple).unwrap();
+        } else {
+            log::error!("Edge connecting {:?} and {:?} not found", left, right);
+            std::process::exit(1);
+        }
+    }
+
     pub fn new(seed: u64) -> Self {
         Simulator {
             elements: HashMap::new(),
             graph: Graph::new(),
-            node_index_to_node: HashMap::new(),
+            petgraph_id_map: HashMap::new(),
+            edge_matrix: HashMap::new(),
             seed,
         }
     }
@@ -46,8 +63,16 @@ impl Simulator {
 
     pub fn add_node<T: 'static + PrintableElement>(&mut self, id: &str, node: T) {
         self.add_element(id, node);
-        self.node_index_to_node
+        self.petgraph_id_map
             .insert(id.to_string(), self.graph.add_node(id.to_string()));
+    }
+
+    pub fn get_element<T: 'static + SimElement>(&'a self, node_id: &str) -> &T {
+        let elem = &self.elements[node_id];
+        return match elem.as_any().downcast_ref::<T>() {
+            Some(elem) => elem,
+            None => panic!("Not able to cast element, {0}", elem),
+        };
     }
 
     pub fn add_random_node(
@@ -69,43 +94,45 @@ impl Simulator {
         self.add_node(id, node);
     }
 
-    pub fn add_edge(&mut self, delay: u32, element1: &str, element2: &str, unidirectional: bool) {
-        if !self.elements.contains_key(element1) {
+    pub fn insert_rpc(&mut self, target: &str, rpc: Rpc) {
+        let node = self.elements.get_mut(target).unwrap();
+        node.recv(rpc, 0);
+    }
+
+    pub fn add_edge(&mut self, delay: u64, left: &str, right: &str, bidirectional: bool) {
+        if !self.elements.contains_key(left) {
             panic!(
-                "Tried to add an edge using {0};  that is not a valid node",
-                element1
+                "Tried to add an edge using {:?};  that is not a valid node",
+                left
             );
         }
-        if !self.elements.contains_key(element2) {
+        if !self.elements.contains_key(right) {
             panic!(
-                "Tried to add an edge using {0};  that is not a valid node",
-                element2
+                "Tried to add an edge using {:?};  that is not a valid node",
+                right
             );
         }
-        // 1. create the id, which will be the two nodes' ids put together with a _
-        let id = element1.to_string() + "_" + element2;
-
-        // 2. create the edge
-        let edge = Edge::new(&id, delay.into());
-        self.add_element(&id, edge);
-        let e1_node = self.node_index_to_node[element1];
-        let e2_node = self.node_index_to_node[element2];
-        self.graph.add_edge(e1_node, e2_node, "".to_string());
-
-        // 3. connect the edge to its nodes
-        self.add_connection(element1, &id);
-        self.add_connection(&id, element2);
-
-        if !unidirectional {
-            self.add_connection(&id, element1);
-            self.add_connection(element2, &id);
+        // Create the edge
+        let edge = Edge::new(left.to_string(), right.to_string(), delay);
+        let left_node = self.petgraph_id_map[left];
+        let right_node = self.petgraph_id_map[right];
+        self.graph.add_edge(left_node, right_node, "".to_string());
+        //  Add a connection between nodes
+        self.add_connection(left, right);
+        self.add_to_edge_matrix(left, right, edge);
+        if bidirectional {
+            // If we are bi-directional, repeat the same process.
+            let ret_edge = Edge::new(left.to_string(), right.to_string(), delay);
+            self.graph.add_edge(right_node, left_node, "".to_string());
+            self.add_connection(right, left);
+            self.add_to_edge_matrix(right, left, ret_edge);
         }
     }
 
     pub fn add_storage(&mut self, id: &str) {
         let storage = Storage::new(id);
         self.add_element(id, storage);
-        self.node_index_to_node
+        self.petgraph_id_map
             .insert(id.to_string(), self.graph.add_node(id.to_string()));
     }
 
@@ -136,32 +163,44 @@ impl Simulator {
     }
 
     pub fn tick(&mut self, tick: u64) {
+        log::info!("################# TICK {0} START #################", tick);
         let mut rpc_buffer = vec![];
-        // tick all elements to generate Rpcs
-        // this is the send phase. collect all the rpcs
-        for (elem_name, element_obj) in self.elements.iter_mut() {
+        // tick all elements to generate RPCs
+        // this is the send phase. collect all the RPCs
+        for (_elem_name, element_obj) in self.elements.iter_mut() {
             let rpcs = element_obj.tick(tick);
             for rpc in &rpcs {
                 rpc_buffer.push(rpc.clone());
             }
-            if !elem_name.contains("_") {
-                println!(
-                    "After tick {:5}, {:45} \n\toutputs {:?}\n",
-                    tick, element_obj, rpcs
-                );
-            }
+            log::info!("{:45}", element_obj);
+            log::info!("\toutputs {:?}", rpcs);
         }
-        print!("\n\n");
-
-        // now start the receive phase
+        // feed the collected RPCs into the corresponding edges
+        // unfortunately we have to do this out of the loop because mutability
         for rpc in rpc_buffer {
+            let edge = self.get_from_edge_matrix(
+                rpc.headers["src"].to_string(),
+                rpc.headers["dest"].to_string(),
+            );
+            edge.recv(rpc, tick);
+        }
+        // now tick each edge and collect their outputs
+        // edges with delay will return an output in the next ticks
+        let mut edge_buffer = vec![];
+        for (_, edge) in self.edge_matrix.iter_mut() {
+            edge_buffer.extend(edge.tick(tick));
+        }
+        // finally, start the receive phase on the nodes
+        for rpc in edge_buffer {
             let dst = &rpc.headers["dest"];
             match self.elements.get_mut(dst) {
                 Some(elem) => elem.recv(rpc, tick),
-                None => panic!("expected {0} to be in elements, but it was not", dst),
+                None => {
+                    log::error!("Expected {0} to be in elements, but it was not", dst);
+                    std::process::exit(1)
+                }
             }
         }
-
-        // Send these elements to the next hops
+        log::info!("################# TICK {0} END #################", tick);
     }
 }

@@ -9,10 +9,61 @@ mod reviews;
 pub mod bookinfo;
 
 use crate::bookinfo::new_bookinfo;
+use crate::gateway::Gateway;
 use clap::{App, Arg};
 use rand::Rng;
+use rpc_lib::rpc::Rpc;
+
+use log4rs::{
+    append::{
+        console::{ConsoleAppender, Target},
+        file::FileAppender,
+    },
+    config::{Appender, Config, Root},
+    encode::pattern::PatternEncoder,
+    filter::threshold::ThresholdFilter,
+};
+
+fn log_setup() {
+    // Build a stderr logger.
+    let stderr = ConsoleAppender::builder()
+        .encoder(Box::new(PatternEncoder::new("{h({l})}: {m}\n")))
+        .target(Target::Stderr)
+        .build();
+    // Logging to log file.
+    let logfile = FileAppender::builder()
+        // Pattern: https://docs.rs/log4rs/*/log4rs/encode/pattern/index.html
+        .encoder(Box::new(PatternEncoder::new("{l}: {m}\n")))
+        .append(false)
+        .build("sim.log")
+        .unwrap();
+    // Log Trace level output to file where trace is the default level
+    // and the programmatically specified level to stderr.
+    let config = Config::builder()
+        .appender(Appender::builder().build("logfile", Box::new(logfile)))
+        .appender(
+            Appender::builder()
+                .filter(Box::new(ThresholdFilter::new(log::LevelFilter::Info)))
+                .build("stderr", Box::new(stderr)),
+        )
+        .build(
+            Root::builder()
+                .appender("logfile")
+                .appender("stderr")
+                .build(log::LevelFilter::Trace),
+        )
+        .unwrap();
+    // Use this to change log levels at runtime.
+    // This means you can change the default log level to trace
+    // if you are trying to debug an issue and need more logs on then turn it off
+    // once you are done.
+    let _handle = log4rs::init_config(config);
+}
 
 fn main() {
+    // Set up logging
+    log_setup();
+
     let matches = App::new("Tracing Simulator")
         .arg(
             Arg::with_name("print_graph")
@@ -44,7 +95,7 @@ fn main() {
     if seed_arg.is_none() {
         let mut rng = rand::thread_rng();
         seed = rng.gen::<u64>();
-        print!("Using seed {0}\n", seed);
+        log::info!("Using seed {0}\n", seed);
     } else {
         seed = seed_arg.unwrap().parse::<u64>().unwrap();
     }
@@ -58,12 +109,16 @@ fn main() {
     }
 
     // Execute the simulator
-    for tick in 0..20 {
+    simulator.insert_rpc("gateway", Rpc::new("0"));
+    for tick in 0..6 {
         simulator.tick(tick);
-        print!(
-            "Filter outputs:\n {0}\n\n\n\n",
-            simulator.query_storage("storage")
-        );
+        log::info!("Filter results:\n {0}", simulator.query_storage("storage"));
     }
-    print!("Filter outputs:\n {0}", simulator.query_storage("storage"));
+    let gateway = simulator.get_element::<Gateway>("gateway");
+    log::info!("Gateway collected RPCS:");
+    for rpc in gateway.get_collected_responses() {
+        log::info!("{:?}", rpc);
+    }
+    let storage_result = simulator.query_storage("storage");
+    log::info!("Final filter results:\n {0}", storage_result);
 }

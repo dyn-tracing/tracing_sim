@@ -47,6 +47,32 @@ impl fmt::Display for Edge {
     }
 }
 
+impl fmt::Debug for Edge {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(width) = f.width() {
+            write!(
+                f,
+                "{:width$}",
+                &format!(
+                    "Edge {{ delay : {}, queue : {}, id : {} }}",
+                    &self.delay,
+                    &self.queue.size(),
+                    self.id
+                ),
+                width = width
+            )
+        } else {
+            write!(
+                f,
+                "Edge {{ delay : {}, id : {}, queue : {} }}",
+                &self.delay,
+                self.id,
+                &self.queue.size()
+            )
+        }
+    }
+}
+
 impl SimElement for Edge {
     fn tick(&mut self, tick: u64) -> Vec<Rpc> {
         let ret = self.dequeue(tick);
@@ -69,7 +95,6 @@ impl SimElement for Edge {
     fn neighbors(&self) -> &Vec<String> {
         &self.neighbors
     }
-
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -96,18 +121,7 @@ impl Edge {
                 assert!(self.queue.peek().unwrap().start_time + self.delay == now);
 
                 // Remove RPC from the head of the queue.
-                let mut queue_element_to_remove = self.queue.remove().unwrap();
-                let dest: String;
-                // send the RPC to the other end of the edge
-                if self.neighbors[0] == queue_element_to_remove.rpc.headers["dest"] {
-                    dest = self.neighbors[1].clone();
-                } else {
-                    dest = self.neighbors[0].clone();
-                }
-                queue_element_to_remove
-                    .rpc
-                    .headers
-                    .insert("dest".to_string(), dest);
+                let queue_element_to_remove = self.queue.remove().unwrap();
                 ret.push(queue_element_to_remove.rpc);
             }
             // Either the queue has emptied or no other RPCs are ready.
@@ -116,16 +130,16 @@ impl Edge {
                     || (self.queue.peek().unwrap().start_time + self.delay > now)
             );
             return ret;
-        } else {
-            return vec![];
         }
+        return vec![];
     }
-    pub fn new(id: &str, delay: u64) -> Self {
+    pub fn new(left: String, right: String, delay: u64) -> Self {
+        let id = left.to_string() + "_" + &right;
         Edge {
             id: id.to_string(),
             delay,
             queue: queue![],
-            neighbors: Vec::new(),
+            neighbors: vec![left, right],
         }
     }
 }
@@ -148,7 +162,7 @@ mod tests {
 
     #[bench]
     fn benchmark_enqueue(b: &mut Bencher) {
-        let mut edge = Edge::new("0", 0);
+        let mut edge = Edge::new("left".to_string(), "right".to_string(), 0);
         b.iter(|| {
             for i in 1..100 {
                 edge.enqueue(Rpc::new("0"), i)
@@ -158,7 +172,7 @@ mod tests {
 
     #[bench]
     fn benchmark_dequeue(b: &mut Bencher) {
-        let mut edge = Edge::new("0", 0);
+        let mut edge = Edge::new("left".to_string(), "right".to_string(), 0);
         b.iter(|| {
             for i in 1..100 {
                 edge.enqueue(Rpc::new("0"), i);

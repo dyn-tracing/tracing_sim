@@ -12,6 +12,7 @@ crate-type = ["lib"]
 path = "lib.rs"
 
 [dependencies]
+log = "*"
 libc = "*"
 libloading = "0.6.5"
 queues = "1.0.2"
