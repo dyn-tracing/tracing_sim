@@ -120,7 +120,7 @@ pub fn generate_trace_graph_from_headers(
                 }
                 
             }
-            None => { print!("WARNING:  propagating badly formed properties"); }
+            None => { print!("WARNING:  propagating badly formed properties found in: {0}", property); }
         }
     }
     return graph;
@@ -179,6 +179,7 @@ pub fn get_out_degree(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use petgraph::algo::{isomorphic_subgraph_matching, isomorphic_subgraph_mapping, is_isomorphic_subgraph};
 
     fn make_small_trace_graph() -> Graph<(String, HashMap<String, String>), String> {
         let graph_string = String::from("0;1;2");
@@ -281,4 +282,124 @@ mod tests {
         assert!(graph.node_weight(ret).unwrap().1[&"property".to_string()] == "thing");
     }
 
+
+    /*
+    #[test]
+    fn test_bookinfo_graph_and_isomorphism() {
+        let graph = generate_trace_graph_from_headers("details-v1;productpage-v1,ratings-v1;reviews-v1;productpage-v1".to_string(),
+                                                       String::new());
+                                                      //"productpage-v1.service_name==productpage-v1,ratings-v1.service_name==ratings-v1,reviews-v1.service_name==reviews-v1".to_string());
+        assert!(graph.node_count()==4);
+        let productpage = get_node_with_id(&graph, "productpage-v1".to_string()).unwrap();
+        let reviews = get_node_with_id(&graph, "reviews-v1".to_string()).unwrap();
+        let ratings = get_node_with_id(&graph, "ratings-v1".to_string()).unwrap();
+
+        assert!(graph.neighbors(productpage).count() == 2, "productpage has {0} neighbors", graph.neighbors(productpage).count());
+        assert!(graph.neighbors(reviews).count() == 1, "reviews has {0} neighbors", graph.neighbors(reviews).count());
+        assert!(graph.neighbors(ratings).count() == 0, "ratings has {0} neighbors", graph.neighbors(ratings).count());
+        //assert!(graph.node_weight(reviews).unwrap().1["service_name"]=="reviews-v1");
+
+         let vertices = vec!(  "a".to_string(), "b".to_string(), "c".to_string(),  );
+         let edges = vec!(   ("a".to_string(), "b".to_string() ),   ("b".to_string(), "c".to_string() ),   );
+         let mut ids_to_properties: HashMap<String, HashMap<String, String>> = HashMap::new();
+         ids_to_properties.insert("a".to_string(), HashMap::new());
+         ids_to_properties.insert("b".to_string(), HashMap::new());
+         ids_to_properties.insert("c".to_string(), HashMap::new());
+         //let mut b_hashmap = ids_to_properties.get_mut("b").unwrap();
+         //b_hashmap.insert("service_name".to_string(), "reviews-v1".to_string());
+         let target_graph = generate_target_graph(vertices, edges, ids_to_properties);
+         let a = get_node_with_id(&target_graph, "a".to_string()).unwrap();
+         let b = get_node_with_id(&target_graph, "b".to_string()).unwrap();
+         let c = get_node_with_id(&target_graph, "c".to_string()).unwrap();
+         print!("edge count target: {0}\n", target_graph.edge_count());
+         assert!(target_graph.neighbors(a).count()==1);
+         assert!(target_graph.neighbors(b).count()==1);
+         assert!(target_graph.neighbors(c).count()==0);
+
+         assert!(graph.node_count()==4);
+         assert!(target_graph.node_count()==3);
+
+         let matching = isomorphic_subgraph_mapping(&target_graph, &graph);
+         assert!(matching.is_some());
+
+         let mapping = isomorphic_subgraph_matching(
+            &target_graph,
+            &graph,
+            |x, y| {
+                /*
+                for property in y.1.keys() {
+                    print!("testing equality on property {0}\n", property);
+                    if x.1.contains_key(property) && &(x.1[property]) != &(y.1[property]) { return false; }
+                }
+                */
+            return true;
+            },
+            |x, y| x == y,
+        );
+        assert!(mapping.is_some());
+
+
+    }
+    #[test]
+    fn test_petgraph_isomorphism() {
+        let mut graph1 = Graph::<&str, &str>::new();
+        let mut graph2 = Graph::<&str, &str>::new();
+        let a = graph1.add_node("a");
+        let b = graph1.add_node("b");
+        let c = graph1.add_node("c");
+        let d = graph1.add_node("d");
+        let e1 = graph1.add_edge(a,b, "");
+        let e2 = graph1.add_edge(b,c, "");
+        let e2 = graph1.add_edge(c,d, "");
+        let e3 = graph1.add_edge(a, d, "");
+
+        let x = graph2.add_node("x");
+        let y = graph2.add_node("y");
+        let z = graph2.add_node("z");
+        let e2 = graph2.add_edge(x,y, "");
+        let e2 = graph2.add_edge(y,z, "");
+        let e2 = graph2.add_edge(z,x, "");
+
+        assert!(is_isomorphic_subgraph(&graph2, &graph1));
+        let matching = isomorphic_subgraph_mapping(&graph2, &graph1);
+        assert!(matching.is_some());
+
+         let mapping = isomorphic_subgraph_matching(
+            &graph1,
+            &graph2,
+            |x, y| {
+            return true;
+            },
+            |x, y| x == y,
+        );
+        assert!(mapping.is_some());
+    }
+    */
+
+    #[test]
+    fn sanity_check() {
+        let g0 = Graph::<(), ()>::from_edges(&[(0, 1), (1, 2), (2, 0)]);
+        let g1 = Graph::<(), ()>::from_edges(&[(0, 1), (1, 2), (2, 0), (2, 3)]);
+        assert!(is_isomorphic_subgraph(&g0, &g1));
+    }
+    #[test]
+    fn sanity_check_pt_2() {
+        let mut graph0 = Graph::<&str, &str>::new();
+        let a = graph0.add_node("a");
+        let b = graph0.add_node("b");
+        let c = graph0.add_node("c");
+        let e1 = graph0.add_edge(a, b, "");
+        let e1 = graph0.add_edge(b, c, "");
+
+        let mut graph1 = Graph::<&str, &str>::new();
+        let x = graph1.add_node("x");
+        let y = graph1.add_node("y");
+        let z = graph1.add_node("z");
+        let w = graph1.add_node("w");
+        let e2 = graph1.add_edge(x,y,"");
+        let e2 = graph1.add_edge(y,z,"");
+        let e2 = graph1.add_edge(w,x,"");
+
+        assert!(is_isomorphic_subgraph(&graph0, &graph1));
+    }
 }

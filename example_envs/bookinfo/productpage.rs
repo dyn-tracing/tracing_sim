@@ -170,6 +170,7 @@ impl ProductPage {
         if pending_rpc.details_reply.is_some() && pending_rpc.reviews_reply.is_some() {
             // Create a dummy for now, the filter is supposed to do this
             let mut merged_rpc = Rpc::new("response");
+            merged_rpc.uid = uid; // don't change the trace ID
             merged_rpc
                 .headers
                 .insert("direction".to_string(), "response".to_string());
