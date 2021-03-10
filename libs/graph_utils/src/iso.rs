@@ -342,6 +342,13 @@ mod tests {
         assert!(gs.node_count()==2, "gs node count is {:?}", gs.node_count());
         assert!(gs.edge_count()==1, "gs edge count is {:?}", gs.edge_count());
         let table = algorithm_b_hoffman(&gs, &graph);
-
+        for entry in table.keys() {
+            println!("key: {:?}", entry);
+            for thing in &table[entry] {
+                print!("entry: {:?}", thing);
+            }
+            print!("\n");
+        }
+        
     }
 }
