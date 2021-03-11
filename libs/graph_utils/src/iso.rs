@@ -14,7 +14,10 @@ use std::collections::HashSet;
 // ----------------- Graph Convenience Functions ------------------
 // TODO:  this entire section should migrate to graph utils once
 // we stop using strings and instead use real graphs
-fn find_leaves(node: NodeIndex, graph: &Graph<String, String>) -> Vec<NodeIndex> {
+fn find_leaves(
+    node: NodeIndex,
+    graph: &Graph<(String, HashMap<String, String>), String>,
+) -> Vec<NodeIndex> {
     let mut post_order = DfsPostOrder::new(&graph, node);
     let mut to_return = Vec::new();
     while let Some(visited) = post_order.next(&graph) {
@@ -26,7 +29,7 @@ fn find_leaves(node: NodeIndex, graph: &Graph<String, String>) -> Vec<NodeIndex>
     return to_return;
 }
 
-fn find_root(graph: &Graph<String, String>) -> NodeIndex {
+fn find_root(graph: &Graph<(String, HashMap<String, String>), String>) -> NodeIndex {
     for node in graph.node_indices() {
         let neighbors: Vec<NodeIndex> = graph.neighbors_directed(node, Incoming).collect();
         if neighbors.len() == 0 {
@@ -38,16 +41,19 @@ fn find_root(graph: &Graph<String, String>) -> NodeIndex {
 
 // TODO: once this works, stop making everything a string and use the graph
 // utils version
-fn find_node_with_weight(graph: &Graph<String, String>, weight: String) -> NodeIndex {
+fn find_node_with_weight(
+    graph: &Graph<(String, HashMap<String, String>), String>,
+    weight: String,
+) -> NodeIndex {
     for node in graph.node_indices() {
-        if graph.node_weight(node).unwrap() == &weight {
+        if &graph.node_weight(node).unwrap().0 == &weight {
             return node;
         }
     }
     panic!("could not find node with weight {0}", weight);
 }
 
-fn get_height(graph: &Graph<String, String>, node: NodeIndex) -> u32 {
+fn get_height(graph: &Graph<(String, HashMap<String, String>), String>, node: NodeIndex) -> u32 {
     let distances = dijkstra(graph, node, None, |_| 1);
     let mut max = 0;
     for key in distances.keys() {
@@ -62,8 +68,8 @@ fn get_height(graph: &Graph<String, String>, node: NodeIndex) -> u32 {
 
 // this performs lines 0-4 in the Shamir paper figure 3
 fn initialize_s(
-    graph_g: &Graph<String, String>,
-    graph_h: &Graph<String, String>,
+    graph_g: &Graph<(String, HashMap<String, String>), String>,
+    graph_h: &Graph<(String, HashMap<String, String>), String>,
 ) -> HashMap<(NodeIndex, NodeIndex), HashSet<NodeIndex>> {
     let mut s = HashMap::<(NodeIndex, NodeIndex), HashSet<NodeIndex>>::new();
     for node_g in graph_g.node_indices() {
@@ -92,19 +98,18 @@ fn initialize_s(
 fn max_matching(
     set_x: &Vec<NodeIndex>,
     set_y: &Vec<NodeIndex>,
-    graph_g: &Graph<String, String>,
-    graph_h: &Graph<String, String>,
+    graph_g: &Graph<(String, HashMap<String, String>), String>,
+    graph_h: &Graph<(String, HashMap<String, String>), String>,
     set_s: &HashMap<(NodeIndex, NodeIndex), HashSet<NodeIndex>>,
     u_null: NodeIndex,
 ) -> (i32, Vec<Path<String>>) {
-
     let mut graph_builder = GraphBuilder::new();
     let mut added_nodes = HashSet::new();
     for u in set_x {
         for v in set_y {
             if set_s[&(*v, *u)].contains(&u_null) {
                 // 1. add edge from source if applicable
-                let mut u_str = graph_h.node_weight(*u).unwrap().clone();
+                let mut u_str = graph_h.node_weight(*u).unwrap().0.clone();
                 u_str.push_str("U");
                 if !added_nodes.contains(&u_str) {
                     graph_builder.add_edge(Vertex::Source, u_str.to_string(), Capacity(1), Cost(0));
@@ -112,7 +117,7 @@ fn max_matching(
                 }
 
                 // 2. add edge to sink if applicable
-                let mut v_str = graph_h.node_weight(*v).unwrap().clone();
+                let mut v_str = graph_h.node_weight(*v).unwrap().0.clone();
                 v_str.push_str("v");
                 if !added_nodes.contains(&v_str) {
                     graph_builder.add_edge(v_str.to_string(), Vertex::Sink, Capacity(1), Cost(0));
@@ -129,8 +134,8 @@ fn max_matching(
 
 fn find_mapping_shamir_centralized_inner_loop(
     v: NodeIndex,
-    graph_g: &Graph<String, String>,
-    graph_h: &Graph<String, String>,
+    graph_g: &Graph<(String, HashMap<String, String>), String>,
+    graph_h: &Graph<(String, HashMap<String, String>), String>,
     set_s: &mut HashMap<(NodeIndex, NodeIndex), HashSet<NodeIndex>>,
 ) -> bool {
     let root_h = find_root(&graph_h);
@@ -143,8 +148,7 @@ fn find_mapping_shamir_centralized_inner_loop(
         }
 
         // maximum matching where X0 = X
-        let (cost, path) =
-            max_matching(&u_neighbors, &v_neighbors, graph_g, graph_h, set_s, u);
+        let (cost, path) = max_matching(&u_neighbors, &v_neighbors, graph_g, graph_h, set_s, u);
         if cost == u_neighbors.len() as i32 {
             set_s.get_mut(&(v, u)).unwrap().insert(u);
         }
@@ -153,8 +157,7 @@ fn find_mapping_shamir_centralized_inner_loop(
         for vertex in 0..u_neighbors.len() {
             let mut new_x_set = u_neighbors.clone();
             new_x_set.remove(vertex);
-            let (cost, path) =
-                max_matching(&new_x_set, &v_neighbors, graph_g, graph_h, set_s, u);
+            let (cost, path) = max_matching(&new_x_set, &v_neighbors, graph_g, graph_h, set_s, u);
             if cost == new_x_set.len() as i32 {
                 set_s.get_mut(&(v, u)).unwrap().insert(u);
             }
@@ -169,12 +172,14 @@ fn find_mapping_shamir_centralized_inner_loop(
 }
 
 fn find_mapping_shamir_centralized(
-    graph_g: Graph<String, String>,
-    graph_h: Graph<String, String>,
+    graph_g: Graph<(String, HashMap<String, String>), String>,
+    graph_h: Graph<(String, HashMap<String, String>), String>,
 ) -> bool {
     // TODO:  before even dealing with isomorphism, ask if breadth,
     // height, num nodes match up
-    if graph_g.node_count() < graph_h.node_count() { return false; }
+    if graph_g.node_count() < graph_h.node_count() {
+        return false;
+    }
 
     // initialize S with all N(u) sets, lines 1-4
     let mut set_s = initialize_s(&graph_g, &graph_h);
@@ -202,52 +207,55 @@ mod tests {
     use super::*;
 
     /// --------------- Graph Creation Helper functions -------------------
-    fn three_node_graph() -> Graph<String, String> {
-        let mut graph = Graph::new();
-        let a = graph.add_node("a".to_string());
-        let b = graph.add_node("b".to_string());
-        let c = graph.add_node("c".to_string());
+    fn three_node_graph() -> Graph<(String, HashMap<String, String>), String> {
+        let mut graph = Graph::<(String, HashMap<String, String>), String>::new();
+        let a = graph.add_node(("a".to_string(), HashMap::new()));
+        let b = graph.add_node(("b".to_string(), HashMap::new()));
+        let c = graph.add_node(("c".to_string(), HashMap::new()));
         graph.add_edge(a, b, String::new());
         graph.add_edge(a, c, String::new());
         return graph;
     }
 
-    fn two_node_graph() -> Graph<String, String> {
-        let mut graph = Graph::new();
-        let a = graph.add_node("a".to_string());
-        let b = graph.add_node("b".to_string());
+    fn two_node_graph() -> Graph<(String, HashMap<String, String>), String> {
+        let mut graph = Graph::<(String, HashMap<String, String>), String>::new();
+        let a = graph.add_node(("a".to_string(), HashMap::new()));
+        let b = graph.add_node(("b".to_string(), HashMap::new()));
+
         graph.add_edge(a, b, String::new());
         return graph;
     }
 
-    fn chain_graph() -> Graph<String, String> {
-        let mut graph = Graph::new();
-        let a = graph.add_node("a".to_string());
-        let b = graph.add_node("b".to_string());
-        let c = graph.add_node("c".to_string());
-        let star = graph.add_node("*".to_string());
+    fn chain_graph() -> Graph<(String, HashMap<String, String>), String> {
+        let mut graph = Graph::<(String, HashMap<String, String>), String>::new();
+        let a = graph.add_node(("a".to_string(), HashMap::new()));
+        let b = graph.add_node(("b".to_string(), HashMap::new()));
+        let c = graph.add_node(("c".to_string(), HashMap::new()));
+        let star = graph.add_node(("*".to_string(), HashMap::new()));
+
         graph.add_edge(a, b, String::new());
         graph.add_edge(b, c, String::new());
         graph.add_edge(c, star, String::new());
         return graph;
     }
 
-    fn little_branching_graph() -> Graph<String, String> {
-        let mut graph = Graph::<String, String>::default();
+    fn little_branching_graph() -> Graph<(String, HashMap<String, String>), String> {
+        let mut graph = Graph::<(String, HashMap<String, String>), String>::new();
         graph.extend_with_edges(&[(0, 1), (0, 2), (0, 3), (1, 4), (3, 5)]);
         return graph;
     }
 
     // from figure 2 in shamir paper
-    fn g_figure_2() -> Graph<String, String> {
-        let mut graph = Graph::<String, String>::default();
-        let r = graph.add_node(String::from("r"));
-        let v = graph.add_node(String::from("v"));
-        let v1 = graph.add_node(String::from("v1"));
-        let v2 = graph.add_node(String::from("v2"));
-        let v3 = graph.add_node(String::from("v3"));
-        let left_unnamed_child = graph.add_node(String::from("leftchild"));
-        let right_unnamed_child = graph.add_node(String::from("rightchild"));
+    fn g_figure_2() -> Graph<(String, HashMap<String, String>), String> {
+        let mut graph = Graph::<(String, HashMap<String, String>), String>::new();
+        let r = graph.add_node((String::from("r"), HashMap::new()));
+        let v = graph.add_node((String::from("v"), HashMap::new()));
+        let v1 = graph.add_node((String::from("v1"), HashMap::new()));
+        let v2 = graph.add_node((String::from("v2"), HashMap::new()));
+        let v3 = graph.add_node((String::from("v3"), HashMap::new()));
+
+        let left_unnamed_child = graph.add_node((String::from("leftchild"), HashMap::new()));
+        let right_unnamed_child = graph.add_node((String::from("rightchild"), HashMap::new()));
 
         graph.add_edge(r, v, String::new());
         graph.add_edge(v, v1, String::new());
@@ -260,15 +268,15 @@ mod tests {
     }
 
     // from figure 2 in shamir paper
-    fn h_figure_2() -> Graph<String, String> {
-        let mut graph = Graph::<String, String>::default();
-        let u = graph.add_node(String::from("u"));
-        let u1 = graph.add_node(String::from("u1"));
-        let u2 = graph.add_node(String::from("u2"));
-        let u3 = graph.add_node(String::from("u3"));
-        let u1_left_child = graph.add_node(String::from("u1left"));
-        let u1_right_child = graph.add_node(String::from("u1right"));
-        let u3_child = graph.add_node(String::from("u3child"));
+    fn h_figure_2() -> Graph<(String, HashMap<String, String>), String> {
+        let mut graph = Graph::<(String, HashMap<String, String>), String>::new();
+        let u = graph.add_node((String::from("u"), HashMap::new()));
+        let u1 = graph.add_node((String::from("u1"), HashMap::new()));
+        let u2 = graph.add_node((String::from("u2"), HashMap::new()));
+        let u3 = graph.add_node((String::from("u3"), HashMap::new()));
+        let u1_left_child = graph.add_node((String::from("u1left"), HashMap::new()));
+        let u1_right_child = graph.add_node((String::from("u1right"), HashMap::new()));
+        let u3_child = graph.add_node((String::from("u3child"), HashMap::new()));
 
         graph.add_edge(u, u1, String::new());
         graph.add_edge(u, u2, String::new());
@@ -280,12 +288,12 @@ mod tests {
         return graph;
     }
 
-    fn three_child_graph() -> Graph<String, String> {
-        let mut graph = Graph::<String, String>::new();
-        let root = graph.add_node(String::from("root"));
-        let child1 = graph.add_node(String::from("child1"));
-        let child2 = graph.add_node(String::from("child2"));
-        let child3 = graph.add_node(String::from("child3"));
+    fn three_child_graph() -> Graph<(String, HashMap<String, String>), String> {
+        let mut graph = Graph::<(String, HashMap<String, String>), String>::new();
+        let root = graph.add_node((String::from("root"), HashMap::new()));
+        let child1 = graph.add_node((String::from("child1"), HashMap::new()));
+        let child2 = graph.add_node((String::from("child2"), HashMap::new()));
+        let child3 = graph.add_node((String::from("child3"), HashMap::new()));
 
         graph.add_edge(root, child1, String::new());
         graph.add_edge(root, child2, String::new());
@@ -294,13 +302,13 @@ mod tests {
         return graph;
     }
 
-    fn four_child_graph() -> Graph<String, String> {
-        let mut graph = Graph::<String, String>::new();
-        let root = graph.add_node(String::from("root"));
-        let child1 = graph.add_node(String::from("child1"));
-        let child2 = graph.add_node(String::from("child2"));
-        let child3 = graph.add_node(String::from("child3"));
-        let child4 = graph.add_node(String::from("child4"));
+    fn four_child_graph() -> Graph<(String, HashMap<String, String>), String> {
+        let mut graph = Graph::<(String, HashMap<String, String>), String>::new();
+        let root = graph.add_node((String::from("root"), HashMap::new()));
+        let child1 = graph.add_node((String::from("child1"), HashMap::new()));
+        let child2 = graph.add_node((String::from("child2"), HashMap::new()));
+        let child3 = graph.add_node((String::from("child3"), HashMap::new()));
+        let child4 = graph.add_node((String::from("child4"), HashMap::new()));
 
         graph.add_edge(root, child1, String::new());
         graph.add_edge(root, child2, String::new());
@@ -310,19 +318,18 @@ mod tests {
         return graph;
     }
 
-    fn bookinfo_trace_graph() -> Graph<String, String> {
-        let mut graph = Graph::<String, String>::new();
-        let productpage = graph.add_node(String::from("productpage-v1"));
-        let reviews = graph.add_node(String::from("reviews-v1"));
-        let ratings = graph.add_node(String::from("ratings-v1"));
-        let details = graph.add_node(String::from("details-v1"));
+    fn bookinfo_trace_graph() -> Graph<(String, HashMap<String, String>), String> {
+        let mut graph = Graph::<(String, HashMap<String, String>), String>::new();
+        let productpage = graph.add_node((String::from("productpage-v1"), HashMap::new()));
+        let reviews = graph.add_node((String::from("reviews-v1"), HashMap::new()));
+        let ratings = graph.add_node((String::from("ratings-v1"), HashMap::new()));
+        let details = graph.add_node((String::from("details-v1"), HashMap::new()));
 
         graph.add_edge(productpage, reviews, String::new());
         graph.add_edge(productpage, details, String::new());
         graph.add_edge(reviews, ratings, String::new());
 
         return graph;
-
     }
     // ---------------------- Shamir Tests -------------------------
 
@@ -411,7 +418,6 @@ mod tests {
         assert!(find_mapping_shamir_centralized(graph_g.clone(), graph_h_1));
     }
 
-
     #[test]
     fn test_shamir_branching_graphs() {
         let graph_g = four_child_graph();
@@ -434,6 +440,6 @@ mod tests {
     fn test_shamir_on_bookinfo() {
         let graph_g = bookinfo_trace_graph();
         let graph_h = three_node_graph();
-        assert!(find_mapping_shamir_centralized(graph_g, graph_h));    
+        assert!(find_mapping_shamir_centralized(graph_g, graph_h));
     }
 }
