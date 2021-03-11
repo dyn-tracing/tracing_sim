@@ -1,5 +1,5 @@
+use crate::graph_utils::{find_leaves, find_root};
 use mcmf::{Capacity, Cost, GraphBuilder, Path, Vertex};
-use petgraph::algo::dijkstra;
 /// Implements subgraph isomorphism algorithms two ways:
 /// as described in https://www.cs.bgu.ac.il/~dekelts/publications/subtree.pdf
 /// Another thing to consider, but is not implemented here, is
@@ -10,59 +10,6 @@ use petgraph::visit::DfsPostOrder;
 use petgraph::Incoming;
 use std::collections::HashMap;
 use std::collections::HashSet;
-
-// ----------------- Graph Convenience Functions ------------------
-// TODO:  this entire section should migrate to graph utils once
-// we stop using strings and instead use real graphs
-fn find_leaves(
-    node: NodeIndex,
-    graph: &Graph<(String, HashMap<String, String>), String>,
-) -> Vec<NodeIndex> {
-    let mut post_order = DfsPostOrder::new(&graph, node);
-    let mut to_return = Vec::new();
-    while let Some(visited) = post_order.next(&graph) {
-        let neighbors: Vec<NodeIndex> = graph.neighbors(visited).collect();
-        if neighbors.len() == 0 {
-            to_return.push(visited);
-        }
-    }
-    return to_return;
-}
-
-fn find_root(graph: &Graph<(String, HashMap<String, String>), String>) -> NodeIndex {
-    for node in graph.node_indices() {
-        let neighbors: Vec<NodeIndex> = graph.neighbors_directed(node, Incoming).collect();
-        if neighbors.len() == 0 {
-            return node;
-        }
-    }
-    panic!("no root found");
-}
-
-// TODO: once this works, stop making everything a string and use the graph
-// utils version
-fn find_node_with_weight(
-    graph: &Graph<(String, HashMap<String, String>), String>,
-    weight: String,
-) -> NodeIndex {
-    for node in graph.node_indices() {
-        if &graph.node_weight(node).unwrap().0 == &weight {
-            return node;
-        }
-    }
-    panic!("could not find node with weight {0}", weight);
-}
-
-fn get_height(graph: &Graph<(String, HashMap<String, String>), String>, node: NodeIndex) -> u32 {
-    let distances = dijkstra(graph, node, None, |_| 1);
-    let mut max = 0;
-    for key in distances.keys() {
-        if distances[key] > max {
-            max = distances[key];
-        }
-    }
-    return max;
-}
 
 // ----------------- Shamir Isomorphism Algorithm ------------------
 
@@ -117,7 +64,7 @@ fn max_matching(
                 }
 
                 // 2. add edge to sink if applicable
-                let mut v_str = graph_h.node_weight(*v).unwrap().0.clone();
+                let mut v_str = graph_g.node_weight(*v).unwrap().0.clone();
                 v_str.push_str("v");
                 if !added_nodes.contains(&v_str) {
                     graph_builder.add_edge(v_str.to_string(), Vertex::Sink, Capacity(1), Cost(0));
@@ -148,7 +95,7 @@ fn find_mapping_shamir_centralized_inner_loop(
         }
 
         // maximum matching where X0 = X
-        let (cost, path) = max_matching(&u_neighbors, &v_neighbors, graph_g, graph_h, set_s, u);
+        let (cost, _path) = max_matching(&u_neighbors, &v_neighbors, graph_g, graph_h, set_s, u);
         if cost == u_neighbors.len() as i32 {
             set_s.get_mut(&(v, u)).unwrap().insert(u);
         }
@@ -157,7 +104,7 @@ fn find_mapping_shamir_centralized_inner_loop(
         for vertex in 0..u_neighbors.len() {
             let mut new_x_set = u_neighbors.clone();
             new_x_set.remove(vertex);
-            let (cost, path) = max_matching(&new_x_set, &v_neighbors, graph_g, graph_h, set_s, u);
+            let (cost, _path) = max_matching(&new_x_set, &v_neighbors, graph_g, graph_h, set_s, u);
             if cost == new_x_set.len() as i32 {
                 set_s.get_mut(&(v, u)).unwrap().insert(u);
             }
@@ -171,7 +118,7 @@ fn find_mapping_shamir_centralized_inner_loop(
     return false;
 }
 
-fn find_mapping_shamir_centralized(
+pub fn find_mapping_shamir_centralized(
     graph_g: Graph<(String, HashMap<String, String>), String>,
     graph_h: Graph<(String, HashMap<String, String>), String>,
 ) -> bool {
@@ -205,6 +152,7 @@ fn find_mapping_shamir_centralized(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::graph_utils::get_node_with_id;
 
     /// --------------- Graph Creation Helper functions -------------------
     fn three_node_graph() -> Graph<(String, HashMap<String, String>), String> {
@@ -236,12 +184,6 @@ mod tests {
         graph.add_edge(a, b, String::new());
         graph.add_edge(b, c, String::new());
         graph.add_edge(c, star, String::new());
-        return graph;
-    }
-
-    fn little_branching_graph() -> Graph<(String, HashMap<String, String>), String> {
-        let mut graph = Graph::<(String, HashMap<String, String>), String>::new();
-        graph.extend_with_edges(&[(0, 1), (0, 2), (0, 3), (1, 4), (3, 5)]);
         return graph;
     }
 
@@ -334,16 +276,6 @@ mod tests {
     // ---------------------- Shamir Tests -------------------------
 
     #[test]
-    fn test_find_leaves() {
-        let graph = little_branching_graph();
-        let leaves = find_leaves(NodeIndex::new(0), &graph);
-        let correct_leaves = vec![2, 4, 5];
-        for leaf in &leaves {
-            assert!(correct_leaves.contains(&leaf.index()));
-        }
-    }
-
-    #[test]
     fn test_initialize_s() {
         let graph_g = three_node_graph();
         let graph_h = two_node_graph();
@@ -361,30 +293,30 @@ mod tests {
         }
 
         let aa = (
-            find_node_with_weight(&graph_g, "a".to_string()),
-            find_node_with_weight(&graph_h, "a".to_string()),
+            get_node_with_id(&graph_g, "a".to_string()).unwrap(),
+            get_node_with_id(&graph_h, "a".to_string()).unwrap(),
         );
         let ab = (
-            find_node_with_weight(&graph_g, "a".to_string()),
-            find_node_with_weight(&graph_h, "b".to_string()),
+            get_node_with_id(&graph_g, "a".to_string()).unwrap(),
+            get_node_with_id(&graph_h, "b".to_string()).unwrap(),
         );
 
         let ba = (
-            find_node_with_weight(&graph_g, "b".to_string()),
-            find_node_with_weight(&graph_h, "a".to_string()),
+            get_node_with_id(&graph_g, "b".to_string()).unwrap(),
+            get_node_with_id(&graph_h, "a".to_string()).unwrap(),
         );
         let bb = (
-            find_node_with_weight(&graph_g, "b".to_string()),
-            find_node_with_weight(&graph_h, "b".to_string()),
+            get_node_with_id(&graph_g, "b".to_string()).unwrap(),
+            get_node_with_id(&graph_h, "b".to_string()).unwrap(),
         );
 
         let ca = (
-            find_node_with_weight(&graph_g, "c".to_string()),
-            find_node_with_weight(&graph_h, "a".to_string()),
+            get_node_with_id(&graph_g, "c".to_string()).unwrap(),
+            get_node_with_id(&graph_h, "a".to_string()).unwrap(),
         );
         let cb = (
-            find_node_with_weight(&graph_g, "c".to_string()),
-            find_node_with_weight(&graph_h, "b".to_string()),
+            get_node_with_id(&graph_g, "c".to_string()).unwrap(),
+            get_node_with_id(&graph_h, "b".to_string()).unwrap(),
         );
 
         assert!(s.contains_key(&aa));

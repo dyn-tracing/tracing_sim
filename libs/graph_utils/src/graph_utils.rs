@@ -2,8 +2,10 @@
 
 use petgraph::algo::{dijkstra, toposort};
 use petgraph::graph::{Graph, NodeIndex};
-use std::collections::HashMap;
+use petgraph::visit::DfsPostOrder;
+use petgraph::Incoming;
 use regex::Regex;
+use std::collections::HashMap;
 
 /* This function creates a petgraph graph representing the query given by the user.
  * For example, if the cql query were MATCH n -> m, e WHERE ... the input to this function
@@ -57,7 +59,7 @@ pub fn generate_target_graph(
  *  The trace is represented in paths_header as a string.  Comma separated strings represent
  *  straight paths, and those straight paths share nodes that represent a node with multiple children
  *  Each node is separated by a semicolon
- *  Thus "2;1;0,3;1" is a graph that looks like 0 -> 1 -> 2 , where 1 also has another child, 3, 
+ *  Thus "2;1;0,3;1" is a graph that looks like 0 -> 1 -> 2 , where 1 also has another child, 3,
  *  and 0 is root.
  *
  *  Arguments:
@@ -73,36 +75,51 @@ pub fn generate_trace_graph_from_headers(
     paths_header: String,
     properties_header: String,
 ) -> Graph<(String, HashMap<String, String>), String> {
-    let mut graph : Graph<(String, HashMap<String, String>), String>= Graph::new();
-    if paths_header.is_empty() { return graph; }
+    let mut graph: Graph<(String, HashMap<String, String>), String> = Graph::new();
+    if paths_header.is_empty() {
+        return graph;
+    }
     let name = "node.metadata.WORKLOAD_NAME";
-    let mut node_handles : HashMap<String, NodeIndex> = HashMap::new();
+    let mut node_handles: HashMap<String, NodeIndex> = HashMap::new();
     let straight_paths = paths_header.split(",");
     for straight_path in straight_paths {
         let mut node_iterator = straight_path.split(";");
         let mut node_str = node_iterator.next().unwrap();
         if !node_handles.contains_key(node_str) {
             let node_hashmap: HashMap<String, String> = [(name.to_string(), node_str.to_string())]
-                                                     .iter().cloned().collect();
+                .iter()
+                .cloned()
+                .collect();
             node_handles.insert(
                 node_str.to_string(),
-                graph.add_node((node_str.to_string(), node_hashmap)));
+                graph.add_node((node_str.to_string(), node_hashmap)),
+            );
         }
         while let Some(new_node_str) = node_iterator.next() {
             if !node_handles.contains_key(new_node_str) {
-                let new_node_hashmap: HashMap<String, String> = [(name.to_string(), new_node_str.to_string())]
-                                                     .iter().cloned().collect();
+                let new_node_hashmap: HashMap<String, String> =
+                    [(name.to_string(), new_node_str.to_string())]
+                        .iter()
+                        .cloned()
+                        .collect();
                 node_handles.insert(
                     new_node_str.to_string(),
-                    graph.add_node((new_node_str.to_string(), new_node_hashmap)));
+                    graph.add_node((new_node_str.to_string(), new_node_hashmap)),
+                );
             }
-            
+
             // we have no edge weights, so they are empty strings
-            graph.add_edge(node_handles[new_node_str], node_handles[node_str], String::new());
+            graph.add_edge(
+                node_handles[new_node_str],
+                node_handles[node_str],
+                String::new(),
+            );
             node_str = new_node_str;
         }
     }
-    if properties_header.is_empty() { return graph; } 
+    if properties_header.is_empty() {
+        return graph;
+    }
     let properties_iterator = properties_header.split(",");
     for property in properties_iterator {
         let re = Regex::new(r"(?P<node>[^.]*)[.](?P<property>[^=]*)[=][=](?P<value>.*)").unwrap();
@@ -115,16 +132,22 @@ pub fn generate_trace_graph_from_headers(
                 // we may propagate values that aren't in the path, because we've visited
                 // those nodes as requests but not yet as responses
                 if node_handles.contains_key(node) {
-                    graph.node_weight_mut(node_handles[node]).unwrap().1.insert(
-                        property.to_string(), value.to_string());
+                    graph
+                        .node_weight_mut(node_handles[node])
+                        .unwrap()
+                        .1
+                        .insert(property.to_string(), value.to_string());
                 }
-                
             }
-            None => { print!("WARNING:  propagating badly formed properties found in: {0}", property); }
+            None => {
+                print!(
+                    "WARNING:  propagating badly formed properties found in: {0}",
+                    property
+                );
+            }
         }
     }
     return graph;
-
 }
 
 pub fn get_node_with_id(
@@ -176,10 +199,34 @@ pub fn get_out_degree(
     return graph.neighbors(starting_point).count() as u32;
 }
 
+pub fn find_leaves(
+    node: NodeIndex,
+    graph: &Graph<(String, HashMap<String, String>), String>,
+) -> Vec<NodeIndex> {
+    let mut post_order = DfsPostOrder::new(&graph, node);
+    let mut to_return = Vec::new();
+    while let Some(visited) = post_order.next(&graph) {
+        let neighbors: Vec<NodeIndex> = graph.neighbors(visited).collect();
+        if neighbors.len() == 0 {
+            to_return.push(visited);
+        }
+    }
+    return to_return;
+}
+
+pub fn find_root(graph: &Graph<(String, HashMap<String, String>), String>) -> NodeIndex {
+    for node in graph.node_indices() {
+        let neighbors: Vec<NodeIndex> = graph.neighbors_directed(node, Incoming).collect();
+        if neighbors.len() == 0 {
+            return node;
+        }
+    }
+    panic!("no root found");
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use petgraph::algo::{isomorphic_subgraph_matching, isomorphic_subgraph_mapping, is_isomorphic_subgraph};
 
     fn make_small_trace_graph() -> Graph<(String, HashMap<String, String>), String> {
         let graph_string = String::from("0;1;2");
@@ -216,6 +263,11 @@ mod tests {
         }
         let graph = generate_target_graph(vertices, edges, ids_to_properties);
         graph
+    }
+    fn little_branching_graph() -> Graph<(String, HashMap<String, String>), String> {
+        let mut graph = Graph::<(String, HashMap<String, String>), String>::new();
+        graph.extend_with_edges(&[(0, 1), (0, 2), (0, 3), (1, 4), (3, 5)]);
+        return graph;
     }
 
     #[test]
@@ -282,124 +334,13 @@ mod tests {
         assert!(graph.node_weight(ret).unwrap().1[&"property".to_string()] == "thing");
     }
 
-
-    /*
     #[test]
-    fn test_bookinfo_graph_and_isomorphism() {
-        let graph = generate_trace_graph_from_headers("details-v1;productpage-v1,ratings-v1;reviews-v1;productpage-v1".to_string(),
-                                                       String::new());
-                                                      //"productpage-v1.service_name==productpage-v1,ratings-v1.service_name==ratings-v1,reviews-v1.service_name==reviews-v1".to_string());
-        assert!(graph.node_count()==4);
-        let productpage = get_node_with_id(&graph, "productpage-v1".to_string()).unwrap();
-        let reviews = get_node_with_id(&graph, "reviews-v1".to_string()).unwrap();
-        let ratings = get_node_with_id(&graph, "ratings-v1".to_string()).unwrap();
-
-        assert!(graph.neighbors(productpage).count() == 2, "productpage has {0} neighbors", graph.neighbors(productpage).count());
-        assert!(graph.neighbors(reviews).count() == 1, "reviews has {0} neighbors", graph.neighbors(reviews).count());
-        assert!(graph.neighbors(ratings).count() == 0, "ratings has {0} neighbors", graph.neighbors(ratings).count());
-        //assert!(graph.node_weight(reviews).unwrap().1["service_name"]=="reviews-v1");
-
-         let vertices = vec!(  "a".to_string(), "b".to_string(), "c".to_string(),  );
-         let edges = vec!(   ("a".to_string(), "b".to_string() ),   ("b".to_string(), "c".to_string() ),   );
-         let mut ids_to_properties: HashMap<String, HashMap<String, String>> = HashMap::new();
-         ids_to_properties.insert("a".to_string(), HashMap::new());
-         ids_to_properties.insert("b".to_string(), HashMap::new());
-         ids_to_properties.insert("c".to_string(), HashMap::new());
-         //let mut b_hashmap = ids_to_properties.get_mut("b").unwrap();
-         //b_hashmap.insert("service_name".to_string(), "reviews-v1".to_string());
-         let target_graph = generate_target_graph(vertices, edges, ids_to_properties);
-         let a = get_node_with_id(&target_graph, "a".to_string()).unwrap();
-         let b = get_node_with_id(&target_graph, "b".to_string()).unwrap();
-         let c = get_node_with_id(&target_graph, "c".to_string()).unwrap();
-         print!("edge count target: {0}\n", target_graph.edge_count());
-         assert!(target_graph.neighbors(a).count()==1);
-         assert!(target_graph.neighbors(b).count()==1);
-         assert!(target_graph.neighbors(c).count()==0);
-
-         assert!(graph.node_count()==4);
-         assert!(target_graph.node_count()==3);
-
-         let matching = isomorphic_subgraph_mapping(&target_graph, &graph);
-         assert!(matching.is_some());
-
-         let mapping = isomorphic_subgraph_matching(
-            &target_graph,
-            &graph,
-            |x, y| {
-                /*
-                for property in y.1.keys() {
-                    print!("testing equality on property {0}\n", property);
-                    if x.1.contains_key(property) && &(x.1[property]) != &(y.1[property]) { return false; }
-                }
-                */
-            return true;
-            },
-            |x, y| x == y,
-        );
-        assert!(mapping.is_some());
-
-
-    }
-    #[test]
-    fn test_petgraph_isomorphism() {
-        let mut graph1 = Graph::<&str, &str>::new();
-        let mut graph2 = Graph::<&str, &str>::new();
-        let a = graph1.add_node("a");
-        let b = graph1.add_node("b");
-        let c = graph1.add_node("c");
-        let d = graph1.add_node("d");
-        let e1 = graph1.add_edge(a,b, "");
-        let e2 = graph1.add_edge(b,c, "");
-        let e2 = graph1.add_edge(c,d, "");
-        let e3 = graph1.add_edge(a, d, "");
-
-        let x = graph2.add_node("x");
-        let y = graph2.add_node("y");
-        let z = graph2.add_node("z");
-        let e2 = graph2.add_edge(x,y, "");
-        let e2 = graph2.add_edge(y,z, "");
-        let e2 = graph2.add_edge(z,x, "");
-
-        assert!(is_isomorphic_subgraph(&graph2, &graph1));
-        let matching = isomorphic_subgraph_mapping(&graph2, &graph1);
-        assert!(matching.is_some());
-
-         let mapping = isomorphic_subgraph_matching(
-            &graph1,
-            &graph2,
-            |x, y| {
-            return true;
-            },
-            |x, y| x == y,
-        );
-        assert!(mapping.is_some());
-    }
-    */
-
-    #[test]
-    fn sanity_check() {
-        let g0 = Graph::<(), ()>::from_edges(&[(0, 1), (1, 2), (2, 0)]);
-        let g1 = Graph::<(), ()>::from_edges(&[(0, 1), (1, 2), (2, 0), (2, 3)]);
-        assert!(is_isomorphic_subgraph(&g0, &g1));
-    }
-    #[test]
-    fn sanity_check_pt_2() {
-        let mut graph0 = Graph::<&str, &str>::new();
-        let a = graph0.add_node("a");
-        let b = graph0.add_node("b");
-        let c = graph0.add_node("c");
-        let e1 = graph0.add_edge(a, b, "");
-        let e1 = graph0.add_edge(b, c, "");
-
-        let mut graph1 = Graph::<&str, &str>::new();
-        let x = graph1.add_node("x");
-        let y = graph1.add_node("y");
-        let z = graph1.add_node("z");
-        let w = graph1.add_node("w");
-        let e2 = graph1.add_edge(x,y,"");
-        let e2 = graph1.add_edge(y,z,"");
-        let e2 = graph1.add_edge(w,x,"");
-
-        assert!(is_isomorphic_subgraph(&graph0, &graph1));
+    fn test_find_leaves() {
+        let graph = little_branching_graph();
+        let leaves = find_leaves(NodeIndex::new(0), &graph);
+        let correct_leaves = vec![2, 4, 5];
+        for leaf in &leaves {
+            assert!(correct_leaves.contains(&leaf.index()));
+        }
     }
 }
