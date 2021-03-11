@@ -67,9 +67,9 @@ fn initialize_s(
 ) -> HashMap<(NodeIndex, NodeIndex), HashSet<NodeIndex>> {
     let mut s = HashMap::<(NodeIndex, NodeIndex), HashSet<NodeIndex>>::new();
     for node_g in graph_g.node_indices() {
-        for node_h in graph_h.node_indices() {
+        for u in graph_h.node_indices() {
             // initialize S entry as empty set
-            s.insert((node_g, node_h), HashSet::new());
+            s.insert((node_g, u), HashSet::new());
         }
     }
     let root_g = find_root(&graph_g);
@@ -97,11 +97,13 @@ fn max_matching(
     set_s: &HashMap<(NodeIndex, NodeIndex), HashSet<NodeIndex>>,
     u_null: NodeIndex,
 ) -> (i32, Vec<Path<String>>) {
+
     let mut graph_builder = GraphBuilder::new();
     let mut added_nodes = HashSet::new();
     for u in set_x {
         for v in set_y {
             if set_s[&(*v, *u)].contains(&u_null) {
+                // 1. add edge from source if applicable
                 let mut u_str = graph_h.node_weight(*u).unwrap().clone();
                 u_str.push_str("U");
                 if !added_nodes.contains(&u_str) {
@@ -109,6 +111,7 @@ fn max_matching(
                     added_nodes.insert(u_str.to_string());
                 }
 
+                // 2. add edge to sink if applicable
                 let mut v_str = graph_h.node_weight(*v).unwrap().clone();
                 v_str.push_str("v");
                 if !added_nodes.contains(&v_str) {
@@ -116,6 +119,7 @@ fn max_matching(
                     added_nodes.insert(v_str.to_string());
                 }
 
+                // 2. add edge between v and u
                 graph_builder.add_edge(u_str.to_string(), v_str.to_string(), Capacity(1), Cost(1));
             }
         }
@@ -134,18 +138,18 @@ fn find_mapping_shamir_centralized_inner_loop(
 ) -> bool {
     let root_h = find_root(&graph_h);
     let v_neighbors: Vec<NodeIndex> = graph_g.neighbors(v).collect();
-    for node_h in graph_h.node_indices() {
-        let u_neighbors: Vec<NodeIndex> = graph_h.neighbors(node_h).collect();
+    for u in graph_h.node_indices() {
+        let u_neighbors: Vec<NodeIndex> = graph_h.neighbors(u).collect();
         // all vertices of degree at most t+1
-        if u_neighbors.len() > v_neighbors.len() + 1 {
+        if u_neighbors.len() >= v_neighbors.len() + 1 {
             continue;
         }
 
         // maximum matching where X0 = X
         let (cost, path) =
-            max_matching(&u_neighbors, &v_neighbors, graph_g, graph_h, set_s, node_h);
+            max_matching(&u_neighbors, &v_neighbors, graph_g, graph_h, set_s, u);
         if cost == u_neighbors.len() as i32 {
-            set_s.get_mut(&(v, node_h)).unwrap().insert(node_h);
+            set_s.get_mut(&(v, u)).unwrap().insert(u);
         }
 
         // maximum matching where X0 is X minus an element
@@ -153,14 +157,14 @@ fn find_mapping_shamir_centralized_inner_loop(
             let mut new_x_set = u_neighbors.clone();
             new_x_set.remove(vertex);
             let (cost, path) =
-                max_matching(&new_x_set, &v_neighbors, graph_g, graph_h, set_s, node_h);
+                max_matching(&new_x_set, &v_neighbors, graph_g, graph_h, set_s, u);
             if cost == new_x_set.len() as i32 {
-                set_s.get_mut(&(v, node_h)).unwrap().insert(node_h);
+                set_s.get_mut(&(v, u)).unwrap().insert(u);
             }
         }
 
         // lines 12-14
-        if set_s[&(v, node_h)].contains(&root_h) {
+        if set_s[&(v, u)].contains(&root_h) {
             return true;
         }
     }
