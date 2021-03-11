@@ -130,6 +130,15 @@ fn find_node_with_weight(graph: &Graph<String,()>, weight: String) -> NodeIndex 
     panic!("could not find node with weight {0}", weight);
 }
 
+// only works for trees
+fn get_height(graph: &Graph<String, String>, node: NodeIndex) -> u32 {
+    let distances = dijkstra(graph, node, None, |_| 1);
+    let mut max = 0;
+    for key in distances.keys() {
+        if distances[key] > max { max = distances[key]; }
+    }
+    return max;
+}
 // Creates the subsumption graph gs
 fn algorithm_a_hoffman(graph_h: &Graph<String, String>) -> Graph<String,()> {
     // 1. List subtrees by increasing height (this would be equivalent to listing nodes by height
@@ -143,7 +152,6 @@ fn algorithm_a_hoffman(graph_h: &Graph<String, String>) -> Graph<String,()> {
         let level = node_id_to_level[node_id];
         level_node_pairs.push((level, node_id));
     }
-    // TODO: there's got to be a better way to sort this, but if I reverse sort it gives the same order?
     level_node_pairs.sort_by(|a, b| b.0.cmp(&a.0));
     println!("first node {:?} at level {:?}", graph_h.node_weight(*level_node_pairs[0].1), level_node_pairs[0].0);
     
@@ -158,7 +166,6 @@ fn algorithm_a_hoffman(graph_h: &Graph<String, String>) -> Graph<String,()> {
         node_weight_to_gs_node.insert(node_weight, node);
     }
     
-    println!("first node {:?}", graph_h.node_weight(*level_node_pairs[0].1));
     // 3. For each pattern, which here is represented by the parent of the children in the pattern,
     //    check subsumption and add edges if relevant
     //    We look by increasing order of height
@@ -167,8 +174,7 @@ fn algorithm_a_hoffman(graph_h: &Graph<String, String>) -> Graph<String,()> {
         let node_p = find_node_with_weight(&gs, graph_h.node_weight(node_p_in_graph_h).unwrap().to_string());
         println!("\nlooking at node {:?}", gs.node_weight(node_p));
         for j in 0..level_node_pairs.len() {
-            // TODO: level isn't a good indicator of height
-            if level_node_pairs[j].0 <= level_node_pairs[i].0 { continue; }
+            if get_height(graph_h, *level_node_pairs[j].1) > get_height(graph_h, *level_node_pairs[i].1) { continue; }
             let node_p_prime_in_graph_h = *level_node_pairs[j].1;
             let node_p_prime = find_node_with_weight(&gs, graph_h.node_weight(node_p_prime_in_graph_h).unwrap().to_string());
             println!("comparing with node {:?}", gs.node_weight(node_p_prime));
@@ -183,7 +189,6 @@ fn algorithm_a_hoffman(graph_h: &Graph<String, String>) -> Graph<String,()> {
                 }
             } else {
                 let mut subsumes = true;
-                let mut distance : i32 = 0;
                 if graph_h.neighbors(node_p_in_graph_h).count() != graph_h.neighbors(node_p_prime_in_graph_h).count() {
                     subsumes = false;
                 }
@@ -191,14 +196,7 @@ fn algorithm_a_hoffman(graph_h: &Graph<String, String>) -> Graph<String,()> {
                     for p_prime_child_in_graph_h in graph_h.neighbors(node_p_prime_in_graph_h) {
                         let p_child = find_node_with_weight(&gs, graph_h.node_weight(p_child_in_graph_h).unwrap().to_string());
                         let p_prime_child = find_node_with_weight(&gs, graph_h.node_weight(p_prime_child_in_graph_h).unwrap().to_string());
-                        let reachable = dijkstra(&gs, p_child, Some(p_prime_child), |e| 1);
-                        println!("looking for path from {:?} to {:?}", gs.node_weight(p_child), gs.node_weight(p_prime_child));
-                        if !reachable.contains_key(&p_prime_child) || reachable[&p_prime_child] as i32 > 1 {
-                            println!("cannot find path from {:?} to {:?}", gs.node_weight(p_child), gs.node_weight(p_prime_child));
-                            distance = -1;
-                            subsumes = false;
-                        }
-                        println!("distance is {:?}", reachable[&p_prime_child] as i32);
+                        if !gs.contains_edge(p_child, p_prime_child) { subsumes = false; }
                     }
                 }
                 if subsumes {
@@ -215,36 +213,38 @@ fn algorithm_a_hoffman(graph_h: &Graph<String, String>) -> Graph<String,()> {
 }
 
 // uses subsumption graph to make table, which will be used in actual matching step
-fn algorithm_b_hoffman(gs: &Graph<String, ()>, graph_h: &Graph<String, String>) -> HashMap<String, Vec<String>> {
+fn algorithm_b_hoffman(gs: &Graph<String, ()>, graph_h: &Graph<String, String>) -> HashMap<String, String> {
     let top_sort_wrapped = toposort(&gs, None);
     if let Err(e) = top_sort_wrapped {
         println!("could not perform topological sort on gs because {:?}", e);
         panic!();
     }
     let top_sort = top_sort_wrapped.unwrap();
-    let mut tables = HashMap::<String, Vec<String>>::new(); // hashmap of pattern (as rep by node) to patterns
-    for node in top_sort {
-        let mut vec = Vec::new();
-        vec.push("*".to_string());
-        tables.insert(gs.node_weight(node).unwrap().to_string(), vec);
+
+    // initialize tables
+    let mut tables = HashMap::<String, String>::new(); // hashmap of pattern (as rep by node) to patterns
+    for node in &top_sort {
+        tables.insert(gs.node_weight(*node).unwrap().to_string(), "*".to_string());
     }
-    for node_as_pattern in graph_h.node_indices() {
+
+    // iterate through PF
+    for node_as_pattern in top_sort {
         for other_node_as_pattern in graph_h.node_indices() {
             // TODO: if node_as_pattern's subtree is subsumed by other_node_as_pattern's subtree for all children
             if graph_h.neighbors(node_as_pattern).count() == graph_h.neighbors(other_node_as_pattern).count() {
-                let mut subsumed = false;
+                let mut subsumed = true;
                 for neighbor in graph_h.neighbors(node_as_pattern) {
                     for other_neighbor in graph_h.neighbors(other_node_as_pattern) {
                         let neighbor_in_gs = find_node_with_weight(&gs, graph_h.node_weight(neighbor).unwrap().to_string());
                         let other_neighbor_in_gs = find_node_with_weight(&gs, graph_h.node_weight(other_neighbor).unwrap().to_string());
                         let reachable = dijkstra(&gs, neighbor_in_gs, Some(other_neighbor_in_gs), |e| 1);
-                        if reachable.contains_key(&other_neighbor_in_gs) {
-                            let node_as_pattern_str = graph_h.node_weight(node_as_pattern).unwrap();
-                            let other_node_as_pattern_str = graph_h.node_weight(other_node_as_pattern).unwrap();
-       
-                            tables.get_mut(node_as_pattern_str).unwrap().push(other_node_as_pattern_str.to_string());
+                        if !reachable.contains_key(&other_neighbor_in_gs) {
+                            subsumed = false;
                         }
                     }
+                }
+                if subsumed {
+                    tables.insert(gs.node_weight(other_node_as_pattern).unwrap().to_string(), gs.node_weight(node_as_pattern).unwrap().to_string());
                 }
             }
         }
@@ -253,14 +253,14 @@ fn algorithm_b_hoffman(gs: &Graph<String, ()>, graph_h: &Graph<String, String>) 
 }
 
 // does both algo a and b to complete preprocessing step
-fn precompute_hoffman(graph_h: &Graph<String, String>) -> HashMap<String, Vec<String>> {
+fn precompute_hoffman(graph_h: &Graph<String, String>) -> HashMap<String, String> {
     let mut gs = algorithm_a_hoffman(graph_h);
     let table = algorithm_b_hoffman(&gs, graph_h);
     return table;
 }
 
 // uses precompute output to do matching step
-fn compute_hoffman(precompute_output: HashMap<String, Vec<String>>, graph_g: Graph<String,String>, graph_h: Graph<String, String>) -> Vec<(String, String)> {
+fn compute_hoffman(precompute_output: HashMap<String, String>, graph_g: Graph<String,String>, graph_h: Graph<String, String>) -> Vec<(String, String)> {
     let mut post_order = DfsPostOrder::new(&graph_g, find_root(&graph_g));
     let mut matchings = HashMap::<NodeIndex, Vec<String>>::new();
     while let Some(node) = post_order.next(&graph_g) {
@@ -417,14 +417,13 @@ mod tests {
         let table = algorithm_b_hoffman(&gs, &graph);
         for key in table.keys() {
             print!("key: {:?}\n", key);
-            for entry in &table[key] {
-                print!("entry: {:?} ", entry);
-            }
+            print!("entry: {:?} ", table[key]);
             print!("\n");
 
         }
         assert!(table["a"].contains(&"a".to_string()));
-        assert!(table["a"].contains(&"b".to_string()));
+        assert!(table["a"].contains(&"*".to_string()));
+        assert!(table["a"].len()==2);
 
         assert!(table["b"].contains(&"b".to_string()));
         assert!(table["b"].contains(&"c".to_string()));
