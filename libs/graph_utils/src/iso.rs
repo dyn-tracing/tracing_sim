@@ -13,6 +13,7 @@ use petgraph::Incoming;
 use petgraph::algo::{dijkstra, toposort};
 use std::collections::HashSet;
 use std::collections::HashMap;
+use mcmf::{GraphBuilder, Vertex, Cost, Capacity, Path};
 
 fn find_leaves(node: NodeIndex, graph: &Graph<String,String>) -> Vec<NodeIndex> {
     let mut post_order = DfsPostOrder::new(&graph, node);
@@ -52,26 +53,22 @@ fn initialize_s(graph_g: &Graph<String, String>, graph_h: &Graph<String, String>
     }
     return s;
 }
-/*
-fn construct_bipartite_graph(edge_set: Vec<(String, String)>) -> Graph<String, ()> {
-    let mut graph = Graph::<String,()>::new();
-    let mut added_nodes = HashMap::new();
-    for edge in edge_set {
-        if !added_nodes.contains_key(&edge.0) {
-            let node = graph.add_node(edge.0.clone());
-            added_nodes.insert(&edge.0.clone(), node);
-        }
-        if !added_nodes.contains_key(&edge.1) {
-            let node = graph.add_node(edge.1.clone());
-            added_nodes.insert(&edge.1, node);
-        }
-        graph.add_edge(added_nodes[&edge.0], added_nodes[&edge.1], ());
+fn max_matching(set_x: &Vec<String>, set_y: &Vec<String>, edge_set: &Vec<&(String, String)>) -> (i32, Vec<Path<String>>) {
+    let mut graph_builder = GraphBuilder::new();
+    for node in set_x {
+        graph_builder.add_edge(Vertex::Source, node.to_string(), Capacity(1), Cost(0));
     }
-    return graph;
-}
-*/
-fn maximum_matching_size(set_x: &Vec<NodeIndex>, set_y: &Vec<NodeIndex>) -> u32 {
-    return 0;
+    for node in set_y {
+        graph_builder.add_edge(node.to_string(), Vertex::Sink, Capacity(1), Cost(0));
+    }
+    for edge in edge_set {
+        print!("adding edge in edge set");
+        graph_builder.add_edge(edge.0.clone(), edge.1.clone(), Capacity(1), Cost(1));
+    }
+    let (cost, paths) = graph_builder.mcmf();
+    print!("cost: {:?}\n", cost);
+    return (cost, paths);
+    //return graph_builder.mcmf();
 }
 
 fn find_mapping_shamir(graph_g: Graph<String, String>, graph_h: Graph<String, String>) -> bool {
@@ -79,7 +76,7 @@ fn find_mapping_shamir(graph_g: Graph<String, String>, graph_h: Graph<String, St
     let mut s_set = initialize_s(&graph_g, &graph_h);
     let root_g = find_root(&graph_g); 
 
-    // postorder traversal and filtering of children for degrees, ines 5-8
+    // postorder traversal and filtering of children for degrees, lines 5-8
     let mut post_order = DfsPostOrder::new(&graph_g, root_g);
     while let Some(node) = post_order.next(&graph_g) {
         let v_children : Vec<NodeIndex> = graph_g.neighbors(node).collect();
@@ -89,26 +86,50 @@ fn find_mapping_shamir(graph_g: Graph<String, String>, graph_h: Graph<String, St
             if u_neighbors.len() <= v_children_len+1 {
 
                 // construct bipartite graph, line 9
+                let mut set_x_strings = Vec::new();
+                let mut set_y_strings = Vec::new();
+
                 let mut edge_set = Vec::new();
                 for u in &u_neighbors {
                     for v in &v_children {
-                        if s_set[&(*u,*v)].contains(&node_h) {
+                        if s_set[&(*v,*u)].contains(&node_h) {
                             let mut u_str = u.index().to_string();
                             u_str.push_str("u");
+                            set_x_strings.push(u_str.clone());
                             let mut v_str = v.index().to_string();
                             v_str.push_str("v");
+                            set_y_strings.push(v_str.clone());
+                            print!("hello\n\n\n");
                             edge_set.push((u_str,v_str));
                         }
                     }
                 }
-                //let bipartite = construct_bipartite_graph(edge_set);
-
+               
                 // lines 10-11
-                for i in 0..u_neighbors.len() {
-                    let mut x_i = u_neighbors.clone();
-                    if i != 0 { x_i.remove(i); }
-                    let maximum_matching = maximum_matching_size(&x_i, &v_children);
-                    if maximum_matching == x_i.len() as u32 {
+                // TODO: include x_0 first, before loop
+                let mut edge_set_addresses = Vec::new();
+                for edge in &edge_set { edge_set_addresses.push(edge); }
+                let (cost, paths) = max_matching(&set_x_strings, &set_y_strings, &edge_set_addresses);
+                if cost == set_x_strings.len() as i32 {
+                    s_set.get_mut(&(node, node_h)).unwrap().insert(node_h);
+                }
+                
+
+                for i in 0..set_x_strings.len() {
+                    let mut x_i = set_x_strings.clone();
+                    let x_i_len_without_i : i32 = (x_i.len()-1) as i32;
+
+                    // make edge set and x set without x_i
+                    let mut edge_set_without_x_i = Vec::new();
+                    let mut x_str = &x_i[i];
+                    for edge in &edge_set {
+                        if &edge.0 != x_str && &edge.1 != x_str {
+                            edge_set_without_x_i.push(edge);
+                        }
+                    }
+                    print!("len edge set is {:?}\n", edge_set_without_x_i.len());
+                    let (cost, paths) = max_matching(&x_i, &set_y_strings, &edge_set_without_x_i);
+                    if cost == x_i_len_without_i {
                         s_set.get_mut(&(node, node_h)).unwrap().insert(u_neighbors[i]);
                     }
                     
@@ -119,11 +140,26 @@ fn find_mapping_shamir(graph_g: Graph<String, String>, graph_h: Graph<String, St
         }
     }
     // line 15
+    print!("returning false, s_set is: \n");
+    for key in s_set.keys() {
+        print!("key: {:?}, value: ", key);
+        for value in &s_set[key] {
+            print!(" {:?} ", value);
+        }
+        print!("\n");
+
+    }
     return false;
 
 }
+fn find_node_with_weight_shamir(graph: &Graph<String,String>, weight: String) -> NodeIndex {
+    for node in graph.node_indices() {
+        if graph.node_weight(node).unwrap() == &weight { return node; }
+    }
+    panic!("could not find node with weight {0}", weight);
+}
 
-fn find_node_with_weight(graph: &Graph<String,()>, weight: String) -> NodeIndex {
+fn find_node_with_weight_hoffman(graph: &Graph<String,()>, weight: String) -> NodeIndex {
     for node in graph.node_indices() {
         if graph.node_weight(node).unwrap() == &weight { return node; }
     }
@@ -171,12 +207,12 @@ fn algorithm_a_hoffman(graph_h: &Graph<String, String>) -> Graph<String,()> {
     //    We look by increasing order of height
     for i in 0..level_node_pairs.len() {
         let node_p_in_graph_h = *level_node_pairs[i].1;
-        let node_p = find_node_with_weight(&gs, graph_h.node_weight(node_p_in_graph_h).unwrap().to_string());
+        let node_p = find_node_with_weight_hoffman(&gs, graph_h.node_weight(node_p_in_graph_h).unwrap().to_string());
         println!("\nlooking at node {:?}", gs.node_weight(node_p));
         for j in 0..level_node_pairs.len() {
             if get_height(graph_h, *level_node_pairs[j].1) > get_height(graph_h, *level_node_pairs[i].1) { continue; }
             let node_p_prime_in_graph_h = *level_node_pairs[j].1;
-            let node_p_prime = find_node_with_weight(&gs, graph_h.node_weight(node_p_prime_in_graph_h).unwrap().to_string());
+            let node_p_prime = find_node_with_weight_hoffman(&gs, graph_h.node_weight(node_p_prime_in_graph_h).unwrap().to_string());
             println!("comparing with node {:?}", gs.node_weight(node_p_prime));
             // we need separate patterns
             if gs.node_weight(node_p_prime).unwrap() == "*" {
@@ -194,8 +230,8 @@ fn algorithm_a_hoffman(graph_h: &Graph<String, String>) -> Graph<String,()> {
                 }
                 for p_child_in_graph_h in graph_h.neighbors(node_p_in_graph_h) {
                     for p_prime_child_in_graph_h in graph_h.neighbors(node_p_prime_in_graph_h) {
-                        let p_child = find_node_with_weight(&gs, graph_h.node_weight(p_child_in_graph_h).unwrap().to_string());
-                        let p_prime_child = find_node_with_weight(&gs, graph_h.node_weight(p_prime_child_in_graph_h).unwrap().to_string());
+                        let p_child = find_node_with_weight_hoffman(&gs, graph_h.node_weight(p_child_in_graph_h).unwrap().to_string());
+                        let p_prime_child = find_node_with_weight_hoffman(&gs, graph_h.node_weight(p_prime_child_in_graph_h).unwrap().to_string());
                         if !gs.contains_edge(p_child, p_prime_child) { subsumes = false; }
                     }
                 }
@@ -230,25 +266,29 @@ fn algorithm_b_hoffman(gs: &Graph<String, ()>, graph_h: &Graph<String, String>) 
     // iterate through PF
     for node_as_pattern in top_sort {
         for other_node_as_pattern in graph_h.node_indices() {
-            // TODO: if node_as_pattern's subtree is subsumed by other_node_as_pattern's subtree for all children
+            // 1. check that the pattern's children are subsumed for all children
             if graph_h.neighbors(node_as_pattern).count() == graph_h.neighbors(other_node_as_pattern).count() {
                 let mut subsumed = true;
                 for neighbor in graph_h.neighbors(node_as_pattern) {
                     for other_neighbor in graph_h.neighbors(other_node_as_pattern) {
-                        let neighbor_in_gs = find_node_with_weight(&gs, graph_h.node_weight(neighbor).unwrap().to_string());
-                        let other_neighbor_in_gs = find_node_with_weight(&gs, graph_h.node_weight(other_neighbor).unwrap().to_string());
+                        let neighbor_in_gs = find_node_with_weight_hoffman(&gs, graph_h.node_weight(neighbor).unwrap().to_string());
+                        let other_neighbor_in_gs = find_node_with_weight_hoffman(&gs, graph_h.node_weight(other_neighbor).unwrap().to_string());
                         let reachable = dijkstra(&gs, neighbor_in_gs, Some(other_neighbor_in_gs), |e| 1);
                         if !reachable.contains_key(&other_neighbor_in_gs) {
                             subsumed = false;
                         }
                     }
                 }
+                // if so, those children should be counted
                 if subsumed {
-                    tables.insert(gs.node_weight(other_node_as_pattern).unwrap().to_string(), gs.node_weight(node_as_pattern).unwrap().to_string());
+                    for other_neighbor in graph_h.neighbors(other_node_as_pattern) {
+                        tables.insert(graph_h.node_weight(other_neighbor).unwrap().to_string(), graph_h.node_weight(node_as_pattern).unwrap().to_string());
+                    }
                 }
             }
         }
     }
+    // finally consider the root, which is left out since we iterate through and consider nodes' children
     return tables;
 }
 
@@ -285,6 +325,7 @@ fn find_mapping_hoffman(graph_g: Graph<String, String>, graph_h: Graph<String, S
 mod tests {
     use super::*;
 
+    /// ---------------------- Graph Creation Helper functions -------------------------
     fn three_node_graph() -> Graph<String,String> {
         let mut graph = Graph::new();
         let a = graph.add_node("a".to_string());
@@ -296,10 +337,18 @@ mod tests {
         
     }
 
-    fn two_node_graph() -> Graph<String,String> {
+    fn two_node_graph_star() -> Graph<String,String> {
         let mut graph = Graph::new();
         let a = graph.add_node("a".to_string());
         let b = graph.add_node("*".to_string());
+        graph.add_edge(a,b, String::new());
+        return graph;
+    }
+
+    fn two_node_graph() -> Graph<String,String> {
+        let mut graph = Graph::new();
+        let a = graph.add_node("a".to_string());
+        let b = graph.add_node("b".to_string());
         graph.add_edge(a,b, String::new());
         return graph;
     }
@@ -366,6 +415,8 @@ mod tests {
         return graph;
     }
 
+    // ---------------------- Shamir Tests -------------------------
+
     #[test]
     fn test_find_leaves() {
         let graph = little_branching_graph();
@@ -377,6 +428,69 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_initialize_s() {
+        let graph_g = three_node_graph();
+        let graph_h = two_node_graph();
+        let s = initialize_s(&graph_g, &graph_h);
+        assert!(s.keys().count()==6);
+
+        // useful debugging if this fails
+        for key in s.keys() {
+            print!("key: {:?} weight: {:?}, {:?}\n", key, graph_g.node_weight(key.0), graph_h.node_weight(key.1));
+        }
+
+        let aa = (find_node_with_weight_shamir(&graph_g, "a".to_string()), find_node_with_weight_shamir(&graph_h, "a".to_string()));
+        let ab = (find_node_with_weight_shamir(&graph_g, "a".to_string()), find_node_with_weight_shamir(&graph_h, "b".to_string()));
+
+        let ba = (find_node_with_weight_shamir(&graph_g, "b".to_string()), find_node_with_weight_shamir(&graph_h, "a".to_string()));
+        let bb = (find_node_with_weight_shamir(&graph_g, "b".to_string()), find_node_with_weight_shamir(&graph_h, "b".to_string()));
+
+        let ca = (find_node_with_weight_shamir(&graph_g, "c".to_string()), find_node_with_weight_shamir(&graph_h, "a".to_string()));
+        let cb = (find_node_with_weight_shamir(&graph_g, "c".to_string()), find_node_with_weight_shamir(&graph_h, "b".to_string()));
+
+        assert!(s.contains_key(&aa));
+        assert!(s.contains_key(&ab));
+
+        assert!(s.contains_key(&ba));
+        assert!(s.contains_key(&bb));
+
+        assert!(s.contains_key(&ca));
+        assert!(s.contains_key(&cb));
+
+        assert!(s[&aa].len()==0);
+        assert!(s[&ba].len()==0);
+        assert!(s[&ca].len()==0);
+
+        assert!(s[&bb].len()==1, "bb len is {:?}", s[&bb].len());
+        assert!(s[&cb].len()==1, "cb len is {:?}", s[&cb].len());
+    }
+
+    #[test]
+    fn test_max_matching() {
+        let mut set_x = Vec::new();
+        set_x.push("Vancouver".to_string());
+        let mut set_y = Vec::new();
+        set_y.push("Toronto".to_string());
+        let mut edge_set = Vec::new();
+        let edge = ("Vancouver".to_string(), "Toronto".to_string());
+        edge_set.push(&edge);
+
+        let (cost, paths) = max_matching(&set_x, &set_y, &edge_set);
+        assert!(cost==1, "cost is {:?}", cost);
+    }
+
+    #[test]
+    fn test_shamir_small_graphs() {
+        let graph_g = three_node_graph();
+        let graph_h = two_node_graph();
+        assert!(find_mapping_shamir(graph_g, graph_h));
+
+    }
+
+    // ---------------------- Hoffman Tests -------------------------
+
+    /*
     #[test]
     fn test_precompute_hoffman_small_graph() {
         let graph = two_node_graph();
@@ -392,8 +506,10 @@ mod tests {
         assert!(table["a"].contains(&"*".to_string()));
         assert!(table["*"].contains(&"*".to_string()));
     }
+    */
 
 
+    /*
     #[test]
     fn test_precompute_hoffman_chain_graph() {
         let graph = chain_graph();
@@ -433,7 +549,6 @@ mod tests {
 
         assert!(table["*"].contains(&"*".to_string()));
     }
-    /*
 
     #[test]
     fn test_compute_hoffman() {
@@ -446,4 +561,5 @@ mod tests {
 
     }
     */
+
 }
