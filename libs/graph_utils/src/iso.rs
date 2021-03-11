@@ -124,10 +124,7 @@ fn max_matching(
             }
         }
     }
-    let (cost, paths) = graph_builder.mcmf();
-    print!("cost: {:?}\n", cost);
-    return (cost, paths);
-    //return graph_builder.mcmf();
+    return graph_builder.mcmf();
 }
 
 fn find_mapping_shamir_centralized_inner_loop(
@@ -177,6 +174,7 @@ fn find_mapping_shamir_centralized(
 ) -> bool {
     // TODO:  before even dealing with isomorphism, ask if breadth,
     // height, num nodes match up
+    if graph_g.node_count() < graph_h.node_count() { return false; }
 
     // initialize S with all N(u) sets, lines 1-4
     let mut set_s = initialize_s(&graph_g, &graph_h);
@@ -196,14 +194,6 @@ fn find_mapping_shamir_centralized(
         }
     }
     // line 15
-    print!("returning false, set_s is: \n");
-    for key in set_s.keys() {
-        print!("key: {:?}, value: ", key);
-        for value in &set_s[key] {
-            print!(" {:?} ", value);
-        }
-        print!("\n");
-    }
     return false;
 }
 
@@ -219,14 +209,6 @@ mod tests {
         let c = graph.add_node("c".to_string());
         graph.add_edge(a, b, String::new());
         graph.add_edge(a, c, String::new());
-        return graph;
-    }
-
-    fn two_node_graph_star() -> Graph<String, String> {
-        let mut graph = Graph::new();
-        let a = graph.add_node("a".to_string());
-        let b = graph.add_node("*".to_string());
-        graph.add_edge(a, b, String::new());
         return graph;
     }
 
@@ -327,6 +309,21 @@ mod tests {
 
         return graph;
     }
+
+    fn bookinfo_trace_graph() -> Graph<String, String> {
+        let mut graph = Graph::<String, String>::new();
+        let productpage = graph.add_node(String::from("productpage-v1"));
+        let reviews = graph.add_node(String::from("reviews-v1"));
+        let ratings = graph.add_node(String::from("ratings-v1"));
+        let details = graph.add_node(String::from("details-v1"));
+
+        graph.add_edge(productpage, reviews, String::new());
+        graph.add_edge(productpage, details, String::new());
+        graph.add_edge(reviews, ratings, String::new());
+
+        return graph;
+
+    }
     // ---------------------- Shamir Tests -------------------------
 
     #[test]
@@ -336,7 +333,6 @@ mod tests {
         let correct_leaves = vec![2, 4, 5];
         for leaf in &leaves {
             assert!(correct_leaves.contains(&leaf.index()));
-            print!(" leaf : {0} ", leaf.index());
         }
     }
 
@@ -412,15 +408,14 @@ mod tests {
     fn test_shamir_chain_graphs() {
         let graph_g = chain_graph();
         let graph_h_1 = two_node_graph();
-        let graph_h_2 = three_node_graph();
         assert!(find_mapping_shamir_centralized(graph_g.clone(), graph_h_1));
-        assert!(find_mapping_shamir_centralized(graph_g, graph_h_2));
     }
+
 
     #[test]
     fn test_shamir_branching_graphs() {
-        let graph_g = h_figure_2();
-        let graph_h = three_node_graph();
+        let graph_g = four_child_graph();
+        let graph_h = three_child_graph();
         assert!(find_mapping_shamir_centralized(graph_g, graph_h));
 
         let graph_g_2 = three_child_graph();
@@ -433,5 +428,12 @@ mod tests {
         let graph_g = g_figure_2();
         let graph_h = h_figure_2();
         assert!(!find_mapping_shamir_centralized(graph_g, graph_h));
+    }
+
+    #[test]
+    fn test_shamir_on_bookinfo() {
+        let graph_g = bookinfo_trace_graph();
+        let graph_h = three_node_graph();
+        assert!(find_mapping_shamir_centralized(graph_g, graph_h));    
     }
 }
