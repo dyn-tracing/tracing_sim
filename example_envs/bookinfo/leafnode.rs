@@ -23,7 +23,8 @@ impl SimElement for LeafNode {
         while let Some(mut rpc) = self.core_node.dequeue_ingress(tick) {
             let mut queued_rpcs: Vec<Rpc> = vec![];
             if !rpc.headers.contains_key("src") {
-                panic!("Leaf node received an RPC without a source");
+                log::error!("Leaf node received an RPC without a source");
+                std::process::exit(1);
             }
             // Process the RPC
             let mut new_rpcs: Vec<Rpc> = vec![];
@@ -87,6 +88,16 @@ impl LeafNode {
         assert!(capacity >= 1);
         let core_node = Node::new(id, capacity, egress_rate, 0, plugin, 0);
         LeafNode { core_node }
+    }
+
+    #[allow(dead_code)]
+    pub const fn get_ingress_queue(&self) -> &Queue<Rpc> {
+        return &self.core_node.ingress_queue;
+    }
+
+    #[allow(dead_code)]
+    pub const fn get_egress_queue(&self) -> &Queue<Rpc> {
+        return &self.core_node.ingress_queue;
     }
 }
 

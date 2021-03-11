@@ -23,7 +23,8 @@ impl SimElement for Reviews {
         while let Some(mut rpc) = self.core_node.dequeue_ingress(tick) {
             let mut queued_rpcs: Vec<Rpc> = vec![];
             if !rpc.headers.contains_key("src") {
-                panic!("Reviews received an RPC without a source");
+                log::error!("Reviews received an RPC without a source");
+                std::process::exit(1);
             }
             // Process the RPC
             let mut new_rpcs: Vec<Rpc> = vec![];
@@ -77,7 +78,8 @@ impl NodeTraits for Reviews {
             rpc.headers
                 .insert("dest".to_string(), "ratings-v1".to_string());
         } else {
-            panic!("Unexpected RPC source {:?}", source);
+            log::error!("Unexpected RPC source {:?}", source);
+            std::process::exit(1);
         }
         rpc.headers
             .insert("src".to_string(), self.core_node.id.to_string());
@@ -90,6 +92,16 @@ impl Reviews {
         assert!(capacity >= 1);
         let core_node = Node::new(id, capacity, egress_rate, 0, plugin, 0);
         Reviews { core_node }
+    }
+
+    #[allow(dead_code)]
+    pub const fn get_ingress_queue(&self) -> &Queue<Rpc> {
+        return &self.core_node.ingress_queue;
+    }
+
+    #[allow(dead_code)]
+    pub const fn get_egress_queue(&self) -> &Queue<Rpc> {
+        return &self.core_node.ingress_queue;
     }
 }
 

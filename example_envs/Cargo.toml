@@ -8,6 +8,8 @@ edition = "2018"
 [dependencies]
 sim = { path = "../libs/sim" }
 rpc_lib = { path = "../libs/rpc_lib" }
+log = "*"
+log4rs = "*"
 queues = "1.0.2"
 rand="0.7.0"
 clap = "~2.27.0"

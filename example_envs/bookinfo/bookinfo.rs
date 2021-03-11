@@ -7,7 +7,7 @@ use sim::simulator::Simulator;
 pub fn new_bookinfo(seed: u64, plugin: Option<&str>) -> Simulator {
     let mut sim = Simulator::new(seed);
 
-    let gateway = Gateway::new("gateway", 5, 5, 1, seed); // no plugins on a gateway
+    let gateway = Gateway::new("gateway", 5, 5, 0, seed); // no plugins on a gateway
     let productpage = ProductPage::new("productpage-v1", 5, 5, plugin, seed);
     let reviews1 = Reviews::new("reviews-v1", 5, 5, plugin);
     let reviews2 = Reviews::new("reviews-v2", 5, 5, plugin);
@@ -24,14 +24,14 @@ pub fn new_bookinfo(seed: u64, plugin: Option<&str>) -> Simulator {
     sim.add_node("details-v1", details);
     sim.add_node("ratings-v1", ratings);
 
-    sim.add_edge(1, "gateway", "productpage-v1", false);
-    sim.add_edge(1, "productpage-v1", "details-v1", false);
-    sim.add_edge(1, "productpage-v1", "reviews-v1", false);
-    sim.add_edge(1, "productpage-v1", "reviews-v2", false);
-    sim.add_edge(1, "productpage-v1", "reviews-v3", false);
-    sim.add_edge(1, "reviews-v1", "ratings-v1", false);
-    sim.add_edge(1, "reviews-v2", "ratings-v1", false);
-    sim.add_edge(1, "reviews-v3", "ratings-v1", false);
+    sim.add_edge(0, "gateway", "productpage-v1", true);
+    sim.add_edge(0, "productpage-v1", "details-v1", true);
+    sim.add_edge(0, "productpage-v1", "reviews-v1", true);
+    sim.add_edge(0, "productpage-v1", "reviews-v2", true);
+    sim.add_edge(0, "productpage-v1", "reviews-v3", true);
+    sim.add_edge(0, "reviews-v1", "ratings-v1", true);
+    sim.add_edge(0, "reviews-v2", "ratings-v1", true);
+    sim.add_edge(0, "reviews-v3", "ratings-v1", true);
     let regular_nodes = [
         "productpage-v1",
         "reviews-v1",

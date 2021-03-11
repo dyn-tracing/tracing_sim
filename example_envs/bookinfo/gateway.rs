@@ -2,14 +2,19 @@
 //! A gateway is a sim_element.
 
 use core::any::Any;
+use core::cmp::min;
+use queues::*;
 use rpc_lib::rpc::Rpc;
 use sim::node::node_fmt_with_name;
 use sim::node::Node;
+use sim::node::NodeTraits;
 use sim::sim_element::SimElement;
+use std::cmp::max;
 use std::fmt;
 
 pub struct Gateway {
     core_node: Node,
+    collected_responses: Vec<Rpc>,
 }
 
 impl fmt::Display for Gateway {
@@ -20,22 +25,53 @@ impl fmt::Display for Gateway {
 
 impl SimElement for Gateway {
     fn tick(&mut self, tick: u64) -> Vec<Rpc> {
-        let mut outbound_rpcs = self.core_node.tick(tick);
-        for outbound_rpc in &mut outbound_rpcs {
-            outbound_rpc
-                .headers
-                .insert("direction".to_string(), "request".to_string());
-            outbound_rpc
-                .headers
-                .insert("src".to_string(), self.core_node.id.to_string());
-            outbound_rpc
-                .headers
-                .insert("dest".to_string(), "productpage-v1".to_string());
+        for _ in 0..max(
+            self.core_node.ingress_queue.size(),
+            self.core_node.generation_rate as usize,
+        ) {
+            let mut queued_rpcs: Vec<Rpc> = vec![];
+            // Dequeue an RPC, or generate one
+            let mut rpc: Rpc;
+            if let Some(deq) = self.core_node.dequeue_ingress(tick) {
+                rpc = deq;
+            } else {
+                rpc = Rpc::new(&tick.to_string());
+                rpc.headers
+                    .insert("direction".to_string(), "request".to_string());
+            }
+
+            // Select the destination
+            let mut new_rpcs: Vec<Rpc> = vec![];
+            self.process_rpc(&mut rpc, &mut new_rpcs);
+
+            // Pass the RPCs we have through the plugin
+            for rpc in new_rpcs {
+                self.core_node
+                    .pass_through_plugin(rpc, &mut queued_rpcs, tick, "egress");
+            }
+            for queued_rpcs in &queued_rpcs {
+                self.core_node.enqueue_egress(queued_rpcs.clone())
+            }
+        }
+        let max_output = min(
+            self.core_node.egress_queue.size(),
+            self.core_node.egress_rate as usize,
+        );
+        let mut outbound_rpcs: Vec<Rpc> = vec![];
+        for _ in 0..max_output {
+            outbound_rpcs.push(self.core_node.dequeue_egress().unwrap())
         }
         outbound_rpcs
     }
-    fn recv(&mut self, _rpc: Rpc, _tick: u64) {
-        // we discard anything we receive
+    fn recv(&mut self, rpc: Rpc, tick: u64) {
+        if let Some(direction) = rpc.headers.get("direction") {
+            if direction == "response" {
+                self.collected_responses.push(rpc);
+            }
+        } else {
+            // RPC without direction information, just pass it on
+            self.core_node.recv(rpc, tick);
+        }
     }
     fn add_connection(&mut self, neighbor: String) {
         self.core_node.add_connection(neighbor)
@@ -51,6 +87,18 @@ impl SimElement for Gateway {
     }
 }
 
+impl NodeTraits for Gateway {
+    fn process_rpc(&mut self, rpc: &mut Rpc, new_rpcs: &mut Vec<Rpc>) {
+        rpc.headers
+            .insert("direction".to_string(), "request".to_string());
+        rpc.headers
+            .insert("src".to_string(), self.core_node.id.to_string());
+        rpc.headers
+            .insert("dest".to_string(), "productpage-v1".to_string());
+        new_rpcs.push(rpc.clone());
+    }
+}
+
 impl Gateway {
     pub fn new(
         id: &str,
@@ -61,14 +109,31 @@ impl Gateway {
     ) -> Gateway {
         assert!(capacity >= 1);
         let core_node = Node::new(id, capacity, egress_rate, generation_rate, None, seed);
-        Gateway { core_node }
+        Gateway {
+            core_node,
+            collected_responses: vec![],
+        }
+    }
+
+    #[allow(dead_code)]
+    pub const fn get_collected_responses(&self) -> &Vec<Rpc> {
+        return &self.collected_responses;
+    }
+
+    #[allow(dead_code)]
+    pub const fn get_ingress_queue(&self) -> &Queue<Rpc> {
+        return &self.core_node.ingress_queue;
+    }
+
+    #[allow(dead_code)]
+    pub const fn get_egress_queue(&self) -> &Queue<Rpc> {
+        return &self.core_node.ingress_queue;
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use queues::*;
 
     #[test]
     fn test_node_creation() {

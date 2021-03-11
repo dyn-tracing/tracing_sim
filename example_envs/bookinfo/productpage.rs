@@ -41,7 +41,8 @@ impl SimElement for ProductPage {
             let mut queued_rpcs: Vec<Rpc> = vec![];
             // Forward requests/responses from productpage or reviews
             if !rpc.headers.contains_key("src") {
-                panic!("Productpage received an RPC without a source");
+                log::error!("Productpage received an RPC without a source");
+                std::process::exit(1);
             }
             // Process the RPC
             let mut new_rpcs: Vec<Rpc> = vec![];
@@ -182,6 +183,16 @@ impl ProductPage {
             return Some(merged_rpc);
         }
         return None;
+    }
+
+    #[allow(dead_code)]
+    pub const fn get_ingress_queue(&self) -> &Queue<Rpc> {
+        return &self.core_node.ingress_queue;
+    }
+
+    #[allow(dead_code)]
+    pub const fn get_egress_queue(&self) -> &Queue<Rpc> {
+        return &self.core_node.ingress_queue;
     }
 }
 
