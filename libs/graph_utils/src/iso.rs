@@ -1,10 +1,10 @@
-use crate::graph_utils::{find_leaves, find_root};
-use mcmf::{Capacity, Cost, GraphBuilder, Path, Vertex};
 /// Implements subgraph isomorphism algorithms two ways:
 /// as described in https://www.cs.bgu.ac.il/~dekelts/publications/subtree.pdf
 /// Another thing to consider, but is not implemented here, is
 /// http://chasewoerner.org/popl87.pdf
 ///
+use crate::graph_utils::{find_leaves, find_root, has_property_subset};
+use mcmf::{Capacity, Cost, GraphBuilder, Path, Vertex};
 use petgraph::graph::{Graph, NodeIndex};
 use petgraph::visit::DfsPostOrder;
 use petgraph::Incoming;
@@ -54,12 +54,19 @@ fn max_matching(
     let mut added_nodes = HashSet::new();
     for u in set_x {
         for v in set_y {
-            if set_s[&(*v, *u)].contains(&u_null) {
+            if set_s[&(*v, *u)].contains(&u_null) && 
+               has_property_subset(&graph_h.node_weight(*u).unwrap().1,
+                                   &graph_g.node_weight(*v).unwrap().1) {
+                println!("adding edge because node {:?} matches, property-wise, with node {:?}\n",
+                        graph_h.node_weight(*u).unwrap().0, graph_g.node_weight(*v).unwrap().0);
                 // 1. add edge from source if applicable
                 let mut u_str = graph_h.node_weight(*u).unwrap().0.clone();
                 u_str.push_str("U");
                 if !added_nodes.contains(&u_str) {
-                    graph_builder.add_edge(Vertex::Source, u_str.to_string(), Capacity(1), Cost(0));
+                    graph_builder.add_edge(Vertex::Source,
+                                           u_str.to_string(),
+                                           Capacity(1),
+                                           Cost(0));
                     added_nodes.insert(u_str.to_string());
                 }
 
@@ -67,7 +74,10 @@ fn max_matching(
                 let mut v_str = graph_g.node_weight(*v).unwrap().0.clone();
                 v_str.push_str("v");
                 if !added_nodes.contains(&v_str) {
-                    graph_builder.add_edge(v_str.to_string(), Vertex::Sink, Capacity(1), Cost(0));
+                    graph_builder.add_edge(v_str.to_string(),
+                                           Vertex::Sink,
+                                           Capacity(1),
+                                           Cost(0));
                     added_nodes.insert(v_str.to_string());
                 }
 
@@ -95,7 +105,12 @@ fn find_mapping_shamir_centralized_inner_loop(
         }
 
         // maximum matching where X0 = X
-        let (cost, _path) = max_matching(&u_neighbors, &v_neighbors, graph_g, graph_h, set_s, u);
+        let (cost, _path) = max_matching(&u_neighbors,
+                                         &v_neighbors,
+                                         graph_g,
+                                         graph_h,
+                                         set_s,
+                                         u);
         if cost == u_neighbors.len() as i32 {
             set_s.get_mut(&(v, u)).unwrap().insert(u);
         }
@@ -104,7 +119,12 @@ fn find_mapping_shamir_centralized_inner_loop(
         for vertex in 0..u_neighbors.len() {
             let mut new_x_set = u_neighbors.clone();
             new_x_set.remove(vertex);
-            let (cost, _path) = max_matching(&new_x_set, &v_neighbors, graph_g, graph_h, set_s, u);
+            let (cost, _path) = max_matching(&new_x_set,
+                                             &v_neighbors,
+                                             graph_g,
+                                             graph_h,
+                                             set_s,
+                                             u);
             if cost == new_x_set.len() as i32 {
                 set_s.get_mut(&(v, u)).unwrap().insert(u);
             }
@@ -112,7 +132,13 @@ fn find_mapping_shamir_centralized_inner_loop(
 
         // lines 12-14
         if set_s[&(v, u)].contains(&root_h) {
-            return true;
+            if has_property_subset(&graph_g.node_weight(v).unwrap().1,
+                                   &graph_h.node_weight(root_h).unwrap().1) {
+                print!("root of h {:?} has prop subset of node {:?}\n",
+                       graph_h.node_weight(root_h).unwrap().0,
+                       graph_g.node_weight(v).unwrap().0);
+                return true;
+            }
         }
     }
     return false;
@@ -139,7 +165,7 @@ pub fn find_mapping_shamir_centralized(
         let v_children_len = v_children.len();
         if v_children_len > 0 {
             let mapping_found =
-                find_mapping_shamir_centralized_inner_loop(node, &graph_h, &graph_h, &mut set_s);
+                find_mapping_shamir_centralized_inner_loop(node, &graph_g, &graph_h, &mut set_s);
             if mapping_found {
                 return true;
             }
@@ -173,6 +199,41 @@ mod tests {
         graph.add_edge(a, b, String::new());
         return graph;
     }
+
+    fn three_node_graph_with_properties() -> Graph<(String, HashMap<String, String>), String> {
+        let mut graph = Graph::<(String, HashMap<String, String>), String>::new();
+        let a_hashmap: HashMap<String, String> = [("height".to_string(), "100".to_string()), 
+            ("breadth".to_string(), "5".to_string())].iter().cloned().collect();
+        let a = graph.add_node(("a".to_string(), a_hashmap));
+        let b = graph.add_node(("b".to_string(), HashMap::new()));
+        let c = graph.add_node(("c".to_string(), HashMap::new()));
+        graph.add_edge(a, b, String::new());
+        graph.add_edge(a, c, String::new());
+        return graph;
+    }
+
+    fn two_node_graph_with_properties() -> Graph<(String, HashMap<String, String>), String> {
+        let mut graph = Graph::<(String, HashMap<String, String>), String>::new();
+        let a_hashmap: HashMap<String, String> = [("height".to_string(), "100".to_string()), 
+            ].iter().cloned().collect();
+        let a = graph.add_node(("a".to_string(), a_hashmap));
+        let b = graph.add_node(("b".to_string(), HashMap::new()));
+
+        graph.add_edge(a, b, String::new());
+        return graph;
+    }
+
+    fn two_node_graph_with_wrong_properties() -> Graph<(String, HashMap<String, String>), String> {
+        let mut graph = Graph::<(String, HashMap<String, String>), String>::new();
+        let a_hashmap: HashMap<String, String> = [("height".to_string(), "1".to_string()), 
+            ].iter().cloned().collect();
+        let a = graph.add_node(("a".to_string(), a_hashmap));
+        let b = graph.add_node(("b".to_string(), HashMap::new()));
+
+        graph.add_edge(a, b, String::new());
+        return graph;
+    }
+
 
     fn chain_graph() -> Graph<(String, HashMap<String, String>), String> {
         let mut graph = Graph::<(String, HashMap<String, String>), String>::new();
@@ -373,5 +434,27 @@ mod tests {
         let graph_g = bookinfo_trace_graph();
         let graph_h = three_node_graph();
         assert!(find_mapping_shamir_centralized(graph_g, graph_h));
+    }
+
+    #[test]
+    fn test_shamir_full_match() {
+        let graph_g = three_node_graph();
+        let graph_h = three_node_graph();
+        assert!(find_mapping_shamir_centralized(graph_g, graph_h));
+    }
+
+    #[test]
+    fn test_property_matches() {
+        let graph_g = three_node_graph_with_properties();
+        let graph_h = two_node_graph_with_properties();
+        assert!(find_mapping_shamir_centralized(graph_g, graph_h));
+    }
+
+    #[test]
+    fn test_property_does_not_match() {
+        let graph_g = three_node_graph_with_properties();
+        let graph_h = two_node_graph_with_wrong_properties();
+        assert!(!find_mapping_shamir_centralized(graph_g, graph_h));
+
     }
 }
