@@ -212,13 +212,33 @@ fn get_mapping_from_set_s(
     root_in_g: &NodeIndex,
 ) -> Vec<(NodeIndex, NodeIndex)> {
     let root_h = find_root(graph_h);
-    let mut to_return = set_s[&(*root_in_g, root_h)][&root_h]
-        .as_ref()
-        .unwrap()
-        .to_vec();
-    to_return.push((root_h, *root_in_g));
+    let mut to_return = Vec::new();
+    let mut set_to_find_mapping = vec![(root_h, *root_in_g)];
+    print_set_s(graph_g, graph_h, set_s);
+    while !set_to_find_mapping.is_empty() {
+        let key = set_to_find_mapping.pop().unwrap();
+        to_return.push(key);
+
+        print!(
+            "key is now {:?} {:?}\n\n\n",
+            graph_h.node_weight(key.0).unwrap().0,
+            graph_g.node_weight(key.1).unwrap().0
+        );
+        if set_s[&(key.1, key.0)].contains_key(&key.0) {
+            for map in set_s[&(key.1, key.0)][&key.0].as_ref() {
+                for mapping in map {
+                    if !to_return.contains(&(mapping.1, mapping.0)) {
+                        to_return.push((mapping.1, mapping.0));
+                        set_to_find_mapping.push(*mapping);
+                    }
+                }
+            }
+        }
+    }
+    print_set_s(graph_g, graph_h, set_s);
     return to_return;
 }
+
 pub fn find_mapping_shamir_centralized(
     graph_g: &Graph<(String, HashMap<String, String>), String>,
     graph_h: &Graph<(String, HashMap<String, String>), String>,
