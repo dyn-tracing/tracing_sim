@@ -160,7 +160,6 @@ fn find_mapping_shamir_centralized_inner_loop(
         if set_s[&(v, root_h)].contains_key(&root_h) {
             if has_property_subset(&graph_g.node_weight(v).unwrap().1,
                                    &graph_h.node_weight(root_h).unwrap().1) {
-                print_set_s(graph_g, graph_h, set_s);
                 return (true, Some(v));
             }
         }
@@ -168,6 +167,7 @@ fn find_mapping_shamir_centralized_inner_loop(
     return (false, None);
 }
 
+// For debugging only
 fn print_set_s(
     graph_g: &Graph<(String, HashMap<String, String>), String>,
     graph_h: &Graph<(String, HashMap<String, String>), String>,
@@ -178,7 +178,6 @@ fn print_set_s(
         for value_key in set_s[key].keys() {
             print!("inner key: {:?} ", graph_h.node_weight(*value_key).unwrap());
             for mapping in &set_s[key][value_key] {
-                //print!("mapping : {:?}\n", mapping);
                 for map in mapping {
                     print!("maps {:?} to {:?} ", graph_h.node_weight(map.0).unwrap(), graph_g.node_weight(map.1).unwrap());
                 }
@@ -201,8 +200,8 @@ fn get_mapping_from_set_s(
 
 }
 pub fn find_mapping_shamir_centralized(
-    graph_g: Graph<(String, HashMap<String, String>), String>,
-    graph_h: Graph<(String, HashMap<String, String>), String>,
+    graph_g: &Graph<(String, HashMap<String, String>), String>,
+    graph_h: &Graph<(String, HashMap<String, String>), String>,
 ) -> Option<Vec<(NodeIndex, NodeIndex)>> {
     // TODO:  before even dealing with isomorphism, ask if breadth,
     // height, num nodes match up
@@ -211,18 +210,18 @@ pub fn find_mapping_shamir_centralized(
     }
 
     // initialize S with all N(u) sets, lines 1-4
-    let mut set_s = initialize_s(&graph_g, &graph_h);
-    let root_g = find_root(&graph_g);
+    let mut set_s = initialize_s(graph_g, graph_h);
+    let root_g = find_root(graph_g);
 
     // postorder traversal and filtering of children for degrees, lines 5-8;
-    let mut post_order = DfsPostOrder::new(&graph_g, root_g);
-    while let Some(node) = post_order.next(&graph_g) {
+    let mut post_order = DfsPostOrder::new(graph_g, root_g);
+    while let Some(node) = post_order.next(graph_g) {
         let v_children: Vec<NodeIndex> = graph_g.neighbors(node).collect();
         let v_children_len = v_children.len();
         let (mapping_found, mapping_root) =
-        find_mapping_shamir_centralized_inner_loop(node, &graph_g, &graph_h, &mut set_s);
+        find_mapping_shamir_centralized_inner_loop(node, graph_g, graph_h, &mut set_s);
         if mapping_found {
-            return Some(get_mapping_from_set_s(&graph_g, &graph_h, &set_s, &mapping_root.unwrap()));
+            return Some(get_mapping_from_set_s(graph_g, graph_h, &set_s, &mapping_root.unwrap()));
         }
     }
     // line 15
@@ -455,59 +454,71 @@ mod tests {
     fn test_shamir_small_graphs() {
         let graph_g = three_node_graph();
         let graph_h = two_node_graph();
-        assert!(find_mapping_shamir_centralized(graph_g, graph_h).is_some());
+        assert!(find_mapping_shamir_centralized(&graph_g, &graph_h).is_some());
     }
     #[test]
     fn test_shamir_figure_2() {
         let graph_g = g_figure_2();
         let graph_h = h_figure_2();
-        assert!(find_mapping_shamir_centralized(graph_g, graph_h).is_none());
+        assert!(find_mapping_shamir_centralized(&graph_g, &graph_h).is_none());
     }
 
     #[test]
     fn test_shamir_chain_graphs() {
         let graph_g = chain_graph();
         let graph_h_1 = two_node_graph();
-        assert!(find_mapping_shamir_centralized(graph_g.clone(), graph_h_1).is_some());
+        assert!(find_mapping_shamir_centralized(&graph_g, &graph_h_1).is_some());
     }
 
     #[test]
     fn test_shamir_branching_graphs() {
         let graph_g = four_child_graph();
         let graph_h = three_child_graph();
-        assert!(find_mapping_shamir_centralized(graph_g, graph_h).is_some());
+        assert!(find_mapping_shamir_centralized(&graph_g, &graph_h).is_some());
 
         let graph_g_2 = three_child_graph();
         let graph_h_2 = four_child_graph();
-        assert!(find_mapping_shamir_centralized(graph_g_2, graph_h_2).is_none());
+        assert!(find_mapping_shamir_centralized(&graph_g_2, &graph_h_2).is_none());
     }
 
     #[test]
     fn test_shamir_on_bookinfo() {
         let graph_g = bookinfo_trace_graph();
         let graph_h = three_node_graph();
-        assert!(find_mapping_shamir_centralized(graph_g, graph_h).is_some());
+        let mapping_wrapped = find_mapping_shamir_centralized(&graph_g, &graph_h);
+        assert!(mapping_wrapped.is_some());
+        let mapping = mapping_wrapped.unwrap();
+        let a = get_node_with_id(&graph_h, "a".to_string()).unwrap();
+        let b = get_node_with_id(&graph_h, "b".to_string()).unwrap();
+        let c = get_node_with_id(&graph_h, "c".to_string()).unwrap();
+        let prod = get_node_with_id(&graph_g, "productpage-v1".to_string()).unwrap();
+        let det = get_node_with_id(&graph_g, "details-v1".to_string()).unwrap();
+        let rev = get_node_with_id(&graph_g, "reviews-v1".to_string()).unwrap();
+        assert!(mapping.contains(&(a,prod)));
+        assert!(mapping.contains(&(b,det)) || mapping.contains(&(c,det)));
+        assert!(mapping.contains(&(b,rev)) || mapping.contains(&(c,rev)));
+        
     }
 
     #[test]
     fn test_shamir_full_match() {
         let graph_g = three_node_graph();
         let graph_h = three_node_graph();
-        assert!(find_mapping_shamir_centralized(graph_g, graph_h).is_some());
+        assert!(find_mapping_shamir_centralized(&graph_g, &graph_h).is_some());
     }
 
     #[test]
     fn test_property_matches() {
         let graph_g = three_node_graph_with_properties();
         let graph_h = two_node_graph_with_properties();
-        assert!(find_mapping_shamir_centralized(graph_g, graph_h).is_some());
+        assert!(find_mapping_shamir_centralized(&graph_g, &graph_h).is_some());
     }
 
     #[test]
     fn test_property_does_not_match() {
         let graph_g = three_node_graph_with_properties();
         let graph_h = two_node_graph_with_wrong_properties();
-        assert!(find_mapping_shamir_centralized(graph_g, graph_h).is_none());
+        assert!(find_mapping_shamir_centralized(&graph_g, &graph_h).is_none());
 
     }
 }
