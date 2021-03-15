@@ -86,18 +86,6 @@ fn max_matching(
         }
     }
     let (cost, paths) = graph_builder.mcmf();
-    if graph_h.node_weight(u_null).unwrap().0 == "b" {
-        print!("hellooooooo\n\n cost is {:?}", cost); print_set_s(graph_g, graph_h, set_s); 
-        print!("set x: ");
-        for node in set_x {
-            print!("printing x set");
-            print!("{:?} ", graph_h.node_weight(*node));
-        }
-        print!("\nset y: ");
-        for node in set_y {
-            print!("{:?} ", graph_g.node_weight(*node));
-        }
-    }
     let mut matching = Vec::new();
     for path in paths {
         // path is source + u_vertex + v_vertex + sink
@@ -129,13 +117,9 @@ fn find_mapping_shamir_centralized_inner_loop(
     let root_h = find_root(&graph_h);
     let v_neighbors: Vec<NodeIndex> = graph_g.neighbors_undirected(v).collect();
     for u in graph_h.node_indices() {
-        if graph_g.node_weight(v).unwrap().0 == "reviews-v1" {
-            print!("u is {:?} ", graph_h.node_weight(u).unwrap().0);
-        }
         let u_neighbors: Vec<NodeIndex> = graph_h.neighbors_undirected(u).collect();
         // all vertices of degree at most t+1
         if u_neighbors.len() > v_neighbors.len() + 1 {
-            println!("continu9ijn");
             continue;
         }
 
@@ -146,13 +130,8 @@ fn find_mapping_shamir_centralized_inner_loop(
                                          graph_h,
                                          set_s,
                                          u);
-        if graph_h.node_weight(u).unwrap().0 == "a" && graph_g.node_weight(v).unwrap().0 == "reviews-v1" {
-            println!("cost is {:?}", cost);
-            println!("u neighbors len is {:?}", u_neighbors.len())
-        }
         if cost == u_neighbors.len() as i32 {
                 if set_s[&(v,u)].contains_key(&u) {
-                    print!("hello\n\n\n\n\n");
                 } else {
                     set_s.get_mut(&(v, u)).unwrap().insert(u, Some(path));
                 }
@@ -170,7 +149,6 @@ fn find_mapping_shamir_centralized_inner_loop(
                                              u);
             if cost == new_x_set.len() as i32 {
                 if set_s[&(v,u)].contains_key(&vertex_id) {
-                    print!("hello\n\n\n\n\n");
                 } else {
                     set_s.get_mut(&(v, u)).unwrap().insert(vertex_id, Some(path));
                 }
@@ -182,6 +160,7 @@ fn find_mapping_shamir_centralized_inner_loop(
         if set_s[&(v, root_h)].contains_key(&root_h) {
             if has_property_subset(&graph_g.node_weight(v).unwrap().1,
                                    &graph_h.node_weight(root_h).unwrap().1) {
+                print_set_s(graph_g, graph_h, set_s);
                 return (true, Some(v));
             }
         }
@@ -216,29 +195,9 @@ fn get_mapping_from_set_s(
     root_in_g: &NodeIndex,
 ) -> Vec<(NodeIndex, NodeIndex)> {
     let root_h = find_root(graph_h);
-    /*
-    print_set_s(graph_g, graph_h, set_s);
-
-    print!("root in g label is {:?}\n", graph_g.node_weight(*root_in_g).unwrap());
-    print!("root in h label is {:?}\n", graph_h.node_weight(root_h).unwrap());
     let mut to_return = set_s[&(*root_in_g, root_h)][&root_h].as_ref().unwrap().to_vec();
-    for mapping in &to_return {
-        print!("I am mapping {:?} to {:?}\n", graph_h.node_weight(mapping.0).unwrap(), graph_g.node_weight(mapping.1).unwrap());
-    }
-    let mut to_return = set_s[&(*root_in_g, root_h)][&root_h].as_ref().unwrap().to_vec();
-    for mapping in &to_return {
-        print!("I am mapping {:?} to {:?}\n", graph_h.node_weight(mapping.0).unwrap(), graph_g.node_weight(mapping.1).unwrap());
-    }
-    /*
-    for mapping in &to_return {
-        let new_mapping = set_s[mapping]; //[&mapping.1].as_ref().unwrap().to_vec();
-        for new_m in new_mapping {
-            print!("I am mapping {:?} to {:?}\n", graph_h.node_weight(new_m.0).unwrap(), graph_g.node_weight(new_m.1).unwrap());
-        }
-    }
-    */
-    */
-    return Vec::new();
+    to_return.push((root_h, *root_in_g));
+    return to_return;
 
 }
 pub fn find_mapping_shamir_centralized(
