@@ -3,7 +3,7 @@
 /// Another thing to consider, but is not implemented here, is
 /// http://chasewoerner.org/popl87.pdf
 ///
-use crate::graph_utils::{find_leaves, find_root, has_property_subset};
+use crate::graph_utils::{find_leaves, find_root, has_property_subset, get_node_with_id};
 use mcmf::{Capacity, Cost, GraphBuilder, Path, Vertex};
 use petgraph::graph::{Graph, NodeIndex};
 use petgraph::visit::DfsPostOrder;
@@ -17,12 +17,12 @@ use std::collections::HashSet;
 fn initialize_s(
     graph_g: &Graph<(String, HashMap<String, String>), String>,
     graph_h: &Graph<(String, HashMap<String, String>), String>,
-) -> HashMap<(NodeIndex, NodeIndex), HashSet<NodeIndex>> {
-    let mut s = HashMap::<(NodeIndex, NodeIndex), HashSet<NodeIndex>>::new();
+) -> HashMap<(NodeIndex, NodeIndex), HashMap<NodeIndex, Option<Vec<(NodeIndex, NodeIndex)>>>> {
+    let mut s = HashMap::<(NodeIndex, NodeIndex), HashMap<NodeIndex, Option<Vec<(NodeIndex, NodeIndex)>>>>::new();
     for node_g in graph_g.node_indices() {
         for u in graph_h.node_indices() {
             // initialize S entry as empty set
-            s.insert((node_g, u), HashSet::new());
+            s.insert((node_g, u), HashMap::new());
         }
     }
     let root_g = find_root(&graph_g);
@@ -30,7 +30,7 @@ fn initialize_s(
     for leaf_g in find_leaves(root_g, &graph_g) {
         for leaf_h in find_leaves(root_h, &graph_h) {
             for neighbor in graph_h.neighbors_directed(leaf_h, Incoming) {
-                s.get_mut(&(leaf_g, leaf_h)).unwrap().insert(neighbor);
+                s.get_mut(&(leaf_g, leaf_h)).unwrap().insert(neighbor, None);
             }
         }
     }
@@ -47,14 +47,14 @@ fn max_matching(
     set_y: &Vec<NodeIndex>,
     graph_g: &Graph<(String, HashMap<String, String>), String>,
     graph_h: &Graph<(String, HashMap<String, String>), String>,
-    set_s: &HashMap<(NodeIndex, NodeIndex), HashSet<NodeIndex>>,
+    set_s: &HashMap<(NodeIndex, NodeIndex), HashMap<NodeIndex, Option<Vec<(NodeIndex, NodeIndex)>>>>,
     u_null: NodeIndex,
-) -> (i32, Vec<Path<String>>) {
+) -> (i32, Vec<(NodeIndex, NodeIndex)>) {
     let mut graph_builder = GraphBuilder::new();
     let mut added_nodes = HashSet::new();
     for u in set_x {
         for v in set_y {
-            if set_s[&(*v, *u)].contains(&u_null) && 
+            if set_s[&(*v, *u)].contains_key(&u_null) && 
                has_property_subset(&graph_h.node_weight(*u).unwrap().1,
                                    &graph_g.node_weight(*v).unwrap().1) {
                 println!("adding edge because node {:?} matches, property-wise, with node {:?}\n",
@@ -72,7 +72,7 @@ fn max_matching(
 
                 // 2. add edge to sink if applicable
                 let mut v_str = graph_g.node_weight(*v).unwrap().0.clone();
-                v_str.push_str("v");
+                v_str.push_str("V");
                 if !added_nodes.contains(&v_str) {
                     graph_builder.add_edge(v_str.to_string(),
                                            Vertex::Sink,
@@ -86,14 +86,34 @@ fn max_matching(
             }
         }
     }
-    return graph_builder.mcmf();
+    let (cost, paths) = graph_builder.mcmf();
+    let mut matching = Vec::new();
+    for path in paths {
+        // path is source + u_vertex + v_vertex + sink
+        let mut u_vertex = path.vertices()[1].clone().as_option();
+        let mut v_vertex = path.vertices()[2].clone().as_option();
+
+        let mut u_vertex_unwrapped = u_vertex.unwrap();
+        let mut v_vertex_unwrapped = v_vertex.unwrap();
+
+        u_vertex_unwrapped.pop();
+        v_vertex_unwrapped.pop();
+
+        // we slice off the appending u and v;  those are only there so that
+        // nodes don't have the same string values, because we might want to give
+        // both graphs the same string identifiers for nodes
+        let u_vertex_id = get_node_with_id(graph_h, u_vertex_unwrapped).unwrap();
+        let v_vertex_id = get_node_with_id(graph_g, v_vertex_unwrapped).unwrap();
+        matching.push((u_vertex_id, v_vertex_id));
+    }
+    return (cost, matching);
 }
 
 fn find_mapping_shamir_centralized_inner_loop(
     v: NodeIndex,
     graph_g: &Graph<(String, HashMap<String, String>), String>,
     graph_h: &Graph<(String, HashMap<String, String>), String>,
-    set_s: &mut HashMap<(NodeIndex, NodeIndex), HashSet<NodeIndex>>,
+    set_s: &mut HashMap<(NodeIndex, NodeIndex), HashMap<NodeIndex, Option<Vec<(NodeIndex, NodeIndex)>>>>,
 ) -> bool {
     let root_h = find_root(&graph_h);
     let v_neighbors: Vec<NodeIndex> = graph_g.neighbors(v).collect();
@@ -105,38 +125,34 @@ fn find_mapping_shamir_centralized_inner_loop(
         }
 
         // maximum matching where X0 = X
-        let (cost, _path) = max_matching(&u_neighbors,
+        let (cost, path) = max_matching(&u_neighbors,
                                          &v_neighbors,
                                          graph_g,
                                          graph_h,
                                          set_s,
                                          u);
         if cost == u_neighbors.len() as i32 {
-            set_s.get_mut(&(v, u)).unwrap().insert(u);
+            set_s.get_mut(&(v, u)).unwrap().insert(u, Some(path));
         }
 
         // maximum matching where X0 is X minus an element
         for vertex in 0..u_neighbors.len() {
             let mut new_x_set = u_neighbors.clone();
             new_x_set.remove(vertex);
-            let (cost, _path) = max_matching(&new_x_set,
+            let (cost, path) = max_matching(&new_x_set,
                                              &v_neighbors,
                                              graph_g,
                                              graph_h,
                                              set_s,
                                              u);
             if cost == new_x_set.len() as i32 {
-                set_s.get_mut(&(v, u)).unwrap().insert(u);
+                set_s.get_mut(&(v, u)).unwrap().insert(u, Some(path));
             }
         }
-
         // lines 12-14
-        if set_s[&(v, u)].contains(&root_h) {
+        if set_s[&(v, u)].contains_key(&root_h) {
             if has_property_subset(&graph_g.node_weight(v).unwrap().1,
                                    &graph_h.node_weight(root_h).unwrap().1) {
-                print!("root of h {:?} has prop subset of node {:?}\n",
-                       graph_h.node_weight(root_h).unwrap().0,
-                       graph_g.node_weight(v).unwrap().0);
                 return true;
             }
         }
@@ -144,14 +160,23 @@ fn find_mapping_shamir_centralized_inner_loop(
     return false;
 }
 
+fn get_mapping_from_set_s(
+    graph_g: &Graph<(String, HashMap<String, String>), String>,
+    graph_h: &Graph<(String, HashMap<String, String>), String>,
+    set_s: &HashMap<(NodeIndex, NodeIndex), HashMap<NodeIndex, Option<Vec<(NodeIndex, NodeIndex)>>>>,
+) -> Vec<(NodeIndex, NodeIndex)> {
+    
+    return Vec::new();
+
+}
 pub fn find_mapping_shamir_centralized(
     graph_g: Graph<(String, HashMap<String, String>), String>,
     graph_h: Graph<(String, HashMap<String, String>), String>,
-) -> bool {
+) -> Option<Vec<(NodeIndex, NodeIndex)>> {
     // TODO:  before even dealing with isomorphism, ask if breadth,
     // height, num nodes match up
     if graph_g.node_count() < graph_h.node_count() {
-        return false;
+        return None;
     }
 
     // initialize S with all N(u) sets, lines 1-4
@@ -167,12 +192,12 @@ pub fn find_mapping_shamir_centralized(
             let mapping_found =
                 find_mapping_shamir_centralized_inner_loop(node, &graph_g, &graph_h, &mut set_s);
             if mapping_found {
-                return true;
+                return Some(get_mapping_from_set_s(&graph_g, &graph_h, &set_s));
             }
         }
     }
     // line 15
-    return false;
+    return None;
 }
 
 #[cfg(test)]
@@ -401,60 +426,60 @@ mod tests {
     fn test_shamir_small_graphs() {
         let graph_g = three_node_graph();
         let graph_h = two_node_graph();
-        assert!(find_mapping_shamir_centralized(graph_g, graph_h));
+        assert!(find_mapping_shamir_centralized(graph_g, graph_h).is_some());
     }
 
     #[test]
     fn test_shamir_chain_graphs() {
         let graph_g = chain_graph();
         let graph_h_1 = two_node_graph();
-        assert!(find_mapping_shamir_centralized(graph_g.clone(), graph_h_1));
+        assert!(find_mapping_shamir_centralized(graph_g.clone(), graph_h_1).is_some());
     }
 
     #[test]
     fn test_shamir_branching_graphs() {
         let graph_g = four_child_graph();
         let graph_h = three_child_graph();
-        assert!(find_mapping_shamir_centralized(graph_g, graph_h));
+        assert!(find_mapping_shamir_centralized(graph_g, graph_h).is_some());
 
         let graph_g_2 = three_child_graph();
         let graph_h_2 = four_child_graph();
-        assert!(!find_mapping_shamir_centralized(graph_g_2, graph_h_2));
+        assert!(find_mapping_shamir_centralized(graph_g_2, graph_h_2).is_none());
     }
 
     #[test]
     fn test_shamir_figure_2() {
         let graph_g = g_figure_2();
         let graph_h = h_figure_2();
-        assert!(!find_mapping_shamir_centralized(graph_g, graph_h));
+        assert!(find_mapping_shamir_centralized(graph_g, graph_h).is_none());
     }
 
     #[test]
     fn test_shamir_on_bookinfo() {
         let graph_g = bookinfo_trace_graph();
         let graph_h = three_node_graph();
-        assert!(find_mapping_shamir_centralized(graph_g, graph_h));
+        assert!(find_mapping_shamir_centralized(graph_g, graph_h).is_some());
     }
 
     #[test]
     fn test_shamir_full_match() {
         let graph_g = three_node_graph();
         let graph_h = three_node_graph();
-        assert!(find_mapping_shamir_centralized(graph_g, graph_h));
+        assert!(find_mapping_shamir_centralized(graph_g, graph_h).is_some());
     }
 
     #[test]
     fn test_property_matches() {
         let graph_g = three_node_graph_with_properties();
         let graph_h = two_node_graph_with_properties();
-        assert!(find_mapping_shamir_centralized(graph_g, graph_h));
+        assert!(find_mapping_shamir_centralized(graph_g, graph_h).is_some());
     }
 
     #[test]
     fn test_property_does_not_match() {
         let graph_g = three_node_graph_with_properties();
         let graph_h = two_node_graph_with_wrong_properties();
-        assert!(!find_mapping_shamir_centralized(graph_g, graph_h));
+        assert!(find_mapping_shamir_centralized(graph_g, graph_h).is_none());
 
     }
 }
