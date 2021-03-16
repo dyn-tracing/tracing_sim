@@ -228,7 +228,6 @@ pub fn has_property_subset(
     property_set_1: &HashMap<String, String>, // set
     property_set_2: &HashMap<String, String>, // subset
 ) -> bool {
-    print!("property set 1 has {:?} keys and property set 2 has {:?} keys\n", property_set_1.keys().len(), property_set_2.keys().len());
     for property in property_set_2.keys() {
         if !property_set_1.contains_key(property) { return false; }
         if property_set_1[property] != property_set_2[property] { return false; }

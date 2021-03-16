@@ -110,7 +110,7 @@ fn main() {
 
     // Execute the simulator
     simulator.insert_rpc("gateway", Rpc::new("0"));
-    for tick in 0..6 {
+    for tick in 0..7 {
         simulator.tick(tick);
         log::info!("Filter results:\n {0}", simulator.query_storage("storage"));
     }
