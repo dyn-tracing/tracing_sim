@@ -299,7 +299,6 @@ mod tests {
         return graph;
     }
 
-
     fn two_node_graph() -> Graph<(String, HashMap<String, String>), String> {
         let mut graph = Graph::<(String, HashMap<String, String>), String>::new();
         let a = graph.add_node(("a".to_string(), HashMap::new()));
@@ -454,34 +453,57 @@ mod tests {
 
     fn simulation_example() -> Graph<(String, HashMap<String, String>), String> {
         let mut graph_g = Graph::<(String, HashMap<String, String>), String>::new();
-        let prod_hashmap : HashMap<String,String> = [
+        let prod_hashmap: HashMap<String, String> = [
             ("height".to_string(), "2".to_string()),
-            ("node.metadata.WORKLOAD_NAME".to_string(), "productpage-v1".to_string()),
+            (
+                "node.metadata.WORKLOAD_NAME".to_string(),
+                "productpage-v1".to_string(),
+            ),
             ("service_name".to_string(), "productpage-v1".to_string()),
-        ].iter().cloned().collect();
+        ]
+        .iter()
+        .cloned()
+        .collect();
         let prod = graph_g.add_node(("productpage-v1".to_string(), prod_hashmap));
 
-        let ratings_hashmap : HashMap<String,String> = [
+        let ratings_hashmap: HashMap<String, String> = [
             ("height".to_string(), "0".to_string()),
-            ("node.metadata.WORKLOAD_NAME".to_string(), "ratings-v1".to_string()),
+            (
+                "node.metadata.WORKLOAD_NAME".to_string(),
+                "ratings-v1".to_string(),
+            ),
             ("service_name".to_string(), "ratings-v1".to_string()),
-        ].iter().cloned().collect();
-        let ratings= graph_g.add_node(("ratings-v1".to_string(), ratings_hashmap));
+        ]
+        .iter()
+        .cloned()
+        .collect();
+        let ratings = graph_g.add_node(("ratings-v1".to_string(), ratings_hashmap));
 
-        let reviews_hashmap : HashMap<String,String> = [
+        let reviews_hashmap: HashMap<String, String> = [
             ("height".to_string(), "1".to_string()),
-            ("node.metadata.WORKLOAD_NAME".to_string(), "reviews-v1".to_string()),
+            (
+                "node.metadata.WORKLOAD_NAME".to_string(),
+                "reviews-v1".to_string(),
+            ),
             ("service_name".to_string(), "reviews-v1".to_string()),
-        ].iter().cloned().collect();
-        let reviews= graph_g.add_node(("reviews-v1".to_string(), reviews_hashmap));
+        ]
+        .iter()
+        .cloned()
+        .collect();
+        let reviews = graph_g.add_node(("reviews-v1".to_string(), reviews_hashmap));
 
-        let details_hashmap : HashMap<String,String> = [
+        let details_hashmap: HashMap<String, String> = [
             ("height".to_string(), "0".to_string()),
-            ("node.metadata.WORKLOAD_NAME".to_string(), "details-v1".to_string()),
+            (
+                "node.metadata.WORKLOAD_NAME".to_string(),
+                "details-v1".to_string(),
+            ),
             ("service_name".to_string(), "details-v1".to_string()),
-        ].iter().cloned().collect();
+        ]
+        .iter()
+        .cloned()
+        .collect();
         let details = graph_g.add_node(("details-v1".to_string(), details_hashmap));
-
 
         graph_g.add_edge(prod, reviews, String::new());
         graph_g.add_edge(reviews, ratings, String::new());
@@ -493,12 +515,11 @@ mod tests {
         let mut graph_g = Graph::<(String, HashMap<String, String>), String>::new();
         let prod = graph_g.add_node(("productpage-v1".to_string(), HashMap::new()));
 
-        let ratings= graph_g.add_node(("ratings-v1".to_string(), HashMap::new()));
+        let ratings = graph_g.add_node(("ratings-v1".to_string(), HashMap::new()));
 
-        let reviews= graph_g.add_node(("reviews-v1".to_string(), HashMap::new()));
+        let reviews = graph_g.add_node(("reviews-v1".to_string(), HashMap::new()));
 
         let details = graph_g.add_node(("details-v1".to_string(), HashMap::new()));
-
 
         graph_g.add_edge(prod, reviews, String::new());
         graph_g.add_edge(reviews, ratings, String::new());
@@ -629,7 +650,6 @@ mod tests {
         let mut rev = get_node_with_id(&graph_g, "reviews-v1".to_string()).unwrap();
         assert!(mapping.contains(&(a, prod)));
         assert!(mapping.contains(&(b, rev)));
-
     }
 
     #[test]
@@ -664,8 +684,8 @@ mod tests {
         let graph_g = simulation_example_no_properties();
         let mut graph_h = Graph::<(String, HashMap<String, String>), String>::new();
         let a = graph_h.add_node(("a".to_string(), HashMap::new()));
-        let b  = graph_h.add_node(("b".to_string(), HashMap::new()));
-        graph_h.add_edge(a,b, String::new());
+        let b = graph_h.add_node(("b".to_string(), HashMap::new()));
+        graph_h.add_edge(a, b, String::new());
 
         assert!(find_mapping_shamir_centralized(&graph_g, &graph_h).is_some());
 
@@ -674,11 +694,14 @@ mod tests {
     }
 
     #[test]
-    fn test_simulation_example_no_match()  {
+    fn test_simulation_example_no_match() {
         let graph_g = simulation_example();
 
         let mut graph_h = Graph::<(String, HashMap<String, String>), String>::new();
-        let a_hashmap : HashMap<String,String> = [ ("height".to_string(), "0".to_string())].iter().cloned().collect();
+        let a_hashmap: HashMap<String, String> = [("height".to_string(), "0".to_string())]
+            .iter()
+            .cloned()
+            .collect();
         let a = graph_h.add_node((String::from("productpage-v1"), a_hashmap));
         let b = graph_h.add_node((String::from("reviews-v1"), HashMap::new()));
         let c = graph_h.add_node((String::from("ratings-v1"), HashMap::new()));
@@ -687,7 +710,5 @@ mod tests {
         graph_h.add_edge(b, c, String::new());
 
         assert!(find_mapping_shamir_centralized(&graph_g, &graph_h).is_none());
-
-
     }
 }

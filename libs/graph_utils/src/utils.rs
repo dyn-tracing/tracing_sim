@@ -229,8 +229,12 @@ pub fn has_property_subset(
     property_set_2: &HashMap<String, String>, // subset
 ) -> bool {
     for property in property_set_2.keys() {
-        if !property_set_1.contains_key(property) { return false; }
-        if property_set_1[property] != property_set_2[property] { return false; }
+        if !property_set_1.contains_key(property) {
+            return false;
+        }
+        if property_set_1[property] != property_set_2[property] {
+            return false;
+        }
     }
     return true;
 }
