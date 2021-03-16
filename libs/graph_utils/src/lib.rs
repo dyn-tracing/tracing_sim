@@ -1,2 +1,2 @@
-pub mod graph_utils;
+pub mod utils;
 pub mod iso;

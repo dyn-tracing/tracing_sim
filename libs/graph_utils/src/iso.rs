@@ -3,8 +3,8 @@
 /// Another thing to consider, but is not implemented here, is
 /// http://chasewoerner.org/popl87.pdf
 ///
-use crate::graph_utils::{find_leaves, find_root, get_node_with_id, has_property_subset};
-use mcmf::{Capacity, Cost, GraphBuilder, Path, Vertex};
+use crate::utils::{find_leaves, find_root, get_node_with_id, has_property_subset};
+use mcmf::{Capacity, Cost, GraphBuilder, Vertex};
 use petgraph::graph::{Graph, NodeIndex};
 use petgraph::visit::DfsPostOrder;
 use petgraph::Incoming;
