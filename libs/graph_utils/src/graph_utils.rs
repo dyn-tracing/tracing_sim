@@ -224,6 +224,25 @@ pub fn find_root(graph: &Graph<(String, HashMap<String, String>), String>) -> No
     panic!("no root found");
 }
 
+pub fn has_property_subset(
+    property_set_1: &HashMap<String, String>,
+    property_set_2: &HashMap<String, String>,
+) -> bool {
+    for key in property_set_2.keys() {
+        if !property_set_1.contains_key(key) {
+            return false;
+        }
+        print!(
+            "property 1 value is : {:?} and property 2 value is :{:?}",
+            property_set_1[key], property_set_2[key]
+        );
+        if property_set_1[key] != property_set_2[key] {
+            return false;
+        }
+    }
+    return true;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
