@@ -276,7 +276,7 @@ pub fn find_mapping_shamir_centralized(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::graph_utils::get_node_with_id;
+    use crate::utils::get_node_with_id;
 
     /// --------------- Graph Creation Helper functions -------------------
     fn three_node_graph() -> Graph<(String, HashMap<String, String>), String> {
@@ -570,6 +570,53 @@ mod tests {
     fn test_property_does_not_match() {
         let graph_g = three_node_graph_with_properties();
         let graph_h = two_node_graph_with_wrong_properties();
+        assert!(find_mapping_shamir_centralized(&graph_g, &graph_h).is_none());
+    }
+
+    #[test]
+    fn sanity_test() {
+        let mut graph_h = Graph::<(String, HashMap<String, String>), String>::new();
+        let a_hashmap: HashMap<String, String> = [
+            ("height".to_string(), "2".to_string()),
+        ]
+        .iter()
+        .cloned()
+        .collect();
+        let a = graph_h.add_node(("a".to_string(), a_hashmap));
+        let b = graph_h.add_node(("b".to_string(), HashMap::new()));
+        let c = graph_h.add_node(("c".to_string(), HashMap::new()));
+        graph_h.add_edge(a, b, String::new());
+        graph_h.add_edge(a, c, String::new());
+
+        let mut graph_g = Graph::<(String, HashMap<String, String>), String>::new();
+        let prod_hashmap : HashMap<String,String> = [
+            ("height".to_string(), "2".to_string()),
+            ("node.metadata.WORKLOAD_NAME".to_string(), "productpage-v1".to_string()),
+            ("service_name".to_string(), "productpage-v1".to_string()),
+        ].iter().cloned().collect();
+        let prod = graph_g.add_node(("productpage-v1".to_string(), prod_hashmap));
+        let ratings_hashmap : HashMap<String,String> = [
+            ("height".to_string(), "0".to_string()),
+            ("node.metadata.WORKLOAD_NAME".to_string(), "ratings-v1".to_string()),
+            ("service_name".to_string(), "ratings-v1".to_string()),
+        ].iter().cloned().collect();
+        let ratings= graph_g.add_node(("ratings-v1".to_string(), ratings_hashmap));
+        let reviews_hashmap : HashMap<String,String> = [
+            ("height".to_string(), "1".to_string()),
+            ("node.metadata.WORKLOAD_NAME".to_string(), "reviews-v1".to_string()),
+            ("service_name".to_string(), "reviews-v1".to_string()),
+        ].iter().cloned().collect();
+        let reviews= graph_g.add_node(("reviews-v1".to_string(), reviews_hashmap));
+        let details_hashmap : HashMap<String,String> = [
+            ("height".to_string(), "0".to_string()),
+            ("node.metadata.WORKLOAD_NAME".to_string(), "details-v1".to_string()),
+            ("service_name".to_string(), "details-v1".to_string()),
+        ].iter().cloned().collect();
+        let details = graph_g.add_node(("details-v1".to_string(), details_hashmap));
+
+        graph_g.add_edge(prod, reviews, String::new());
+        graph_g.add_edge(reviews, ratings, String::new());
+        graph_g.add_edge(prod, details, String::new());
         assert!(find_mapping_shamir_centralized(&graph_g, &graph_h).is_none());
     }
 }
