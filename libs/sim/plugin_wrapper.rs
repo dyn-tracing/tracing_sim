@@ -154,8 +154,10 @@ mod tests {
         let library_str = cargo_dir.to_str().unwrap();
         let plugin = PluginWrapper::new("0", library_str);
         let rpc = &mut Rpc::new("55");
-        rpc.headers.insert("direction".to_string(), "request".to_string());
-        rpc.headers.insert("location".to_string(), "ingress".to_string());
+        rpc.headers
+            .insert("direction".to_string(), "request".to_string());
+        rpc.headers
+            .insert("location".to_string(), "ingress".to_string());
         let rpc_data = &plugin.execute(rpc)[0].data;
         assert!(rpc_data == &"55".to_string());
     }
@@ -170,8 +172,10 @@ mod tests {
         let plugin3 = PluginWrapper::new("2", library_str);
         let plugin4 = PluginWrapper::new("3", library_str);
         let rpc = &mut Rpc::new("5");
-        rpc.headers.insert("direction".to_string(), "request".to_string());
-        rpc.headers.insert("location".to_string(), "ingress".to_string());
+        rpc.headers
+            .insert("direction".to_string(), "request".to_string());
+        rpc.headers
+            .insert("location".to_string(), "ingress".to_string());
         let ret1: &Rpc = &plugin1.execute(rpc)[0];
         let ret2: &Rpc = &plugin2.execute(&ret1)[0];
         let ret3: &Rpc = &plugin3.execute(&ret2)[0];
