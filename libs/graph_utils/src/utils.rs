@@ -225,20 +225,13 @@ pub fn find_root(graph: &Graph<(String, HashMap<String, String>), String>) -> No
 }
 
 pub fn has_property_subset(
-    property_set_1: &HashMap<String, String>,
-    property_set_2: &HashMap<String, String>,
+    property_set_1: &HashMap<String, String>, // set
+    property_set_2: &HashMap<String, String>, // subset
 ) -> bool {
-    for key in property_set_2.keys() {
-        if !property_set_1.contains_key(key) {
-            return false;
-        }
-        print!(
-            "property 1 value is : {:?} and property 2 value is :{:?}",
-            property_set_1[key], property_set_2[key]
-        );
-        if property_set_1[key] != property_set_2[key] {
-            return false;
-        }
+    print!("property set 1 has {:?} keys and property set 2 has {:?} keys\n", property_set_1.keys().len(), property_set_2.keys().len());
+    for property in property_set_2.keys() {
+        if !property_set_1.contains_key(property) { return false; }
+        if property_set_1[property] != property_set_2[property] { return false; }
     }
     return true;
 }
