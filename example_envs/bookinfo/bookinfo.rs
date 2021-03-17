@@ -14,7 +14,7 @@ pub fn new_bookinfo(seed: u64, plugin: Option<&str>) -> Simulator {
     let reviews3 = Reviews::new("reviews-v3", 5, 5, plugin);
     let details = LeafNode::new("details-v1", 5, 5, plugin);
     let ratings = LeafNode::new("ratings-v1", 5, 5, plugin);
-    sim.add_storage("storage");
+    sim.add_storage("storage", None);
 
     sim.add_node("gateway", gateway);
     sim.add_node("productpage-v1", productpage);

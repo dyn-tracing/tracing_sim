@@ -5,12 +5,27 @@ use crate::sim_element::SimElement;
 use core::any::Any;
 use rpc_lib::rpc::Rpc;
 use std::fmt;
+use std::path::PathBuf;
+use std::env;
+
+pub type AggregationInputFunc = fn(*mut AggregationStruct, String);
+pub type AggregationRetType = fn(*mut AggregationStruct) -> String;
+
+extern "Rust" {
+    pub type AggregationStruct;
+}
+
+pub type AggregationInitFunc = fn() -> *mut AggregationStruct;
 
 #[derive(Default)]
 pub struct Storage {
     data: String,           // all the data that has been stored
     id: String,             // id
     neighbors: Vec<String>, // who is the node connected to
+    aggr_struct: Option<*mut AggregationStruct>,
+    aggr_output_func: Option<libloading::os::unix::Symbol<AggregationRetType>>,
+    aggr_input_func: Option<libloading::os::unix::Symbol<AggregationInputFunc>>,
+
 }
 
 impl fmt::Display for Storage {
@@ -51,22 +66,94 @@ impl SimElement for Storage {
     }
 }
 
+fn load_lib(plugin_str: &str) -> libloading::Library {
+    // Convert the library string into a Path object
+    let mut plugin_path = PathBuf::from(plugin_str);
+    // We have to load the library differently, depending on whether we are
+    // working with MacOS or Linux. Windows is not supported.
+    match env::consts::OS {
+        "macos" => {
+            plugin_path.set_extension("dylib");
+        }
+        "linux" => {
+            plugin_path.set_extension("so");
+        }
+        _ => panic!("Unexpected operating system."),
+    }
+    // Load library with  RTLD_NODELETE | RTLD_NOW to avoid freeing the lib
+    // https://github.com/nagisa/rust_libloading/issues/41#issuecomment-448303856
+    // also works on MacOS
+    let os_lib = libloading::os::unix::Library::open(
+        plugin_path.to_str(),
+        libc::RTLD_NODELETE | libc::RTLD_NOW,
+    )
+    .unwrap();
+    let dyn_lib = libloading::Library::from(os_lib);
+    dyn_lib
+}
+
 impl Storage {
+
     pub fn store(&mut self, x: Rpc, _now: u64) {
         // we don't want to store everything, just the stuff that was sent to us
         if x.headers.contains_key("dest") && x.headers["dest"].contains(&self.id) {
-            self.data.push_str(&x.data);
-            self.data.push_str("\n");
+            if self.aggr_input_func.is_some() {
+                (self.aggr_input_func.clone().unwrap())(self.aggr_struct.unwrap(), x.data);
+            } else {
+                self.data.push_str(&x.data);
+                self.data.push_str("\n");
+            }
         }
     }
-    pub fn query(&self) -> &str {
-        &self.data
+    pub fn query(&self) -> String {
+        if self.aggr_struct.is_none() {
+            self.data.clone()
+        } else {
+            (self.aggr_output_func.clone().unwrap())(self.aggr_struct.unwrap()).clone()
+        }
     }
-    pub fn new(id: &str) -> Storage {
-        Storage {
-            data: String::new(),
-            id: id.to_string(),
-            neighbors: Vec::new(),
+    pub fn new(id: &str, aggregation_file: Option<&str>) -> Storage {
+        if aggregation_file.is_none() {
+            Storage {
+                data: String::new(),
+                id: id.to_string(),
+                neighbors: Vec::new(),
+                aggr_struct: None,
+                aggr_input_func: None,
+                aggr_output_func: None,
+           }
+        }
+        else {
+            let aggr_lib = load_lib(&aggregation_file.unwrap());
+            let init: libloading::Symbol<AggregationInitFunc>;
+
+            let aggregation_struct = unsafe {
+                init = aggr_lib.get(b"init").unwrap();
+                init.into_raw()()
+            };
+
+            let input_function = unsafe {
+                let tmp_loaded_function: libloading::Symbol<AggregationInputFunc> =
+                    aggr_lib.get(b"execute").expect("load symbol");
+                tmp_loaded_function.into_raw()
+            };
+
+            let output_function = unsafe {
+                let tmp_loaded_function: libloading::Symbol<AggregationRetType> =
+                    aggr_lib.get(b"return").expect("load symbol");
+                tmp_loaded_function.into_raw()
+            };
+
+            Storage {
+                data: String::new(),
+                id: id.to_string(),
+                neighbors: Vec::new(),
+                aggr_struct: Some(aggregation_struct),
+                aggr_input_func: Some(input_function),
+                aggr_output_func: Some(output_function),
+           }
+
+
         }
     }
 }

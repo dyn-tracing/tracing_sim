@@ -53,7 +53,7 @@ impl<'a> Simulator {
         }
     }
 
-    pub fn query_storage(&mut self, storage_id: &str) -> &str {
+    pub fn query_storage(&mut self, storage_id: &str) -> String {
         let storage_box = &self.elements[storage_id];
         return match storage_box.as_any().downcast_ref::<Storage>() {
             Some(storage) => storage.query(),
@@ -129,8 +129,8 @@ impl<'a> Simulator {
         }
     }
 
-    pub fn add_storage(&mut self, id: &str) {
-        let storage = Storage::new(id);
+    pub fn add_storage(&mut self, id: &str, aggr_func: Option<&str>) {
+        let storage = Storage::new(id, aggr_func);
         self.add_element(id, storage);
         self.petgraph_id_map
             .insert(id.to_string(), self.graph.add_node(id.to_string()));
