@@ -643,11 +643,11 @@ mod tests {
         mapping_wrapped = find_mapping_shamir_centralized(&graph_g, &graph_h);
         assert!(mapping_wrapped.is_some());
         mapping = mapping_wrapped.unwrap();
-        let mut a = get_node_with_id(&graph_h, "a".to_string()).unwrap();
-        let mut b = get_node_with_id(&graph_h, "b".to_string()).unwrap();
-        let mut c = get_node_with_id(&graph_h, "c".to_string()).unwrap();
-        let mut prod = get_node_with_id(&graph_g, "productpage-v1".to_string()).unwrap();
-        let mut rev = get_node_with_id(&graph_g, "reviews-v1".to_string()).unwrap();
+        a = get_node_with_id(&graph_h, "a".to_string()).unwrap();
+        b = get_node_with_id(&graph_h, "b".to_string()).unwrap();
+        c = get_node_with_id(&graph_h, "c".to_string()).unwrap();
+        prod = get_node_with_id(&graph_g, "productpage-v1".to_string()).unwrap();
+        rev = get_node_with_id(&graph_g, "reviews-v1".to_string()).unwrap();
         assert!(mapping.contains(&(a, prod)));
         assert!(mapping.contains(&(b, rev)));
     }
