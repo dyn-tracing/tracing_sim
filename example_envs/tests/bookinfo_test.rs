@@ -5,13 +5,17 @@ use example_envs::productpage::ProductPage;
 use example_envs::reviews::Reviews;
 use queues::IsQueue;
 use rpc_lib::rpc::Rpc;
+use std::path::PathBuf;
 
 #[test]
 fn check_bookinfo() {
-    // Set up library access
+    // Set up plugin name
+    let mut cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    cargo_dir.push("../target/debug/libfilter_example");
+    let plugin_str = cargo_dir.to_str().unwrap();
 
     // Create simulator object.
-    let mut simulator = new_bookinfo(0, None);
+    let mut simulator = new_bookinfo(0, Some(plugin_str));
 
     // Execute the simulator
     simulator.insert_rpc("gateway", Rpc::new("0"));
@@ -86,6 +90,13 @@ fn check_bookinfo() {
         "Number of responses was {}",
         response_num
     );
+
+    // Because of the filter, we should have a return value of 2 in storage
+    // after one more tick
+    simulator.tick(6);
+    let storage_val = simulator.query_storage("storage");
+    assert!(storage_val == "2\n", "storage contains {0}", storage_val);
+
     // Also check that we stay at one response
     for tick in 0..10 {
         simulator.tick(tick);
