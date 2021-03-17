@@ -1,10 +1,10 @@
 use graph_utils::iso::find_mapping_shamir_centralized;
 use graph_utils::utils;
+use indexmap::map::IndexMap;
 use petgraph::graph::NodeIndex;
 use petgraph::Graph;
 use petgraph::Outgoing;
 use rpc_lib::rpc::Rpc;
-use std::collections::HashMap;
 
 pub type CodeletType = fn(&Filter, &Rpc) -> Option<Rpc>;
 
@@ -14,13 +14,13 @@ pub type CodeletType = fn(&Filter, &Rpc) -> Option<Rpc>;
 // mid_func: mid_height
 // id: height
 
-fn leaf_height(_graph: Graph<(String, HashMap<String, String>), String>) -> u32 {
+fn leaf_height(_graph: Graph<(String, IndexMap<String, String>), String>) -> u32 {
     return 0;
 }
 
 // TODO:  must children's responses always be in string form?  can we generalize?
 fn mid_height(
-    _graph: Graph<(String, HashMap<String, String>), String>,
+    _graph: Graph<(String, IndexMap<String, String>), String>,
     children_responses: Vec<String>,
 ) -> u32 {
     let mut max = 0;
@@ -71,9 +71,9 @@ impl State {
 #[derive(Clone, Debug)]
 pub struct Filter {
     pub whoami: Option<String>,
-    pub target_graph: Option<Graph<(String, HashMap<String, String>), String>>,
-    pub filter_state: HashMap<String, State>,
-    pub envoy_shared_data: HashMap<String, String>,
+    pub target_graph: Option<Graph<(String, IndexMap<String, String>), String>>,
+    pub filter_state: IndexMap<String, State>,
+    pub envoy_shared_data: IndexMap<String, String>,
     pub collected_properties: Vec<String>, //properties to collect
 }
 
@@ -83,15 +83,15 @@ impl Filter {
         Box::into_raw(Box::new(Filter {
             whoami: None,
             target_graph: None,
-            filter_state: HashMap::new(),
-            envoy_shared_data: HashMap::<String, String>::new(),
+            filter_state: IndexMap::new(),
+            envoy_shared_data: IndexMap::<String, String>::new(),
             collected_properties: vec!["service_name".to_string(), "height".to_string()],
         }))
     }
 
     #[no_mangle]
-    pub fn new_with_envoy_properties(string_data: HashMap<String, String>) -> *mut Filter {
-        let mut hash = HashMap::new();
+    pub fn new_with_envoy_properties(string_data: IndexMap<String, String>) -> *mut Filter {
+        let mut hash = IndexMap::new();
         for key in string_data.keys() {
             hash.insert(key.clone(), State::new_with_str(string_data[key].clone()));
         }
@@ -99,7 +99,7 @@ impl Filter {
             whoami: None,
             target_graph: None,
             filter_state: hash,
-            envoy_shared_data: HashMap::new(),
+            envoy_shared_data: IndexMap::new(),
             collected_properties: vec!["service_name".to_string(), "height".to_string()],
         }))
     }
@@ -195,8 +195,8 @@ impl Filter {
     pub fn merge_headers(
         &mut self,
         uid: u64,
-        mut new_rpc_headers: HashMap<String, String>,
-    ) -> HashMap<String, String> {
+        mut new_rpc_headers: IndexMap<String, String>,
+    ) -> IndexMap<String, String> {
         // if we are a response, we should do path bookkeeping
         if new_rpc_headers["direction"] == "response" {
             let prop_str = format!("{uid}_properties_path", uid = uid);
@@ -234,10 +234,10 @@ impl Filter {
             ("a".to_string(), "b".to_string()),
             ("b".to_string(), "c".to_string()),
         ];
-        let mut ids_to_properties: HashMap<String, HashMap<String, String>> = HashMap::new();
-        ids_to_properties.insert("a".to_string(), HashMap::new());
-        ids_to_properties.insert("b".to_string(), HashMap::new());
-        ids_to_properties.insert("c".to_string(), HashMap::new());
+        let mut ids_to_properties: IndexMap<String, IndexMap<String, String>> = IndexMap::new();
+        ids_to_properties.insert("a".to_string(), IndexMap::new());
+        ids_to_properties.insert("b".to_string(), IndexMap::new());
+        ids_to_properties.insert("c".to_string(), IndexMap::new());
         let mut b_hashmap = ids_to_properties.get_mut("b").unwrap();
         b_hashmap.insert("service_name".to_string(), "reviews-v1".to_string());
         self.target_graph = Some(utils::generate_target_graph(
@@ -250,7 +250,7 @@ impl Filter {
     pub fn create_trace_graph(
         &mut self,
         mut mod_rpc: Rpc,
-    ) -> Graph<(String, HashMap<String, String>), String> {
+    ) -> Graph<(String, IndexMap<String, String>), String> {
         let trace;
         let mut path = mod_rpc.headers["properties_path"].clone();
         let mut properties = Vec::new();

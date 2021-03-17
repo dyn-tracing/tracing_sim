@@ -1,8 +1,8 @@
 //! This file is used for the plugin wrapper to understand the types of the
 //! functions and objects in the external library.
 
+use indexmap::map::IndexMap;
 use rpc_lib::rpc::Rpc;
-use std::collections::HashMap;
 
 pub type CodeletType = fn(*mut Filter, &Rpc) -> Vec<Rpc>;
 
@@ -14,4 +14,4 @@ extern "Rust" {
     pub type Filter;
 }
 
-pub type NewWithEnvoyProperties = fn(HashMap<String, String>) -> *mut Filter;
+pub type NewWithEnvoyProperties = fn(IndexMap<String, String>) -> *mut Filter;

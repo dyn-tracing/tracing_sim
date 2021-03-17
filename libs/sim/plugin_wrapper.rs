@@ -5,8 +5,8 @@
 use crate::filter_types::{CodeletType, Filter, NewWithEnvoyProperties};
 use crate::sim_element::SimElement;
 use core::any::Any;
+use indexmap::map::IndexMap;
 use rpc_lib::rpc::Rpc;
-use std::collections::HashMap;
 use std::env;
 use std::fmt;
 use std::path::PathBuf;
@@ -106,7 +106,7 @@ impl PluginWrapper {
         let dyn_lib = load_lib(plugin_str);
         // Dynamically load one function to initialize hash table in filter.
         let init: libloading::Symbol<NewWithEnvoyProperties>;
-        let mut envoy_properties = HashMap::new();
+        let mut envoy_properties = IndexMap::new();
         let mut id_without_plugin = id.to_string();
         if id_without_plugin.contains("_plugin") {
             id_without_plugin.truncate(id_without_plugin.len() - "_plugin".to_string().len());

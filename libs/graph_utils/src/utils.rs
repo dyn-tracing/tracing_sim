@@ -1,11 +1,11 @@
 /* This file contains functions relating to creating and comparing trace and target (user-given) graphs */
 
+use indexmap::map::IndexMap;
 use petgraph::algo::{dijkstra, toposort};
 use petgraph::graph::{Graph, NodeIndex};
 use petgraph::visit::DfsPostOrder;
 use petgraph::Incoming;
 use regex::Regex;
-use std::collections::HashMap;
 
 /* This function creates a petgraph graph representing the query given by the user.
  * For example, if the cql query were MATCH n -> m, e WHERE ... the input to this function
@@ -22,14 +22,14 @@ use std::collections::HashMap;
 pub fn generate_target_graph(
     vertices: Vec<String>,
     edges: Vec<(String, String)>,
-    ids_to_properties: HashMap<String, HashMap<String, String>>,
-) -> Graph<(String, HashMap<String, String>), String> {
+    ids_to_properties: IndexMap<String, IndexMap<String, String>>,
+) -> Graph<(String, IndexMap<String, String>), String> {
     let mut graph = Graph::new();
 
     // In order to make edges, we have to know the handles of the nodes, and you
     // get the handles of the nodes by adding them to the graph
 
-    let mut nodes_to_node_handles: HashMap<String, NodeIndex> = HashMap::new();
+    let mut nodes_to_node_handles: IndexMap<String, NodeIndex> = IndexMap::new();
     for node in vertices {
         if ids_to_properties.contains_key(&node) {
             nodes_to_node_handles.insert(
@@ -37,8 +37,10 @@ pub fn generate_target_graph(
                 graph.add_node((node.clone(), ids_to_properties[&node].clone())),
             );
         } else {
-            nodes_to_node_handles
-                .insert(node.clone(), graph.add_node((node.clone(), HashMap::new())));
+            nodes_to_node_handles.insert(
+                node.clone(),
+                graph.add_node((node.clone(), IndexMap::new())),
+            );
         }
     }
 
@@ -74,19 +76,19 @@ pub fn generate_target_graph(
 pub fn generate_trace_graph_from_headers(
     paths_header: String,
     properties_header: String,
-) -> Graph<(String, HashMap<String, String>), String> {
-    let mut graph: Graph<(String, HashMap<String, String>), String> = Graph::new();
+) -> Graph<(String, IndexMap<String, String>), String> {
+    let mut graph: Graph<(String, IndexMap<String, String>), String> = Graph::new();
     if paths_header.is_empty() {
         return graph;
     }
     let name = "node.metadata.WORKLOAD_NAME";
-    let mut node_handles: HashMap<String, NodeIndex> = HashMap::new();
+    let mut node_handles: IndexMap<String, NodeIndex> = IndexMap::new();
     let straight_paths = paths_header.split(",");
     for straight_path in straight_paths {
         let mut node_iterator = straight_path.split(";");
         let mut node_str = node_iterator.next().unwrap();
         if !node_handles.contains_key(node_str) {
-            let node_hashmap: HashMap<String, String> = [(name.to_string(), node_str.to_string())]
+            let node_hashmap: IndexMap<String, String> = [(name.to_string(), node_str.to_string())]
                 .iter()
                 .cloned()
                 .collect();
@@ -97,7 +99,7 @@ pub fn generate_trace_graph_from_headers(
         }
         while let Some(new_node_str) = node_iterator.next() {
             if !node_handles.contains_key(new_node_str) {
-                let new_node_hashmap: HashMap<String, String> =
+                let new_node_hashmap: IndexMap<String, String> =
                     [(name.to_string(), new_node_str.to_string())]
                         .iter()
                         .cloned()
@@ -151,7 +153,7 @@ pub fn generate_trace_graph_from_headers(
 }
 
 pub fn get_node_with_id(
-    graph: &Graph<(String, HashMap<String, String>), String>,
+    graph: &Graph<(String, IndexMap<String, String>), String>,
     node_name: String,
 ) -> Option<NodeIndex> {
     for index in graph.node_indices() {
@@ -163,7 +165,7 @@ pub fn get_node_with_id(
 }
 
 pub fn get_tree_height(
-    graph: &Graph<(String, HashMap<String, String>), String>,
+    graph: &Graph<(String, IndexMap<String, String>), String>,
     root: Option<NodeIndex>,
 ) -> u32 {
     let starting_point;
@@ -185,7 +187,7 @@ pub fn get_tree_height(
 }
 
 pub fn get_out_degree(
-    graph: &Graph<(String, HashMap<String, String>), String>,
+    graph: &Graph<(String, IndexMap<String, String>), String>,
     root: Option<NodeIndex>,
 ) -> u32 {
     let starting_point;
@@ -201,7 +203,7 @@ pub fn get_out_degree(
 
 pub fn find_leaves(
     node: NodeIndex,
-    graph: &Graph<(String, HashMap<String, String>), String>,
+    graph: &Graph<(String, IndexMap<String, String>), String>,
 ) -> Vec<NodeIndex> {
     let mut post_order = DfsPostOrder::new(&graph, node);
     let mut to_return = Vec::new();
@@ -214,7 +216,7 @@ pub fn find_leaves(
     return to_return;
 }
 
-pub fn find_root(graph: &Graph<(String, HashMap<String, String>), String>) -> NodeIndex {
+pub fn find_root(graph: &Graph<(String, IndexMap<String, String>), String>) -> NodeIndex {
     for node in graph.node_indices() {
         let neighbors: Vec<NodeIndex> = graph.neighbors_directed(node, Incoming).collect();
         if neighbors.len() == 0 {
@@ -225,8 +227,8 @@ pub fn find_root(graph: &Graph<(String, HashMap<String, String>), String>) -> No
 }
 
 pub fn has_property_subset(
-    property_set_1: &HashMap<String, String>, // set
-    property_set_2: &HashMap<String, String>, // subset
+    property_set_1: &IndexMap<String, String>, // set
+    property_set_2: &IndexMap<String, String>, // subset
 ) -> bool {
     for property in property_set_2.keys() {
         if !property_set_1.contains_key(property) {
@@ -243,29 +245,29 @@ pub fn has_property_subset(
 mod tests {
     use super::*;
 
-    fn make_small_trace_graph() -> Graph<(String, HashMap<String, String>), String> {
+    fn make_small_trace_graph() -> Graph<(String, IndexMap<String, String>), String> {
         let graph_string = String::from("0;1;2");
         let graph = generate_trace_graph_from_headers(graph_string, String::new());
         graph
     }
 
-    fn make_small_target_graph() -> Graph<(String, HashMap<String, String>), String> {
+    fn make_small_target_graph() -> Graph<(String, IndexMap<String, String>), String> {
         let a = String::from("a");
         let b = String::from("b");
         let c = String::from("c");
         let vertices = vec![a.clone(), b.clone(), c.clone()];
         let edges = vec![(a.clone(), b.clone()), (b.clone(), c.clone())];
-        let mut ids_to_properties = HashMap::new();
+        let mut ids_to_properties = IndexMap::new();
 
-        let mut a_hashmap = HashMap::new();
+        let mut a_hashmap = IndexMap::new();
         a_hashmap.insert("node.metadata.WORKLOAD_NAME".to_string(), "a".to_string());
         ids_to_properties.insert("a".to_string(), a_hashmap);
 
-        let mut b_hashmap = HashMap::new();
+        let mut b_hashmap = IndexMap::new();
         b_hashmap.insert("node.metadata.WORKLOAD_NAME".to_string(), "b".to_string());
         ids_to_properties.insert("b".to_string(), b_hashmap);
 
-        let mut c_hashmap = HashMap::new();
+        let mut c_hashmap = IndexMap::new();
         c_hashmap.insert("node.metadata.WORKLOAD_NAME".to_string(), "c".to_string());
         ids_to_properties.insert("c".to_string(), c_hashmap);
 
@@ -279,8 +281,8 @@ mod tests {
         let graph = generate_target_graph(vertices, edges, ids_to_properties);
         graph
     }
-    fn little_branching_graph() -> Graph<(String, HashMap<String, String>), String> {
-        let mut graph = Graph::<(String, HashMap<String, String>), String>::new();
+    fn little_branching_graph() -> Graph<(String, IndexMap<String, String>), String> {
+        let mut graph = Graph::<(String, IndexMap<String, String>), String>::new();
         graph.extend_with_edges(&[(0, 1), (0, 2), (0, 3), (1, 4), (3, 5)]);
         return graph;
     }

@@ -1,11 +1,11 @@
-use std::collections::HashMap;
+use indexmap::map::IndexMap;
 
 #[derive(PartialEq, Clone, Debug)]
 #[repr(C)]
 pub struct Rpc {
-    pub data: String,                     // application data
-    pub uid: u64,                         // number of hops the message has taken
-    pub headers: HashMap<String, String>, // the "http" headers of the rpc, ie, filter-defined book keeping
+    pub data: String,                      // application data
+    pub uid: u64,                          // number of hops the message has taken
+    pub headers: IndexMap<String, String>, // the "http" headers of the rpc, ie, filter-defined book keeping
 }
 
 impl Rpc {
@@ -15,7 +15,7 @@ impl Rpc {
             Rpc {
                 data: data.to_string(),
                 uid: COUNTER,
-                headers: HashMap::new(),
+                headers: IndexMap::new(),
             }
         };
         unsafe {
