@@ -1,4 +1,5 @@
 use core::any::Any;
+use indexmap::map::IndexMap;
 use queues::*;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use rpc_lib::rpc::Rpc;
@@ -7,7 +8,6 @@ use sim::node::Node;
 use sim::node::NodeTraits;
 use sim::sim_element::SimElement;
 use std::cmp::min;
-use std::collections::HashMap;
 use std::fmt;
 
 pub struct PendingRpc {
@@ -26,7 +26,7 @@ impl PendingRpc {
 
 pub struct ProductPage {
     core_node: Node,
-    pending_rpcs: HashMap<u64, PendingRpc>,
+    pending_rpcs: IndexMap<u64, PendingRpc>,
 }
 
 impl fmt::Display for ProductPage {
@@ -151,7 +151,7 @@ impl ProductPage {
         let core_node = Node::new(id, capacity, egress_rate, 0, plugin, seed);
         ProductPage {
             core_node,
-            pending_rpcs: HashMap::new(),
+            pending_rpcs: IndexMap::new(),
         }
     }
 
@@ -240,6 +240,6 @@ mod tests {
         cargo_dir.push("../target/debug/libfilter_example");
         let library_str = cargo_dir.to_str().unwrap();
         let node = ProductPage::new("0", 2, 1, Some(library_str), 0);
-        assert!(!node.core_node.plugin.is_none());
+        assert!(node.core_node.plugin.is_some());
     }
 }
