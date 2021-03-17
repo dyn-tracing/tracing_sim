@@ -623,33 +623,33 @@ mod tests {
 
     #[test]
     fn test_shamir_on_bookinfo() {
-        let mut graph_g = bookinfo_trace_graph();
-        let mut graph_h = three_node_graph();
+        let graph_g = bookinfo_trace_graph();
+        let graph_h = three_node_graph();
         let mut mapping_wrapped = find_mapping_shamir_centralized(&graph_g, &graph_h);
         assert!(mapping_wrapped.is_some());
-        let mut mapping = mapping_wrapped.unwrap();
-        let mut a = get_node_with_id(&graph_h, "a".to_string()).unwrap();
-        let mut b = get_node_with_id(&graph_h, "b".to_string()).unwrap();
-        let mut c = get_node_with_id(&graph_h, "c".to_string()).unwrap();
-        let mut prod = get_node_with_id(&graph_g, "productpage-v1".to_string()).unwrap();
-        let mut det = get_node_with_id(&graph_g, "details-v1".to_string()).unwrap();
-        let mut rev = get_node_with_id(&graph_g, "reviews-v1".to_string()).unwrap();
+        let mapping = mapping_wrapped.unwrap();
+        let a = get_node_with_id(&graph_h, "a".to_string()).unwrap();
+        let b = get_node_with_id(&graph_h, "b".to_string()).unwrap();
+        let c = get_node_with_id(&graph_h, "c".to_string()).unwrap();
+        let prod = get_node_with_id(&graph_g, "productpage-v1".to_string()).unwrap();
+        let det = get_node_with_id(&graph_g, "details-v1".to_string()).unwrap();
+        let rev = get_node_with_id(&graph_g, "reviews-v1".to_string()).unwrap();
         assert!(mapping.contains(&(a, prod)));
         assert!(mapping.contains(&(b, det)) || mapping.contains(&(c, det)));
         assert!(mapping.contains(&(b, rev)) || mapping.contains(&(c, rev)));
 
-        graph_g = bookinfo_trace_graph();
-        graph_h = three_node_chain_graph();
-        mapping_wrapped = find_mapping_shamir_centralized(&graph_g, &graph_h);
-        assert!(mapping_wrapped.is_some());
-        mapping = mapping_wrapped.unwrap();
-        a = get_node_with_id(&graph_h, "a".to_string()).unwrap();
-        b = get_node_with_id(&graph_h, "b".to_string()).unwrap();
-        c = get_node_with_id(&graph_h, "c".to_string()).unwrap();
-        prod = get_node_with_id(&graph_g, "productpage-v1".to_string()).unwrap();
-        rev = get_node_with_id(&graph_g, "reviews-v1".to_string()).unwrap();
-        assert!(mapping.contains(&(a, prod)));
-        assert!(mapping.contains(&(b, rev)));
+        let graph_g_2 = bookinfo_trace_graph();
+        let graph_h_2 = three_node_chain_graph();
+        let mut mapping_wrapped_2 = find_mapping_shamir_centralized(&graph_g_2, &graph_h_2);
+        assert!(mapping_wrapped_2.is_some());
+        let mapping_2 = mapping_wrapped_2.unwrap();
+        let a_2 = get_node_with_id(&graph_h_2, "a".to_string()).unwrap();
+        let b_2 = get_node_with_id(&graph_h_2, "b".to_string()).unwrap();
+        let c_2 = get_node_with_id(&graph_h_2, "c".to_string()).unwrap();
+        let prod_2 = get_node_with_id(&graph_g_2, "productpage-v1".to_string()).unwrap();
+        let rev_2 = get_node_with_id(&graph_g_2, "reviews-v1".to_string()).unwrap();
+        assert!(mapping_2.contains(&(a_2, prod_2)));
+        assert!(mapping_2.contains(&(b_2, rev_2)));
     }
 
     #[test]
