@@ -214,16 +214,10 @@ fn get_mapping_from_set_s(
     let root_h = find_root(graph_h);
     let mut to_return = Vec::new();
     let mut set_to_find_mapping = vec![(root_h, *root_in_g)];
-    print_set_s(graph_g, graph_h, set_s);
     while !set_to_find_mapping.is_empty() {
         let key = set_to_find_mapping.pop().unwrap();
         to_return.push(key);
 
-        print!(
-            "key is now {:?} {:?}\n\n\n",
-            graph_h.node_weight(key.0).unwrap().0,
-            graph_g.node_weight(key.1).unwrap().0
-        );
         if set_s[&(key.1, key.0)].contains_key(&key.0) {
             for map in set_s[&(key.1, key.0)][&key.0].as_ref() {
                 for mapping in map {
@@ -235,7 +229,6 @@ fn get_mapping_from_set_s(
             }
         }
     }
-    print_set_s(graph_g, graph_h, set_s);
     return to_return;
 }
 
