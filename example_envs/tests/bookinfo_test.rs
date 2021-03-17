@@ -10,7 +10,9 @@ use std::path::PathBuf;
 #[test]
 fn check_bookinfo() {
     // Set up plugin name
-    let plugin_str = "../target/debug/libfilter_example.dylib";
+    let mut cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    cargo_dir.push("../target/debug/libfilter_example");
+    let plugin_str = cargo_dir.to_str().unwrap();
 
     // Create simulator object.
     let mut simulator = new_bookinfo(0, Some(plugin_str));
