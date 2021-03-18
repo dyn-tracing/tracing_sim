@@ -4,9 +4,9 @@
 use crate::sim_element::SimElement;
 use core::any::Any;
 use rpc_lib::rpc::Rpc;
+use std::env;
 use std::fmt;
 use std::path::PathBuf;
-use std::env;
 
 pub type AggregationInputFunc = fn(*mut AggregationStruct, String);
 pub type AggregationRetType = fn(*mut AggregationStruct) -> String;
@@ -25,7 +25,6 @@ pub struct Storage {
     aggr_struct: Option<*mut AggregationStruct>,
     aggr_output_func: Option<libloading::os::unix::Symbol<AggregationRetType>>,
     aggr_input_func: Option<libloading::os::unix::Symbol<AggregationInputFunc>>,
-
 }
 
 impl fmt::Display for Storage {
@@ -93,7 +92,6 @@ fn load_lib(plugin_str: &str) -> libloading::Library {
 }
 
 impl Storage {
-
     pub fn store(&mut self, x: Rpc, _now: u64) {
         // we don't want to store everything, just the stuff that was sent to us
         if x.headers.contains_key("dest") && x.headers["dest"].contains(&self.id) {
@@ -121,9 +119,8 @@ impl Storage {
                 aggr_struct: None,
                 aggr_input_func: None,
                 aggr_output_func: None,
-           }
-        }
-        else {
+            }
+        } else {
             let aggr_lib = load_lib(&aggregation_file.unwrap());
             let init: libloading::Symbol<AggregationInitFunc>;
 
@@ -134,13 +131,13 @@ impl Storage {
 
             let input_function = unsafe {
                 let tmp_loaded_function: libloading::Symbol<AggregationInputFunc> =
-                    aggr_lib.get(b"execute").expect("load symbol");
+                    aggr_lib.get(b"input").expect("load symbol");
                 tmp_loaded_function.into_raw()
             };
 
             let output_function = unsafe {
                 let tmp_loaded_function: libloading::Symbol<AggregationRetType> =
-                    aggr_lib.get(b"return").expect("load symbol");
+                    aggr_lib.get(b"return_value").expect("load symbol");
                 tmp_loaded_function.into_raw()
             };
 
@@ -151,9 +148,7 @@ impl Storage {
                 aggr_struct: Some(aggregation_struct),
                 aggr_input_func: Some(input_function),
                 aggr_output_func: Some(output_function),
-           }
-
-
+            }
         }
     }
 }
@@ -164,17 +159,38 @@ mod tests {
 
     #[test]
     fn test_storage_creation() {
-        let _storage = Storage::new("0");
+        let _storage = Storage::new("0", None);
     }
 
     #[test]
     fn test_query_storage() {
-        let mut storage = Storage::new("storage");
+        let mut storage = Storage::new("storage", None);
         let mut rpc = Rpc::new("0");
         rpc.headers
             .insert("dest".to_string(), "storage".to_string());
         storage.recv(rpc, 0);
         let ret = storage.query();
         assert!(ret == "0\n".to_string());
+    }
+
+    #[test]
+    fn test_storage_with_aggr() {
+        // aggregation example is a simple avg function
+        let mut cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        cargo_dir.push("../../target/debug/libaggregation_example");
+        let aggr_str = cargo_dir.to_str().unwrap();
+        let mut storage = Storage::new("storage", Some(aggr_str));
+        let mut rpc = Rpc::new("4");
+        rpc.headers
+            .insert("dest".to_string(), "storage".to_string());
+        storage.recv(rpc, 0);
+        assert!(storage.query() == "4".to_string());
+
+        let mut rpc_2 = Rpc::new("2");
+        rpc_2
+            .headers
+            .insert("dest".to_string(), "storage".to_string());
+        storage.recv(rpc_2, 1);
+        assert!(storage.query() == "3".to_string());
     }
 }
