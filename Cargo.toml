@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "libs/filter_example",
+    "libs/aggregation_example",
     "libs/rpc_lib",
     "libs/petgraph",
     "libs/graph_utils",

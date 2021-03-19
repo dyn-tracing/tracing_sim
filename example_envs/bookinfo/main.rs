@@ -80,6 +80,13 @@ fn main() {
                 .help("Path to the plugin."),
         )
         .arg(
+            Arg::with_name("aggr_func")
+                .short("a")
+                .long("aggregation_function")
+                .value_name("AGGREGATION_FUNCTION")
+                .help("Path to the aggregation function implementation."),
+        )
+        .arg(
             Arg::with_name("random_num_seed")
                 .short("r")
                 .long("random_num_seed")
@@ -90,7 +97,9 @@ fn main() {
 
     // Set up library access
     let plugin_str = matches.value_of("plugin");
+    let aggr_str = matches.value_of("aggr_func");
     let seed_arg = matches.value_of("random_num_seed");
+
     let seed;
     if seed_arg.is_none() {
         let mut rng = rand::thread_rng();
@@ -101,7 +110,7 @@ fn main() {
     }
 
     // Create simulator object.
-    let mut simulator = new_bookinfo(seed, plugin_str);
+    let mut simulator = new_bookinfo(seed, plugin_str, aggr_str);
 
     // Print the graph
     if let Some(_argument) = matches.value_of("print_graph") {
