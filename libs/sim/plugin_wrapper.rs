@@ -3,13 +3,12 @@
 //! created as a field of a node object.
 
 use crate::filter_types::{CodeletType, Filter, NewWithEnvoyProperties};
+use crate::load_lib::load_lib;
 use crate::sim_element::SimElement;
 use core::any::Any;
 use indexmap::map::IndexMap;
 use rpc_lib::rpc::Rpc;
-use std::env;
 use std::fmt;
-use std::path::PathBuf;
 
 pub struct PluginWrapper {
     // https://docs.rs/libloading/0.6.5/libloading/os/index.html
@@ -75,32 +74,6 @@ impl SimElement for PluginWrapper {
     }
 }
 
-fn load_lib(plugin_str: &str) -> libloading::Library {
-    // Convert the library string into a Path object
-    let mut plugin_path = PathBuf::from(plugin_str);
-    // We have to load the library differently, depending on whether we are
-    // working with MacOS or Linux. Windows is not supported.
-    match env::consts::OS {
-        "macos" => {
-            plugin_path.set_extension("dylib");
-        }
-        "linux" => {
-            plugin_path.set_extension("so");
-        }
-        _ => panic!("Unexpected operating system."),
-    }
-    // Load library with  RTLD_NODELETE | RTLD_NOW to avoid freeing the lib
-    // https://github.com/nagisa/rust_libloading/issues/41#issuecomment-448303856
-    // also works on MacOS
-    let os_lib = libloading::os::unix::Library::open(
-        plugin_path.to_str(),
-        libc::RTLD_NODELETE | libc::RTLD_NOW,
-    )
-    .unwrap();
-    let dyn_lib = libloading::Library::from(os_lib);
-    dyn_lib
-}
-
 impl PluginWrapper {
     pub fn new(id: &str, plugin_str: &str) -> PluginWrapper {
         let dyn_lib = load_lib(plugin_str);
@@ -147,6 +120,7 @@ impl PluginWrapper {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
     #[test]
     fn test_plugin_creation() {
         let mut cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));

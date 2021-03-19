@@ -1,12 +1,11 @@
 //! An abstraction of a node.  The node can have a plugin, which is meant to reprsent a WebAssembly filter
 //! A node is a sim_element.
 
+use crate::load_lib::load_lib;
 use crate::sim_element::SimElement;
 use core::any::Any;
 use rpc_lib::rpc::Rpc;
-use std::env;
 use std::fmt;
-use std::path::PathBuf;
 
 pub type AggregationInputFunc = fn(*mut AggregationStruct, String);
 pub type AggregationRetType = fn(*mut AggregationStruct) -> String;
@@ -63,32 +62,6 @@ impl SimElement for Storage {
     fn as_any(&self) -> &dyn Any {
         self
     }
-}
-
-fn load_lib(plugin_str: &str) -> libloading::Library {
-    // Convert the library string into a Path object
-    let mut plugin_path = PathBuf::from(plugin_str);
-    // We have to load the library differently, depending on whether we are
-    // working with MacOS or Linux. Windows is not supported.
-    match env::consts::OS {
-        "macos" => {
-            plugin_path.set_extension("dylib");
-        }
-        "linux" => {
-            plugin_path.set_extension("so");
-        }
-        _ => panic!("Unexpected operating system."),
-    }
-    // Load library with  RTLD_NODELETE | RTLD_NOW to avoid freeing the lib
-    // https://github.com/nagisa/rust_libloading/issues/41#issuecomment-448303856
-    // also works on MacOS
-    let os_lib = libloading::os::unix::Library::open(
-        plugin_path.to_str(),
-        libc::RTLD_NODELETE | libc::RTLD_NOW,
-    )
-    .unwrap();
-    let dyn_lib = libloading::Library::from(os_lib);
-    dyn_lib
 }
 
 impl Storage {
@@ -156,6 +129,7 @@ impl Storage {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     #[test]
     fn test_storage_creation() {
