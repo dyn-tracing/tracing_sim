@@ -53,11 +53,11 @@ impl<'a> Simulator {
         }
     }
 
-    pub fn query_storage(&mut self, storage_id: &str) -> String {
-        let storage_box = &self.elements[storage_id];
-        return match storage_box.as_any().downcast_ref::<Storage>() {
+    pub fn query_storage(&mut self, storage_id: &str) -> &str {
+        let storage_box = self.elements.get_mut(storage_id).unwrap();
+        return match storage_box.as_any_mut().downcast_mut::<Storage>() {
             Some(storage) => storage.query(),
-            None => panic!("Expected storage element but got {0}", storage_box),
+            None => panic!("Expected storage element but did not get it"),
         };
     }
 

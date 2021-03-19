@@ -1,1 +1,1 @@
-pub mod aggregation;
+pub mod avg;
