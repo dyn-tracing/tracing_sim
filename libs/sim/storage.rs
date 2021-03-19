@@ -62,9 +62,6 @@ impl SimElement for Storage {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
 }
 
 impl Storage {
@@ -79,12 +76,24 @@ impl Storage {
             }
         }
     }
-    pub fn query(&mut self) -> &str {
-        if self.aggr_struct.is_some() {
-            self.data = (self.aggr_output_func.clone().unwrap())(self.aggr_struct.unwrap()).clone();
+    pub fn query(&self) -> String {
+        let aggr_func = self.aggr_output_func.clone();
+        match aggr_func {
+            Some(agr) => match self.aggr_struct {
+                Some(agrstr) => {
+                    return (agr)(agrstr);
+                }
+                None => {
+                    log::warn!("Query failed");
+                    return String::new();
+                }
+            },
+            None => {
+                return self.data.clone();
+            }
         }
-        return &self.data;
     }
+
     pub fn new(id: &str, aggregation_file: Option<&str>) -> Storage {
         if aggregation_file.is_none() {
             Storage {
