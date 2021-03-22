@@ -88,6 +88,7 @@ impl PluginWrapper {
             String::from("node.metadata.WORKLOAD_NAME"),
             id_without_plugin,
         );
+        envoy_properties.insert(String::from("request.total_size"), "1".to_string());
         envoy_properties.insert(String::from("response.total_size"), "1".to_string());
         envoy_properties.insert(String::from("response.code"), "200".to_string());
         let new_filter = unsafe {
