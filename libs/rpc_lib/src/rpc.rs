@@ -36,4 +36,13 @@ impl Rpc {
         rpc.headers.insert("dst".to_string(), dst.to_string());
         rpc
     }
+
+    pub fn len(&self) -> usize {
+        let mut size = self.data.len();
+        for key in self.headers.keys() {
+            size += key.len();
+            size += self.headers[key].len();
+        }
+        return size;
+    }
 }

@@ -73,6 +73,13 @@ fn main() {
                 .help("Set if you want ot produce a pdf of the graph you create"),
         )
         .arg(
+            Arg::with_name("record_network_usage")
+                .short("n")
+                .long("record_network_usage")
+                .value_name("RECORD_NETWORK_USAGE")
+                .help("Whether to record how much data the application sends over the network."),
+        )
+        .arg(
             Arg::with_name("plugin")
                 .short("p")
                 .long("plugin")
@@ -99,6 +106,11 @@ fn main() {
     let plugin_str = matches.value_of("plugin");
     let aggr_str = matches.value_of("aggr_func");
     let seed_arg = matches.value_of("random_num_seed");
+    let network_usage_arg = matches.value_of("record_network_usage");
+    let mut record_network_usage = None;
+    if network_usage_arg.is_some() {
+        record_network_usage = Some(network_usage_arg.unwrap().to_string());
+    }
 
     let seed;
     if seed_arg.is_none() {
@@ -110,7 +122,7 @@ fn main() {
     }
 
     // Create simulator object.
-    let mut simulator = new_bookinfo(seed, plugin_str, aggr_str);
+    let mut simulator = new_bookinfo(seed, record_network_usage, plugin_str, aggr_str);
 
     // Print the graph
     if let Some(_argument) = matches.value_of("print_graph") {

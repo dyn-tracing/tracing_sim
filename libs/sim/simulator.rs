@@ -5,12 +5,14 @@ use crate::edge::Edge;
 use crate::node::Node;
 use crate::sim_element::SimElement;
 use crate::storage::Storage;
+use csv::Writer;
 use petgraph::dot::{Config, Dot};
 use petgraph::graph::{Graph, NodeIndex};
 use rpc_lib::rpc::Rpc;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::fs;
+use std::fs::OpenOptions;
 use std::process::Command;
 
 // Need to combine SimElement for simulation
@@ -21,11 +23,12 @@ impl<T: SimElement + Display> PrintableElement for T {}
 
 #[derive(Default)]
 pub struct Simulator {
-    elements: HashMap<String, Box<dyn PrintableElement>>,
-    graph: Graph<String, String>,
-    petgraph_id_map: HashMap<String, NodeIndex>,
+    elements: HashMap<String, Box<dyn PrintableElement>>, // elements of the simulator
+    graph: Graph<String, String>, // petgraph graph of our network, for printing and debugging
+    petgraph_id_map: HashMap<String, NodeIndex>, // maps nodes for graph
     edge_matrix: HashMap<(String, String), Edge>,
-    seed: u64,
+    seed: u64,                           // seed for random routing
+    record_network_data: Option<String>, // the file name to write network usage data
 }
 
 impl<'a> Simulator {
@@ -43,13 +46,14 @@ impl<'a> Simulator {
         }
     }
 
-    pub fn new(seed: u64) -> Self {
+    pub fn new(seed: u64, record_network_data: Option<String>) -> Self {
         Simulator {
             elements: HashMap::new(),
             graph: Graph::new(),
             petgraph_id_map: HashMap::new(),
             edge_matrix: HashMap::new(),
             seed,
+            record_network_data,
         }
     }
 
@@ -148,6 +152,25 @@ impl<'a> Simulator {
             .add_connection(dst.to_string());
     }
 
+    fn write_to_network_usage_file(&self, tick: u64, rpc_buffer: &Vec<Rpc>) {
+        let mut data_over_network_size = 0;
+        for rpc in rpc_buffer {
+            data_over_network_size += rpc.len();
+        }
+        let file = OpenOptions::new()
+            .write(true)
+            .append(true)
+            .open(self.record_network_data.as_ref().unwrap())
+            .unwrap();
+        let mut wtr = Writer::from_writer(file);
+        match wtr.write_record(&[tick.to_string(), data_over_network_size.to_string()]) {
+            Ok(_) => {}
+            Err(e) => {
+                log::error!("could not write network usage to file, {0}", e);
+            }
+        }
+    }
+
     pub fn print_graph(&mut self) {
         let dot_info = Dot::with_config(&self.graph, &[Config::EdgeNoLabel]).to_string();
         // print dot_info to a file
@@ -162,6 +185,8 @@ impl<'a> Simulator {
             .expect("failed to execute process");
     }
 
+    // if self.record_network_data is set, returns amt of data used per
+    // tick
     pub fn tick(&mut self, tick: u64) {
         log::info!("################# TICK {0} START #################", tick);
         let mut rpc_buffer = vec![];
@@ -175,6 +200,12 @@ impl<'a> Simulator {
             log::info!("{:45}", element_obj);
             log::info!("\toutputs {:?}", rpcs);
         }
+
+        // collect network data if necessary
+        if self.record_network_data.is_some() {
+            self.write_to_network_usage_file(tick, &rpc_buffer);
+        }
+
         // feed the collected RPCs into the corresponding edges
         // unfortunately we have to do this out of the loop because mutability
         for rpc in rpc_buffer {
