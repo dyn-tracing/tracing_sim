@@ -210,7 +210,11 @@ impl<'a> Simulator {
             }
         }
         if self.record_network_data {
-            log::info!("Network use in tick {0} is {1}", tick, data_over_network_size);
+            log::info!(
+                "Network use in tick {0} is {1}",
+                tick,
+                data_over_network_size
+            );
         }
         log::info!("################# TICK {0} END #################", tick);
         return data_over_network_size;
