@@ -21,3 +21,4 @@ filter_example = { path = "../filter_example" }
 rpc_lib = { path = "../rpc_lib" }
 petgraph = { path = "../petgraph" }
 indexmap = { version = "1.6.1", features = ["serde-1"] }  
+csv = "1.1"

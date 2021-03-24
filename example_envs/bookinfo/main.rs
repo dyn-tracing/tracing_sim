@@ -130,14 +130,9 @@ fn main() {
     }
 
     // Execute the simulator
-    let mut total_network_usage = 0;
     simulator.insert_rpc("gateway", Rpc::new("0"));
     for tick in 0..7 {
-        total_network_usage += simulator.tick(tick);
         log::info!("Filter results:\n {0}", simulator.query_storage("storage"));
-    }
-    if let Some(_argument) = matches.value_of("record_network_usage") {
-        log::info!("Total network usage was {0}", total_network_usage);
     }
     let gateway = simulator.get_element::<Gateway>("gateway");
     log::info!("Gateway collected RPCS:");

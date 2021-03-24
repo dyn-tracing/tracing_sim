@@ -5,6 +5,7 @@ use crate::edge::Edge;
 use crate::node::Node;
 use crate::sim_element::SimElement;
 use crate::storage::Storage;
+use csv::Writer;
 use petgraph::dot::{Config, Dot};
 use petgraph::graph::{Graph, NodeIndex};
 use rpc_lib::rpc::Rpc;
@@ -166,23 +167,42 @@ impl<'a> Simulator {
 
     // if self.record_network_data is set, returns amt of data used per
     // tick
-    pub fn tick(&mut self, tick: u64) -> usize {
+    pub fn tick(&mut self, tick: u64) {
         log::info!("################# TICK {0} START #################", tick);
         let mut rpc_buffer = vec![];
-        let mut data_over_network_size = 0;
         // tick all elements to generate RPCs
         // this is the send phase. collect all the RPCs
         for (_elem_name, element_obj) in self.elements.iter_mut() {
             let rpcs = element_obj.tick(tick);
             for rpc in &rpcs {
-                if self.record_network_data {
-                    data_over_network_size += rpc.len();
-                }
                 rpc_buffer.push(rpc.clone());
             }
             log::info!("{:45}", element_obj);
             log::info!("\toutputs {:?}", rpcs);
         }
+
+        // collect network data if necessary
+        if self.record_network_data {
+            let mut data_over_network_size = 0;
+            for rpc in &rpc_buffer {
+                data_over_network_size += rpc.len();
+            }
+            match Writer::from_path("network_results.csv") {
+                Ok(mut wtr) => {
+                    match wtr.write_record(&[tick.to_string(), data_over_network_size.to_string()])
+                    {
+                        Ok(_) => {}
+                        Err(e) => {
+                            log::error!("Could not write record, {0}", e);
+                        }
+                    }
+                }
+                Err(e) => {
+                    log::error!("Could not open csv writer, {0}", e);
+                }
+            }
+        }
+
         // feed the collected RPCs into the corresponding edges
         // unfortunately we have to do this out of the loop because mutability
         for rpc in rpc_buffer {
@@ -209,14 +229,6 @@ impl<'a> Simulator {
                 }
             }
         }
-        if self.record_network_data {
-            log::info!(
-                "Network use in tick {0} is {1}",
-                tick,
-                data_over_network_size
-            );
-        }
         log::info!("################# TICK {0} END #################", tick);
-        return data_over_network_size;
     }
 }
