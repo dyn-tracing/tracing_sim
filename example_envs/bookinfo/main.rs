@@ -73,6 +73,13 @@ fn main() {
                 .help("Set if you want ot produce a pdf of the graph you create"),
         )
         .arg(
+            Arg::with_name("record_network_usage")
+                .short("n")
+                .long("record_network_usage")
+                .value_name("RECORD_NETWORK_USAGE")
+                .help("Whether to record how much data the application sends over the network."),
+        )
+        .arg(
             Arg::with_name("plugin")
                 .short("p")
                 .long("plugin")
@@ -110,7 +117,12 @@ fn main() {
     }
 
     // Create simulator object.
-    let mut simulator = new_bookinfo(seed, plugin_str, aggr_str);
+    let mut simulator;
+    if let Some(_argument) = matches.value_of("record_network_usage") {
+        simulator = new_bookinfo(seed, true, plugin_str, aggr_str);
+    } else {
+        simulator = new_bookinfo(seed, false, plugin_str, aggr_str);
+    }
 
     // Print the graph
     if let Some(_argument) = matches.value_of("print_graph") {
@@ -118,10 +130,14 @@ fn main() {
     }
 
     // Execute the simulator
+    let mut total_network_usage = 0;
     simulator.insert_rpc("gateway", Rpc::new("0"));
     for tick in 0..7 {
-        simulator.tick(tick);
+        total_network_usage += simulator.tick(tick);
         log::info!("Filter results:\n {0}", simulator.query_storage("storage"));
+    }
+    if let Some(_argument) = matches.value_of("record_network_usage") {
+        log::info!("Total network usage was {0}", total_network_usage);
     }
     let gateway = simulator.get_element::<Gateway>("gateway");
     log::info!("Gateway collected RPCS:");

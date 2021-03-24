@@ -26,6 +26,7 @@ pub struct Simulator {
     petgraph_id_map: HashMap<String, NodeIndex>,
     edge_matrix: HashMap<(String, String), Edge>,
     seed: u64,
+    record_network_data: bool,
 }
 
 impl<'a> Simulator {
@@ -43,13 +44,14 @@ impl<'a> Simulator {
         }
     }
 
-    pub fn new(seed: u64) -> Self {
+    pub fn new(seed: u64, record_network_data: bool) -> Self {
         Simulator {
             elements: HashMap::new(),
             graph: Graph::new(),
             petgraph_id_map: HashMap::new(),
             edge_matrix: HashMap::new(),
             seed,
+            record_network_data,
         }
     }
 
@@ -162,14 +164,20 @@ impl<'a> Simulator {
             .expect("failed to execute process");
     }
 
-    pub fn tick(&mut self, tick: u64) {
+    // if self.record_network_data is set, returns amt of data used per
+    // tick
+    pub fn tick(&mut self, tick: u64) -> usize {
         log::info!("################# TICK {0} START #################", tick);
         let mut rpc_buffer = vec![];
+        let mut data_over_network_size = 0;
         // tick all elements to generate RPCs
         // this is the send phase. collect all the RPCs
         for (_elem_name, element_obj) in self.elements.iter_mut() {
             let rpcs = element_obj.tick(tick);
             for rpc in &rpcs {
+                if self.record_network_data {
+                    data_over_network_size += rpc.len();
+                }
                 rpc_buffer.push(rpc.clone());
             }
             log::info!("{:45}", element_obj);
@@ -201,6 +209,10 @@ impl<'a> Simulator {
                 }
             }
         }
+        if self.record_network_data {
+            log::info!("Network use in tick {0} is {1}", tick, data_over_network_size);
+        }
         log::info!("################# TICK {0} END #################", tick);
+        return data_over_network_size;
     }
 }

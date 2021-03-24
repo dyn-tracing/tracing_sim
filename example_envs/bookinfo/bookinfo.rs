@@ -4,8 +4,8 @@ use crate::productpage::ProductPage;
 use crate::reviews::Reviews;
 use sim::simulator::Simulator;
 
-pub fn new_bookinfo(seed: u64, plugin: Option<&str>, aggr_func: Option<&str>) -> Simulator {
-    let mut sim = Simulator::new(seed);
+pub fn new_bookinfo(seed: u64, record_network_usage: bool, plugin: Option<&str>, aggr_func: Option<&str>) -> Simulator {
+    let mut sim = Simulator::new(seed, record_network_usage);
 
     let gateway = Gateway::new("gateway", 5, 5, 0, seed); // no plugins on a gateway
     let productpage = ProductPage::new("productpage-v1", 5, 5, plugin, seed);
