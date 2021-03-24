@@ -106,6 +106,11 @@ fn main() {
     let plugin_str = matches.value_of("plugin");
     let aggr_str = matches.value_of("aggr_func");
     let seed_arg = matches.value_of("random_num_seed");
+    let network_usage_arg = matches.value_of("record_network_usage");
+    let mut record_network_usage = None;
+    if network_usage_arg.is_some() {
+        record_network_usage = Some(network_usage_arg.unwrap().to_string());
+    }
 
     let seed;
     if seed_arg.is_none() {
@@ -117,12 +122,7 @@ fn main() {
     }
 
     // Create simulator object.
-    let mut simulator;
-    if let Some(_argument) = matches.value_of("record_network_usage") {
-        simulator = new_bookinfo(seed, true, plugin_str, aggr_str);
-    } else {
-        simulator = new_bookinfo(seed, false, plugin_str, aggr_str);
-    }
+    let mut simulator = new_bookinfo(seed, record_network_usage, plugin_str, aggr_str);
 
     // Print the graph
     if let Some(_argument) = matches.value_of("print_graph") {

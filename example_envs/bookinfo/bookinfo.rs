@@ -6,7 +6,7 @@ use sim::simulator::Simulator;
 
 pub fn new_bookinfo(
     seed: u64,
-    record_network_usage: bool,
+    record_network_usage: Option<String>,
     plugin: Option<&str>,
     aggr_func: Option<&str>,
 ) -> Simulator {

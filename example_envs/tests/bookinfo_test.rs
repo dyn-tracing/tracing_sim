@@ -15,7 +15,7 @@ fn check_bookinfo() {
     let plugin_str = cargo_dir.to_str().unwrap();
 
     // Create simulator object.
-    let mut simulator = new_bookinfo(0, false, Some(plugin_str), None);
+    let mut simulator = new_bookinfo(0, None, Some(plugin_str), None);
 
     // Execute the simulator
     simulator.insert_rpc("gateway", Rpc::new("0"));
