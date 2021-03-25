@@ -305,8 +305,9 @@ fn initialize_s_for_node(
     graph_h: &Graph<(String, IndexMap<String, String>), String>,
     set_s: &mut IndexMap<
         (NodeIndex, NodeIndex),
-        IndexMap<NodeIndex, Option<Vec<(NodeIndex, NodeIndex)>>>>,
-    node: NodeIndex
+        IndexMap<NodeIndex, Option<Vec<(NodeIndex, NodeIndex)>>>,
+    >,
+    node: NodeIndex,
 ) {
     for u in graph_h.node_indices() {
         // initialize S entry as empty set
@@ -317,11 +318,13 @@ fn initialize_s_for_node(
     // if I am a leaf
     if graph_g.neighbors_directed(node, Outgoing).count() == 0 {
         for leaf_h in find_leaves(root_h, &graph_h) {
-            set_s.get_mut(&(node, leaf_h))
+            set_s
+                .get_mut(&(node, leaf_h))
                 .unwrap()
                 .insert(leaf_h, Some(vec![(leaf_h, node)]));
             for neighbor in graph_h.neighbors_directed(leaf_h, Incoming) {
-                set_s.get_mut(&(node, leaf_h))
+                set_s
+                    .get_mut(&(node, leaf_h))
                     .unwrap()
                     .insert(neighbor, Some(vec![(leaf_h, node)]));
             }
@@ -334,20 +337,21 @@ pub fn find_mapping_shamir_decentralized(
     graph_h: &Graph<(String, IndexMap<String, String>), String>,
     set_s: &mut IndexMap<
         (NodeIndex, NodeIndex),
-        IndexMap<NodeIndex, Option<Vec<(NodeIndex, NodeIndex)>>>>,
+        IndexMap<NodeIndex, Option<Vec<(NodeIndex, NodeIndex)>>>,
+    >,
     cur_node: NodeIndex, // what node we are in graph_g
     am_root: bool,
 ) -> Option<Vec<(NodeIndex, NodeIndex)>> {
     // 1. Add yourself (that is, all your entries) to set S
     initialize_s_for_node(graph_g, graph_h, set_s, cur_node);
-    
+
     // 2. For all your children, run inner loop
     let mut mapping_root_for_children = None;
     for child in graph_g.neighbors_directed(cur_node, Outgoing) {
         let (mapping_found, mapping_root) =
             find_mapping_shamir_inner_loop(child, graph_g, graph_h, set_s);
         if !am_root && mapping_found {
-             mapping_root_for_children = mapping_root;
+            mapping_root_for_children = mapping_root;
         }
     }
 
@@ -376,7 +380,6 @@ pub fn find_mapping_shamir_decentralized(
     }
     return None;
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -893,7 +896,6 @@ mod tests {
         let ret = find_mapping_shamir_decentralized(&graph_g, &graph_h, &mut set_s, reviews, false);
         assert!(ret.is_none());
 
-
         let prod_hashmap: IndexMap<String, String> = [
             ("height".to_string(), "2".to_string()),
             (
@@ -910,9 +912,7 @@ mod tests {
         graph_g.add_edge(prod, reviews, String::new());
         let ret = find_mapping_shamir_decentralized(&graph_g, &graph_h, &mut set_s, prod, true);
         assert!(ret.is_some());
-
     }
-
 
     #[test]
     fn test_decentralized_complex_wrong_properties() {
@@ -967,7 +967,6 @@ mod tests {
         let ret = find_mapping_shamir_decentralized(&graph_g, &graph_h, &mut set_s, reviews, false);
         assert!(ret.is_none());
 
-
         let prod_hashmap: IndexMap<String, String> = [
             ("height".to_string(), "0".to_string()), // WRONG PROPERTY, should make this fail
             (
@@ -984,6 +983,5 @@ mod tests {
         graph_g.add_edge(prod, reviews, String::new());
         let ret = find_mapping_shamir_decentralized(&graph_g, &graph_h, &mut set_s, prod, true);
         assert!(ret.is_none());
-
     }
 }
