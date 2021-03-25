@@ -8,41 +8,9 @@ use indexmap::map::IndexMap;
 use pathfinding::directed::edmonds_karp::*;
 use petgraph::graph::{Graph, NodeIndex};
 use petgraph::visit::DfsPostOrder;
-use petgraph::Incoming;
+use petgraph::{Incoming, Outgoing};
 
-// ----------------- Shamir Isomorphism Algorithm ------------------
-
-// this performs lines 0-4 in the Shamir paper figure 3
-fn initialize_s(
-    graph_g: &Graph<(String, IndexMap<String, String>), String>,
-    graph_h: &Graph<(String, IndexMap<String, String>), String>,
-) -> IndexMap<(NodeIndex, NodeIndex), IndexMap<NodeIndex, Option<Vec<(NodeIndex, NodeIndex)>>>> {
-    let mut s = IndexMap::<
-        (NodeIndex, NodeIndex),
-        IndexMap<NodeIndex, Option<Vec<(NodeIndex, NodeIndex)>>>,
-    >::new();
-    for node_g in graph_g.node_indices() {
-        for u in graph_h.node_indices() {
-            // initialize S entry as empty set
-            s.insert((node_g, u), IndexMap::new());
-        }
-    }
-    let root_g = find_root(&graph_g);
-    let root_h = find_root(&graph_h);
-    for leaf_g in find_leaves(root_g, &graph_g) {
-        for leaf_h in find_leaves(root_h, &graph_h) {
-            s.get_mut(&(leaf_g, leaf_h))
-                .unwrap()
-                .insert(leaf_h, Some(vec![(leaf_h, leaf_g)]));
-            for neighbor in graph_h.neighbors_directed(leaf_h, Incoming) {
-                s.get_mut(&(leaf_g, leaf_h))
-                    .unwrap()
-                    .insert(neighbor, Some(vec![(leaf_h, leaf_g)]));
-            }
-        }
-    }
-    return s;
-}
+// -------------- Shamir Isomorphism Algorithm Helper Functions---------------
 
 /// Given two sets of nodes, set x from graph g, and set y from graph h,
 /// creates a flow graph with the source connected to all nodes in x and
@@ -134,7 +102,68 @@ fn max_matching<EK: EdmondsKarp<i32>>(
     return (matching.len(), matching);
 }
 
-fn find_mapping_shamir_centralized_inner_loop(
+// For debugging only
+fn print_set_s(
+    graph_g: &Graph<(String, IndexMap<String, String>), String>,
+    graph_h: &Graph<(String, IndexMap<String, String>), String>,
+    set_s: &IndexMap<
+        (NodeIndex, NodeIndex),
+        IndexMap<NodeIndex, Option<Vec<(NodeIndex, NodeIndex)>>>,
+    >,
+) {
+    for key in set_s.keys() {
+        print!(
+            "key: {:?} {:?} ",
+            graph_g.node_weight(key.0).unwrap(),
+            graph_h.node_weight(key.1).unwrap()
+        );
+        for value_key in set_s[key].keys() {
+            print!("inner key: {:?} ", graph_h.node_weight(*value_key).unwrap());
+            for mapping in &set_s[key][value_key] {
+                for map in mapping {
+                    print!(
+                        "maps {:?} to {:?} ",
+                        graph_h.node_weight(map.0).unwrap(),
+                        graph_g.node_weight(map.1).unwrap()
+                    );
+                }
+            }
+        }
+        print!("\n\n");
+    }
+}
+
+fn get_mapping_from_set_s(
+    graph_g: &Graph<(String, IndexMap<String, String>), String>,
+    graph_h: &Graph<(String, IndexMap<String, String>), String>,
+    set_s: &IndexMap<
+        (NodeIndex, NodeIndex),
+        IndexMap<NodeIndex, Option<Vec<(NodeIndex, NodeIndex)>>>,
+    >,
+    root_in_g: &NodeIndex,
+) -> Vec<(NodeIndex, NodeIndex)> {
+    let root_h = find_root(graph_h);
+    let mut to_return = Vec::new();
+    let mut set_to_find_mapping = vec![(root_h, *root_in_g)];
+    while !set_to_find_mapping.is_empty() {
+        let key = set_to_find_mapping.pop().unwrap();
+        to_return.push(key);
+
+        if set_s[&(key.1, key.0)].contains_key(&key.0) {
+            for map in set_s[&(key.1, key.0)][&key.0].as_ref() {
+                for mapping in map {
+                    if !to_return.contains(&(mapping.1, mapping.0)) {
+                        to_return.push((mapping.1, mapping.0));
+                        set_to_find_mapping.push(*mapping);
+                    }
+                }
+            }
+        }
+    }
+    return to_return;
+}
+
+fn find_mapping_shamir_inner_loop(
     v: NodeIndex,
     graph_g: &Graph<(String, IndexMap<String, String>), String>,
     graph_h: &Graph<(String, IndexMap<String, String>), String>,
@@ -204,65 +233,38 @@ fn find_mapping_shamir_centralized_inner_loop(
     return (false, None);
 }
 
-// For debugging only
-fn print_set_s(
+// ----------------- Shamir Isomorphism Algorithm Centralized ----------------
+
+// this performs lines 0-4 in the Shamir paper figure 3
+fn initialize_s(
     graph_g: &Graph<(String, IndexMap<String, String>), String>,
     graph_h: &Graph<(String, IndexMap<String, String>), String>,
-    set_s: &IndexMap<
+) -> IndexMap<(NodeIndex, NodeIndex), IndexMap<NodeIndex, Option<Vec<(NodeIndex, NodeIndex)>>>> {
+    let mut s = IndexMap::<
         (NodeIndex, NodeIndex),
         IndexMap<NodeIndex, Option<Vec<(NodeIndex, NodeIndex)>>>,
-    >,
-) {
-    for key in set_s.keys() {
-        print!(
-            "key: {:?} {:?} ",
-            graph_g.node_weight(key.0).unwrap(),
-            graph_h.node_weight(key.1).unwrap()
-        );
-        for value_key in set_s[key].keys() {
-            print!("inner key: {:?} ", graph_h.node_weight(*value_key).unwrap());
-            for mapping in &set_s[key][value_key] {
-                for map in mapping {
-                    print!(
-                        "maps {:?} to {:?} ",
-                        graph_h.node_weight(map.0).unwrap(),
-                        graph_g.node_weight(map.1).unwrap()
-                    );
-                }
-            }
+    >::new();
+    for node_g in graph_g.node_indices() {
+        for u in graph_h.node_indices() {
+            // initialize S entry as empty set
+            s.insert((node_g, u), IndexMap::new());
         }
-        print!("\n\n");
     }
-}
-
-fn get_mapping_from_set_s(
-    graph_g: &Graph<(String, IndexMap<String, String>), String>,
-    graph_h: &Graph<(String, IndexMap<String, String>), String>,
-    set_s: &IndexMap<
-        (NodeIndex, NodeIndex),
-        IndexMap<NodeIndex, Option<Vec<(NodeIndex, NodeIndex)>>>,
-    >,
-    root_in_g: &NodeIndex,
-) -> Vec<(NodeIndex, NodeIndex)> {
-    let root_h = find_root(graph_h);
-    let mut to_return = Vec::new();
-    let mut set_to_find_mapping = vec![(root_h, *root_in_g)];
-    while !set_to_find_mapping.is_empty() {
-        let key = set_to_find_mapping.pop().unwrap();
-        to_return.push(key);
-
-        if set_s[&(key.1, key.0)].contains_key(&key.0) {
-            for map in set_s[&(key.1, key.0)][&key.0].as_ref() {
-                for mapping in map {
-                    if !to_return.contains(&(mapping.1, mapping.0)) {
-                        to_return.push((mapping.1, mapping.0));
-                        set_to_find_mapping.push(*mapping);
-                    }
-                }
+    let root_g = find_root(&graph_g);
+    let root_h = find_root(&graph_h);
+    for leaf_g in find_leaves(root_g, &graph_g) {
+        for leaf_h in find_leaves(root_h, &graph_h) {
+            s.get_mut(&(leaf_g, leaf_h))
+                .unwrap()
+                .insert(leaf_h, Some(vec![(leaf_h, leaf_g)]));
+            for neighbor in graph_h.neighbors_directed(leaf_h, Incoming) {
+                s.get_mut(&(leaf_g, leaf_h))
+                    .unwrap()
+                    .insert(neighbor, Some(vec![(leaf_h, leaf_g)]));
             }
         }
     }
-    return to_return;
+    return s;
 }
 
 pub fn find_mapping_shamir_centralized(
@@ -283,7 +285,7 @@ pub fn find_mapping_shamir_centralized(
     let mut post_order = DfsPostOrder::new(graph_g, root_g);
     while let Some(node) = post_order.next(graph_g) {
         let (mapping_found, mapping_root) =
-            find_mapping_shamir_centralized_inner_loop(node, graph_g, graph_h, &mut set_s);
+            find_mapping_shamir_inner_loop(node, graph_g, graph_h, &mut set_s);
         if mapping_found {
             return Some(get_mapping_from_set_s(
                 graph_g,
@@ -296,6 +298,85 @@ pub fn find_mapping_shamir_centralized(
     // line 15
     return None;
 }
+
+// ---------------- Shamir Isomorphism Algorithm Decentralized ---------------
+fn initialize_s_for_node(
+    graph_g: &Graph<(String, IndexMap<String, String>), String>,
+    graph_h: &Graph<(String, IndexMap<String, String>), String>,
+    set_s: &mut IndexMap<
+        (NodeIndex, NodeIndex),
+        IndexMap<NodeIndex, Option<Vec<(NodeIndex, NodeIndex)>>>>,
+    node: NodeIndex
+) {
+    for u in graph_h.node_indices() {
+        // initialize S entry as empty set
+        set_s.insert((node, u), IndexMap::new());
+    }
+    let root_h = find_root(&graph_h);
+
+    // if I am a leaf
+    if graph_g.neighbors_directed(node, Outgoing).count() == 0 {
+        for leaf_h in find_leaves(root_h, &graph_h) {
+            set_s.get_mut(&(node, leaf_h))
+                .unwrap()
+                .insert(leaf_h, Some(vec![(leaf_h, node)]));
+            for neighbor in graph_h.neighbors_directed(leaf_h, Incoming) {
+                set_s.get_mut(&(node, leaf_h))
+                    .unwrap()
+                    .insert(neighbor, Some(vec![(leaf_h, node)]));
+            }
+        }
+    }
+}
+
+pub fn find_mapping_shamir_decentralized(
+    graph_g: &Graph<(String, IndexMap<String, String>), String>,
+    graph_h: &Graph<(String, IndexMap<String, String>), String>,
+    set_s: &mut IndexMap<
+        (NodeIndex, NodeIndex),
+        IndexMap<NodeIndex, Option<Vec<(NodeIndex, NodeIndex)>>>>,
+    cur_node: NodeIndex, // what node we are in graph_g
+    am_root: bool,
+) -> Option<Vec<(NodeIndex, NodeIndex)>> {
+    // 1. Add yourself (that is, all your entries) to set S
+    initialize_s_for_node(graph_g, graph_h, set_s, cur_node);
+    
+    // 2. For all your children, run inner loop
+    let mut mapping_root_for_children = None;
+    for child in graph_g.neighbors_directed(cur_node, Outgoing) {
+        let (mapping_found, mapping_root) =
+            find_mapping_shamir_inner_loop(child, graph_g, graph_h, set_s);
+        if !am_root && mapping_found {
+             mapping_root_for_children = mapping_root;
+        }
+    }
+
+    // 2a. If one of your children matched all of graph_h, return that matching
+    if mapping_root_for_children.is_some() {
+        return Some(get_mapping_from_set_s(
+            graph_g,
+            graph_h,
+            &set_s,
+            &mapping_root_for_children.unwrap(),
+        ));
+    }
+
+    // 3. If you are the root, run the inner loop for yourself as well
+    if am_root {
+        let (mapping_found, mapping_root) =
+            find_mapping_shamir_inner_loop(cur_node, graph_g, graph_h, set_s);
+        if mapping_found {
+            return Some(get_mapping_from_set_s(
+                graph_g,
+                graph_h,
+                &set_s,
+                &mapping_root.unwrap(),
+            ));
+        }
+    }
+    return None;
+}
+
 
 #[cfg(test)]
 mod tests {
