@@ -15,3 +15,4 @@ petgraph = { path = "../petgraph" }
 regex = "0.2.2"
 mcmf = "2.0.0"
 indexmap = { version = "1.6.1", features = ["serde-1"] }
+pathfinding = "2.1.1"
