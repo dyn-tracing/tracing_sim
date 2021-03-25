@@ -5,12 +5,10 @@
 ///
 use crate::utils::{find_leaves, find_root, get_node_with_id, has_property_subset};
 use indexmap::map::IndexMap;
-use mcmf::{Capacity, Cost, GraphBuilder, Vertex};
 use pathfinding::directed::edmonds_karp::*;
 use petgraph::graph::{Graph, NodeIndex};
 use petgraph::visit::DfsPostOrder;
 use petgraph::Incoming;
-use std::collections::HashSet;
 
 // ----------------- Shamir Isomorphism Algorithm ------------------
 
@@ -102,7 +100,7 @@ fn max_matching<EK: EdmondsKarp<i32>>(
         .iter()
         .map(|((a, b), cost)| ((a.as_ref(), b.as_ref()), *cost))
         .collect();
-    for (edge, cost) in &edges_as_str {
+    for (edge, _cost) in &edges_as_str {
         assert!(
             vertices_as_str.contains(&edge.0),
             "vertices doesn't have {0}",
@@ -114,7 +112,7 @@ fn max_matching<EK: EdmondsKarp<i32>>(
             &edge.1
         );
     }
-    let (edges, costs) = edmonds_karp::<_, _, _, EK>(
+    let (edges, _costs) = edmonds_karp::<_, _, _, EK>(
         &vertices_as_str,
         &"SOURCE",
         &"SINK",
@@ -284,8 +282,6 @@ pub fn find_mapping_shamir_centralized(
     // postorder traversal and filtering of children for degrees, lines 5-8;
     let mut post_order = DfsPostOrder::new(graph_g, root_g);
     while let Some(node) = post_order.next(graph_g) {
-        let v_children: Vec<NodeIndex> = graph_g.neighbors(node).collect();
-        let v_children_len = v_children.len();
         let (mapping_found, mapping_root) =
             find_mapping_shamir_centralized_inner_loop(node, graph_g, graph_h, &mut set_s);
         if mapping_found {
