@@ -816,4 +816,174 @@ mod tests {
 
         assert!(find_mapping_shamir_centralized(&graph_g, &graph_h).is_none());
     }
+
+    #[test]
+    fn test_decentralized() {
+        let mut set_s = IndexMap::<
+            (NodeIndex, NodeIndex),
+            IndexMap<NodeIndex, Option<Vec<(NodeIndex, NodeIndex)>>>,
+        >::new();
+        let graph_h = three_node_chain_graph();
+
+        let mut graph_g = Graph::<(String, IndexMap<String, String>), String>::new();
+        let a = graph_g.add_node((String::from("a"), IndexMap::new()));
+        let ret = find_mapping_shamir_decentralized(&graph_g, &graph_h, &mut set_s, a, false);
+        assert!(ret.is_none());
+
+        let b = graph_g.add_node((String::from("b"), IndexMap::new()));
+        graph_g.add_edge(b, a, String::new());
+        let ret = find_mapping_shamir_decentralized(&graph_g, &graph_h, &mut set_s, b, false);
+        assert!(ret.is_none());
+
+        let c = graph_g.add_node((String::from("c"), IndexMap::new()));
+        graph_g.add_edge(c, b, String::new());
+        let ret = find_mapping_shamir_decentralized(&graph_g, &graph_h, &mut set_s, c, false);
+    }
+
+    #[test]
+    fn test_decentralized_complex() {
+        let mut set_s = IndexMap::<
+            (NodeIndex, NodeIndex),
+            IndexMap<NodeIndex, Option<Vec<(NodeIndex, NodeIndex)>>>,
+        >::new();
+
+        // create graph h
+        let mut graph_h = Graph::<(String, IndexMap<String, String>), String>::new();
+        let a_hashmap: IndexMap<String, String> = [("height".to_string(), "2".to_string())]
+            .iter()
+            .cloned()
+            .collect();
+        let a = graph_h.add_node((String::from("productpage-v1"), a_hashmap));
+        let b = graph_h.add_node((String::from("reviews-v1"), IndexMap::new()));
+        let c = graph_h.add_node((String::from("ratings-v1"), IndexMap::new()));
+
+        graph_h.add_edge(a, b, String::new());
+        graph_h.add_edge(b, c, String::new());
+
+        //create graph g
+        let mut graph_g = Graph::<(String, IndexMap<String, String>), String>::new();
+        let ratings_hashmap: IndexMap<String, String> = [
+            ("height".to_string(), "0".to_string()),
+            (
+                "node.metadata.WORKLOAD_NAME".to_string(),
+                "ratings-v1".to_string(),
+            ),
+            ("service_name".to_string(), "ratings-v1".to_string()),
+        ]
+        .iter()
+        .cloned()
+        .collect();
+        let ratings = graph_g.add_node(("ratings-v1".to_string(), ratings_hashmap));
+        let ret = find_mapping_shamir_decentralized(&graph_g, &graph_h, &mut set_s, ratings, false);
+        assert!(ret.is_none());
+
+        let reviews_hashmap: IndexMap<String, String> = [
+            ("height".to_string(), "1".to_string()),
+            (
+                "node.metadata.WORKLOAD_NAME".to_string(),
+                "reviews-v1".to_string(),
+            ),
+            ("service_name".to_string(), "reviews-v1".to_string()),
+        ]
+        .iter()
+        .cloned()
+        .collect();
+        let reviews = graph_g.add_node(("reviews-v1".to_string(), reviews_hashmap));
+        graph_g.add_edge(reviews, ratings, String::new());
+        let ret = find_mapping_shamir_decentralized(&graph_g, &graph_h, &mut set_s, reviews, false);
+        assert!(ret.is_none());
+
+
+        let prod_hashmap: IndexMap<String, String> = [
+            ("height".to_string(), "2".to_string()),
+            (
+                "node.metadata.WORKLOAD_NAME".to_string(),
+                "productpage-v1".to_string(),
+            ),
+            ("service_name".to_string(), "productpage-v1".to_string()),
+        ]
+        .iter()
+        .cloned()
+        .collect();
+        let prod = graph_g.add_node(("productpage-v1".to_string(), prod_hashmap));
+
+        graph_g.add_edge(prod, reviews, String::new());
+        let ret = find_mapping_shamir_decentralized(&graph_g, &graph_h, &mut set_s, prod, true);
+        assert!(ret.is_some());
+
+    }
+
+
+    #[test]
+    fn test_decentralized_complex_wrong_properties() {
+        let mut set_s = IndexMap::<
+            (NodeIndex, NodeIndex),
+            IndexMap<NodeIndex, Option<Vec<(NodeIndex, NodeIndex)>>>,
+        >::new();
+
+        // create graph h
+        let mut graph_h = Graph::<(String, IndexMap<String, String>), String>::new();
+        let a_hashmap: IndexMap<String, String> = [("height".to_string(), "2".to_string())]
+            .iter()
+            .cloned()
+            .collect();
+        let a = graph_h.add_node((String::from("productpage-v1"), a_hashmap));
+        let b = graph_h.add_node((String::from("reviews-v1"), IndexMap::new()));
+        let c = graph_h.add_node((String::from("ratings-v1"), IndexMap::new()));
+
+        graph_h.add_edge(a, b, String::new());
+        graph_h.add_edge(b, c, String::new());
+
+        //create graph g
+        let mut graph_g = Graph::<(String, IndexMap<String, String>), String>::new();
+        let ratings_hashmap: IndexMap<String, String> = [
+            ("height".to_string(), "0".to_string()),
+            (
+                "node.metadata.WORKLOAD_NAME".to_string(),
+                "ratings-v1".to_string(),
+            ),
+            ("service_name".to_string(), "ratings-v1".to_string()),
+        ]
+        .iter()
+        .cloned()
+        .collect();
+        let ratings = graph_g.add_node(("ratings-v1".to_string(), ratings_hashmap));
+        let ret = find_mapping_shamir_decentralized(&graph_g, &graph_h, &mut set_s, ratings, false);
+        assert!(ret.is_none());
+
+        let reviews_hashmap: IndexMap<String, String> = [
+            ("height".to_string(), "1".to_string()),
+            (
+                "node.metadata.WORKLOAD_NAME".to_string(),
+                "reviews-v1".to_string(),
+            ),
+            ("service_name".to_string(), "reviews-v1".to_string()),
+        ]
+        .iter()
+        .cloned()
+        .collect();
+        let reviews = graph_g.add_node(("reviews-v1".to_string(), reviews_hashmap));
+        graph_g.add_edge(reviews, ratings, String::new());
+        let ret = find_mapping_shamir_decentralized(&graph_g, &graph_h, &mut set_s, reviews, false);
+        assert!(ret.is_none());
+
+
+        let prod_hashmap: IndexMap<String, String> = [
+            ("height".to_string(), "0".to_string()), // WRONG PROPERTY, should make this fail
+            (
+                "node.metadata.WORKLOAD_NAME".to_string(),
+                "productpage-v1".to_string(),
+            ),
+            ("service_name".to_string(), "productpage-v1".to_string()),
+        ]
+        .iter()
+        .cloned()
+        .collect();
+        let prod = graph_g.add_node(("productpage-v1".to_string(), prod_hashmap));
+
+        graph_g.add_edge(prod, reviews, String::new());
+        let ret = find_mapping_shamir_decentralized(&graph_g, &graph_h, &mut set_s, prod, true);
+        assert!(ret.is_none());
+
+    }
 }
