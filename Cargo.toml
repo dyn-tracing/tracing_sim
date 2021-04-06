@@ -2,10 +2,9 @@
 members = [
     "libs/filter_example",
     "libs/aggregation_example",
-    "libs/rpc_lib",
-    "libs/petgraph",
-    "libs/graph_utils",
-    "libs/sim",
-    "example_envs",
+    "libs/rpc_lib",                                                             
+    "libs/graph_utils",                                                         
+    "libs/sim",                                                                 
+    "example_envs", 
 ]
 

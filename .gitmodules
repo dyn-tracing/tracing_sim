@@ -1,3 +1,0 @@
-[submodule "petgraph"]
-	path = libs/petgraph
-	url = https://github.com/dyn-tracing/petgraph.git

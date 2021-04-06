@@ -19,6 +19,6 @@ queues = "1.0.2"
 rand="0.7.0"
 filter_example = { path = "../filter_example" }
 rpc_lib = { path = "../rpc_lib" }
-petgraph = { path = "../petgraph" }
+petgraph = {version =  "0.*", features = ["serde-1"] }
 indexmap = { version = "1.6.1", features = ["serde-1"] }  
 csv = "1.1"

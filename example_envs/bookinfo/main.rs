@@ -87,11 +87,11 @@ fn main() {
                 .help("Path to the plugin."),
         )
         .arg(
-            Arg::with_name("aggr_func")
+            Arg::with_name("aggr_filter")
                 .short("a")
-                .long("aggregation_function")
-                .value_name("AGGREGATION_FUNCTION")
-                .help("Path to the aggregation function implementation."),
+                .long("aggregation_filter")
+                .value_name("AGGREGATION_FILTER")
+                .help("Path to the aggregation filter."),
         )
         .arg(
             Arg::with_name("random_num_seed")
@@ -104,7 +104,7 @@ fn main() {
 
     // Set up library access
     let plugin_str = matches.value_of("plugin");
-    let aggr_str = matches.value_of("aggr_func");
+    let aggr_filter_str = matches.value_of("aggr_filter");
     let seed_arg = matches.value_of("random_num_seed");
     let network_usage_arg = matches.value_of("record_network_usage");
     let mut record_network_usage = None;
@@ -122,7 +122,7 @@ fn main() {
     }
 
     // Create simulator object.
-    let mut simulator = new_bookinfo(seed, record_network_usage, plugin_str, aggr_str);
+    let mut simulator = new_bookinfo(seed, record_network_usage, plugin_str, aggr_filter_str);
 
     // Print the graph
     if let Some(_argument) = matches.value_of("print_graph") {
