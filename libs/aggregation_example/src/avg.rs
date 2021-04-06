@@ -12,11 +12,6 @@ use petgraph::graph::{Graph, NodeIndex};
 use petgraph::Incoming;
 use rpc_lib::rpc::Rpc;
 use serde::{Deserialize, Serialize};
-use utils::graph::graph_utils;
-use utils::graph::iso::find_mapping_shamir_centralized;
-use utils::graph::serde::FerriedData;
-use utils::graph::serde::Property;
-use utils::misc::headers::*;
 extern crate serde_yaml;
 
 pub type CodeletType = fn(&Filter, &Rpc) -> Option<Rpc>;
@@ -55,20 +50,6 @@ fn log_setup() {
     // if you are trying to debug an issue and need more logs on then turn it off
     // once you are done.
     let _handle = log4rs::init_config(config);
-}
-
-fn put_ferried_data_in_hdrs(fd: &mut FerriedData, hdr: &mut IndexMap<String, String>) {
-    match serde_yaml::to_string(fd) {
-        Ok(stored_data_string) => {
-            hdr.insert("ferried_data".to_string(), stored_data_string);
-        }
-        Err(e) => {
-            log::error!(
-                "ERROR:  could not translate stored data to json string: {0}\n",
-                e
-            );
-        }
-    }
 }
 
 // user defined functions:
