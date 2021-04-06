@@ -11,8 +11,12 @@ crate-type = ["dylib"]
 path = "src/lib.rs"
 
 [dependencies]
-petgraph = { path = "../petgraph" }
+petgraph = {version =  "0.*", features = ["serde-1"] }
 rpc_lib = { path = "../rpc_lib" }
 graph_utils = { path = "../graph_utils" }
 indexmap = { version = "1.6.1", features = ["serde-1"] } 
-
+serde_yaml = "0.8"
+utils = { path = "../../../tracing_compiler/libs/utils" } 
+log = "*"
+serde = { version = "1.0", features = ["derive"] }
+log4rs = "*"
