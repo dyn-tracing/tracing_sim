@@ -8,9 +8,8 @@ use log4rs::{
     encode::pattern::PatternEncoder,
     filter::threshold::ThresholdFilter,
 };
-use petgraph::graph::{Graph, NodeIndex};
-use petgraph::Incoming;
 use rpc_lib::rpc::Rpc;
+
 use serde::{Deserialize, Serialize};
 extern crate serde_yaml;
 
@@ -89,46 +88,31 @@ impl Avg {
 #[derive(Clone, Debug)]
 pub struct Filter {
     avg: Avg,
-
-    pub data: Vec<String>,
 }
 
 impl Filter {
     #[no_mangle]
     pub fn new() -> *mut Filter {
         log_setup();
-        Box::into_raw(Box::new(Filter {
-            avg: Avg::new(),
-
-            data: Vec::new(),
-        }))
+        Box::into_raw(Box::new(Filter { avg: Avg::new() }))
     }
 
     #[no_mangle]
     pub fn new_with_envoy_properties(string_data: IndexMap<String, String>) -> *mut Filter {
         log_setup();
-        Box::into_raw(Box::new(Filter {
-            avg: Avg::new(),
-
-            data: Vec::new(),
-        }))
+        Box::into_raw(Box::new(Filter { avg: Avg::new() }))
     }
 
     pub fn on_incoming_requests(&mut self, mut x: Rpc) -> Vec<Rpc> {
         self.avg.execute(x.uid, x.data.clone());
-
-        self.data.push(x.data.clone());
-        return vec![x];
+        let mut rpc_str = "avg: ".to_string();
+        rpc_str.push_str(&self.avg.get_avg());
+        let mut new_rpc = Rpc::new(&rpc_str);
+        return vec![x, new_rpc];
     }
 
     pub fn on_outgoing_responses(&mut self, mut x: Rpc) -> Vec<Rpc> {
-        // 1. if there is an aggregation function, find its answer
-
-        x.data = self.avg.get_avg();
-        return vec![x];
-
-        // 2. else just return data
-        x.data = self.data.join(".");
+        // this should do nothing
         return vec![x];
     }
 

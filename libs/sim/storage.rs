@@ -67,31 +67,22 @@ impl Storage {
     pub fn store(&mut self, x: Rpc, now: u64) {
         // we don't want to store everything, just the stuff that was sent to us
         if x.headers.contains_key("dest") && x.headers["dest"].contains(&self.id) {
+            let mut new_rpcs;
             if let Some(mut plugin) = self.plugin.as_mut() {
                 plugin.recv(x, now);
-                // storage will never send to storage, so the result
-                // will always be one rpc long
-                let new_rpc = &mut plugin.tick(now)[0];
+                new_rpcs = plugin.tick(now);
             } else {
-                self.data.push_str(&x.data);
+                new_rpcs = vec![x];
+            }
+            for rpc in new_rpcs {
+                print!("rpc data is {:?}", rpc.data);
+                self.data.push_str(&rpc.data);
                 self.data.push_str("\n");
             }
         }
     }
     pub fn query(&mut self) -> String {
-        if let Some(mut plugin) = self.plugin.as_mut() {
-            let mut ret_rpc = Rpc::new("");
-            ret_rpc
-                .headers
-                .insert("direction".to_string(), "response".to_string());
-            ret_rpc
-                .headers
-                .insert("location".to_string(), "egress".to_string());
-            plugin.recv(ret_rpc, 0);
-            return plugin.tick(0)[0].data.clone();
-        } else {
-            return self.data.clone();
-        }
+        return self.data.clone();
     }
 
     pub fn new(id: &str, aggregation_file: Option<&str>) -> Storage {
@@ -151,7 +142,11 @@ mod tests {
         rpc.headers
             .insert("location".to_string(), "ingress".to_string());
         storage.recv(rpc, 0);
-        assert!(storage.query() == "4".to_string());
+        assert!(
+            storage.query() == "4\navg: 4\n".to_string(),
+            "storage has {:?}",
+            storage.query()
+        );
 
         let mut rpc_2 = Rpc::new("2");
         rpc_2
@@ -164,6 +159,10 @@ mod tests {
             .headers
             .insert("location".to_string(), "ingress".to_string());
         storage.recv(rpc_2, 1);
-        assert!(storage.query() == "3".to_string());
+        assert!(
+            storage.query() == "4\navg: 4\n2\navg: 3\n".to_string(),
+            "storage has {:?}",
+            storage.query()
+        );
     }
 }
