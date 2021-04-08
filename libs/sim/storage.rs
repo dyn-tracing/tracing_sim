@@ -72,7 +72,6 @@ impl Storage {
                 new_rpcs = vec![x];
             }
             for rpc in new_rpcs {
-                print!("rpc data is {:?}", rpc.data);
                 self.data.push_str(&rpc.data);
                 self.data.push_str("\n");
             }

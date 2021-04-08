@@ -75,11 +75,9 @@ impl Avg {
             num_instances: 0,
         }
     }
-    fn execute(&mut self, _trace_id: u64, instance: String) {
+    fn execute(&mut self, _trace_id: u64, instance: String) -> String {
         self.total += instance.parse::<u64>().unwrap();
         self.num_instances += 1;
-    }
-    fn get_avg(&mut self) -> String {
         self.avg = self.total / self.num_instances;
         self.avg.to_string()
     }
@@ -104,9 +102,8 @@ impl Filter {
     }
 
     pub fn on_incoming_requests(&mut self, mut x: Rpc) -> Vec<Rpc> {
-        self.avg.execute(x.uid, x.data.clone());
         let mut rpc_str = "avg: ".to_string();
-        rpc_str.push_str(&self.avg.get_avg());
+        rpc_str.push_str(&self.avg.execute(x.uid, x.data.clone()));
         let mut new_rpc = Rpc::new(&rpc_str);
         return vec![x, new_rpc];
     }
