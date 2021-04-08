@@ -1,29 +1,18 @@
 //! An abstraction of a node.  The node can have a plugin, which is meant to reprsent a WebAssembly filter
 //! A node is a sim_element.
 
-use crate::load_lib::load_lib;
+use crate::plugin_wrapper::PluginWrapper;
 use crate::sim_element::SimElement;
 use core::any::Any;
 use rpc_lib::rpc::Rpc;
 use std::fmt;
 
-pub type AggregationInputFunc = fn(*mut AggregationStruct, String);
-pub type AggregationRetType = fn(*mut AggregationStruct) -> String;
-
-extern "Rust" {
-    pub type AggregationStruct;
-}
-
-pub type AggregationInitFunc = fn() -> *mut AggregationStruct;
-
 #[derive(Default)]
 pub struct Storage {
-    data: String,           // all the data that has been stored
-    id: String,             // id
-    neighbors: Vec<String>, // who is the node connected to
-    aggr_struct: Option<*mut AggregationStruct>,
-    aggr_output_func: Option<libloading::os::unix::Symbol<AggregationRetType>>,
-    aggr_input_func: Option<libloading::os::unix::Symbol<AggregationInputFunc>>,
+    data: String,                  // all the data that has been stored
+    id: String,                    // id
+    neighbors: Vec<String>,        // who is the node connected to
+    plugin: Option<PluginWrapper>, // aggregation filter
 }
 
 impl fmt::Display for Storage {
@@ -48,7 +37,14 @@ impl SimElement for Storage {
     }
 
     fn recv(&mut self, rpc: Rpc, tick: u64) {
-        self.store(rpc, tick);
+        let mut rpc_to_store = rpc.clone();
+        rpc_to_store
+            .headers
+            .insert("direction".to_string(), "request".to_string());
+        rpc_to_store
+            .headers
+            .insert("location".to_string(), "ingress".to_string());
+        self.store(rpc_to_store, tick);
     }
     fn add_connection(&mut self, neighbor: String) {
         self.neighbors.push(neighbor);
@@ -65,33 +61,24 @@ impl SimElement for Storage {
 }
 
 impl Storage {
-    pub fn store(&mut self, x: Rpc, _now: u64) {
+    pub fn store(&mut self, x: Rpc, now: u64) {
         // we don't want to store everything, just the stuff that was sent to us
         if x.headers.contains_key("dest") && x.headers["dest"].contains(&self.id) {
-            if self.aggr_input_func.is_some() {
-                (self.aggr_input_func.clone().unwrap())(self.aggr_struct.unwrap(), x.data);
+            let mut new_rpcs;
+            if let Some(mut plugin) = self.plugin.as_mut() {
+                plugin.recv(x, now);
+                new_rpcs = plugin.tick(now);
             } else {
-                self.data.push_str(&x.data);
+                new_rpcs = vec![x];
+            }
+            for rpc in new_rpcs {
+                self.data.push_str(&rpc.data);
                 self.data.push_str("\n");
             }
         }
     }
     pub fn query(&self) -> String {
-        let aggr_func = self.aggr_output_func.clone();
-        match aggr_func {
-            Some(agr) => match self.aggr_struct {
-                Some(agrstr) => {
-                    return (agr)(agrstr);
-                }
-                None => {
-                    log::warn!("Query failed");
-                    return String::new();
-                }
-            },
-            None => {
-                return self.data.clone();
-            }
-        }
+        return self.data.clone();
     }
 
     pub fn new(id: &str, aggregation_file: Option<&str>) -> Storage {
@@ -100,38 +87,16 @@ impl Storage {
                 data: String::new(),
                 id: id.to_string(),
                 neighbors: Vec::new(),
-                aggr_struct: None,
-                aggr_input_func: None,
-                aggr_output_func: None,
+                plugin: None,
             }
         } else {
-            let aggr_lib = load_lib(&aggregation_file.unwrap());
-            let init: libloading::Symbol<AggregationInitFunc>;
-
-            let aggregation_struct = unsafe {
-                init = aggr_lib.get(b"init").unwrap();
-                init.into_raw()()
-            };
-
-            let input_function = unsafe {
-                let tmp_loaded_function: libloading::Symbol<AggregationInputFunc> =
-                    aggr_lib.get(b"input").expect("load symbol");
-                tmp_loaded_function.into_raw()
-            };
-
-            let output_function = unsafe {
-                let tmp_loaded_function: libloading::Symbol<AggregationRetType> =
-                    aggr_lib.get(b"return_value").expect("load symbol");
-                tmp_loaded_function.into_raw()
-            };
-
+            let mut aggr_plugin = PluginWrapper::new(id, aggregation_file.unwrap());
+            aggr_plugin.add_connection(id.to_string());
             Storage {
                 data: String::new(),
                 id: id.to_string(),
                 neighbors: Vec::new(),
-                aggr_struct: Some(aggregation_struct),
-                aggr_input_func: Some(input_function),
-                aggr_output_func: Some(output_function),
+                plugin: Some(aggr_plugin),
             }
         }
     }
@@ -168,14 +133,32 @@ mod tests {
         let mut rpc = Rpc::new("4");
         rpc.headers
             .insert("dest".to_string(), "storage".to_string());
+        rpc.headers
+            .insert("direction".to_string(), "request".to_string());
+        rpc.headers
+            .insert("location".to_string(), "ingress".to_string());
         storage.recv(rpc, 0);
-        assert!(storage.query() == "4".to_string());
+        assert!(
+            storage.query() == "4\navg: 4\n".to_string(),
+            "storage has {:?}",
+            storage.query()
+        );
 
         let mut rpc_2 = Rpc::new("2");
         rpc_2
             .headers
             .insert("dest".to_string(), "storage".to_string());
+        rpc_2
+            .headers
+            .insert("direction".to_string(), "request".to_string());
+        rpc_2
+            .headers
+            .insert("location".to_string(), "ingress".to_string());
         storage.recv(rpc_2, 1);
-        assert!(storage.query() == "3".to_string());
+        assert!(
+            storage.query() == "4\navg: 4\n2\navg: 3\n".to_string(),
+            "storage has {:?}",
+            storage.query()
+        );
     }
 }

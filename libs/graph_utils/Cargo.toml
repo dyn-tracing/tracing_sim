@@ -11,7 +11,7 @@ crate-type = ["lib"]
 path = "src/lib.rs"
 
 [dependencies]
-petgraph = { path = "../petgraph" }
+petgraph = {version =  "0.*", features = ["serde-1"] }
 regex = "0.2.2"
 indexmap = { version = "1.6.1", features = ["serde-1"] }
 pathfinding = "2.1.1"
