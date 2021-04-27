@@ -123,7 +123,7 @@ impl Filter {
             },
             "response" => {
                 return vec![x.clone()];
-            },
+            }
             _ => {
                 panic!("Filter got an rpc with no direction\n");
             }
