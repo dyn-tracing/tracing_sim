@@ -3,7 +3,7 @@ members = [
     "libs/filter_example",
     "libs/aggregation_example",
     "libs/rpc_lib",                                                             
-    "libs/graph_utils",                                                         
+    "libs/utils",                                                         
     "libs/sim",                                                                 
     "example_envs", 
 ]

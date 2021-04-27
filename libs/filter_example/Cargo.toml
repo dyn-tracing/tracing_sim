@@ -12,7 +12,7 @@ path = "src/lib.rs"
 
 [dependencies]
 petgraph = {version =  "0.*", features = ["serde-1"] }
-utils = { path = "../../../../tracing_compiler/libs/utils" }
+utils = { path = "../utils" }
 rpc_lib = { path = "../rpc_lib" }
 serde = { version = "1.0", features = ["derive"] }
 indexmap = { version = "1.6.1", features = ["serde-1"] }
