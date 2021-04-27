@@ -10,7 +10,6 @@ use log4rs::{
 };
 use rpc_lib::rpc::Rpc;
 
-use serde::{Deserialize, Serialize};
 extern crate serde_yaml;
 
 pub type CodeletType = fn(&Filter, &Rpc) -> Option<Rpc>;
@@ -96,31 +95,16 @@ impl Filter {
     }
 
     #[no_mangle]
-    pub fn new_with_envoy_properties(string_data: IndexMap<String, String>) -> *mut Filter {
+    pub fn new_with_envoy_properties(_string_data: IndexMap<String, String>) -> *mut Filter {
         log_setup();
         Box::into_raw(Box::new(Filter { avg: Avg::new() }))
     }
 
-    pub fn on_incoming_requests(&mut self, mut x: Rpc) -> Vec<Rpc> {
+    pub fn on_incoming_requests(&mut self, x: Rpc) -> Vec<Rpc> {
         let mut rpc_str = "avg: ".to_string();
         rpc_str.push_str(&self.avg.execute(x.uid, x.data.clone()));
-        let mut new_rpc = Rpc::new(&rpc_str);
+        let new_rpc = Rpc::new(&rpc_str);
         return vec![x, new_rpc];
-    }
-
-    pub fn on_outgoing_responses(&mut self, mut x: Rpc) -> Vec<Rpc> {
-        // this should do nothing
-        return vec![x];
-    }
-
-    pub fn on_outgoing_requests(&mut self, mut x: Rpc) -> Vec<Rpc> {
-        // this should never happen to storage
-        return vec![x];
-    }
-
-    pub fn on_incoming_responses(&mut self, mut x: Rpc) -> Vec<Rpc> {
-        // this should never happen to storage
-        return vec![x];
     }
 
     #[no_mangle]
@@ -131,23 +115,15 @@ impl Filter {
                     return self.on_incoming_requests(x.clone());
                 }
                 "egress" => {
-                    return self.on_outgoing_requests(x.clone());
+                    return vec![x.clone()];
                 }
                 _ => {
                     panic!("Filter got an rpc with no location\n");
                 }
             },
-            "response" => match x.headers["location"].as_str() {
-                "ingress" => {
-                    return self.on_incoming_responses(x.clone());
-                }
-                "egress" => {
-                    return self.on_outgoing_responses(x.clone());
-                }
-                _ => {
-                    panic!("Filter got an rpc with no location\n");
-                }
-            },
+            "response" => {
+                return vec![x.clone()];
+            }
             _ => {
                 panic!("Filter got an rpc with no direction\n");
             }

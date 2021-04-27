@@ -159,6 +159,7 @@ impl<'a> Simulator {
         }
         let file = OpenOptions::new()
             .write(true)
+            .create(true)
             .append(true)
             .open(self.record_network_data.as_ref().unwrap())
             .unwrap();

@@ -64,8 +64,8 @@ impl Storage {
     pub fn store(&mut self, x: Rpc, now: u64) {
         // we don't want to store everything, just the stuff that was sent to us
         if x.headers.contains_key("dest") && x.headers["dest"].contains(&self.id) {
-            let mut new_rpcs;
-            if let Some(mut plugin) = self.plugin.as_mut() {
+            let new_rpcs;
+            if let Some(plugin) = self.plugin.as_mut() {
                 plugin.recv(x, now);
                 new_rpcs = plugin.tick(now);
             } else {
